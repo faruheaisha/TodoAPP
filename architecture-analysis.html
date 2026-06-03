@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TodoApp — Technical Architecture</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.10.0/dist/mermaid.min.js" integrity="sha384-PY+AFiXLIHkR5jE4nk0JwPQQmmQlT4mJXFlgeT4jJeuARaBQBK+nSwwxzrPRAtUM" crossorigin="anonymous"></script>
+<style>
+  :root { color-scheme: light; }
+  body {
+    margin: 0; padding: 0;
+    background: #FAF9F7;
+    font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
+    color: #1A1814;
+  }
+  .page-header {
+    background: #1A1814;
+    padding: 32px 40px;
+    color: #FAF9F7;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .page-header .logo-dot {
+    width: 32px; height: 32px;
+    background: #D97757;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 16px; color: #FAF9F7;
+  }
+  .page-header h1 { margin: 0; font-size: 22px; font-weight: 600; }
+  .page-header .subtitle { font-size: 14px; color: rgba(250,249,247,0.6); margin-top: 4px; }
+  .content { padding: 32px 40px; max-width: 1100px; }
+  .section-title {
+    font-size: 18px; font-weight: 600; margin: 32px 0 16px 0;
+    color: #1A1814; border-bottom: 2px solid #D97757; display: inline-block; padding-bottom: 4px;
+  }
+  .mermaid-container {
+    background: #FFFFFF; border-radius: 12px; padding: 24px;
+    border: 1px solid #E5E3DF; margin: 16px 0;
+  }
+  .comparison-table {
+    width: 100%; border-collapse: collapse; margin: 16px 0;
+    font-size: 14px;
+  }
+  .comparison-table th {
+    background: #1A1814; color: #FAF9F7; padding: 12px 16px;
+    text-align: left; font-weight: 600;
+  }
+  .comparison-table td {
+    padding: 10px 16px; border-bottom: 1px solid #E5E3DF;
+  }
+  .comparison-table tr:hover td { background: #F5F3F0; }
+  .winner { background: #FFF4F0; font-weight: 600; }
+  .tag {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 12px; font-weight: 600;
+  }
+  .tag-green { background: #E8F5E9; color: #2E7D32; }
+  .tag-red { background: #FFEBEE; color: #C62828; }
+  .tag-orange { background: #FFF4F0; color: #D97757; }
+  .tag-blue { background: #E3F2FD; color: #1565C0; }
+  .decision-box {
+    background: #FFF4F0; border: 1px solid #D97757; border-radius: 12px;
+    padding: 20px 24px; margin: 24px 0;
+  }
+  .decision-box h3 { color: #D97757; margin: 0 0 8px 0; font-size: 16px; }
+  .decision-box p { margin: 4px 0; font-size: 14px; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div class="logo-dot">T</div>
+  <div>
+    <h1>ToDoList Desktop App — Technical Architecture Analysis</h1>
+    <div class="subtitle">Windows 11 Desktop Widget · Feasibility & Framework Research</div>
+  </div>
+</div>
+
+<div class="content">
+
+  <!-- Architecture Overview Diagram -->
+  <div class="section-title">System Architecture Overview</div>
+  <div class="mermaid-container">
+<pre class="mermaid">
+graph TB
+    subgraph Windows OS
+        WS[Windows Startup]
+        WN[Windows Toast Notification]
+        WT[Windows Taskbar Tray]
+    end
+
+    subgraph Tauri Runtime
+        TR[Tauri v2 Core<br/>Rust Backend]
+        PA[plugin-autostart<br/>开机自启]
+        PN[plugin-notification<br/>系统通知]
+        PS[plugin-store<br/>本地存储]
+        PT[plugin-tray<br/>托盘图标]
+        PC[plugin-window<br/>窗口管理]
+        PG[plugin-global-shortcut<br/>快捷键]
+    end
+
+    subgraph Frontend React
+        UI[React + TypeScript<br/>Tailwind CSS]
+        ZS[Zustand<br/>状态管理]
+        I18[i18next<br/>中英文切换]
+        FM[Framer Motion<br/>动画效果]
+        SQ[SQLite WASM<br/>本地数据库]
+    end
+
+    subgraph App Features
+        QD[Quick Todo<br/>临时待办]
+        LD[Long-term Todo<br/>长时待办]
+        DM[Dark / Light Mode<br/>日夜模式]
+        RM[Deadline Reminder<br/>截止提醒]
+        SB[Startup Prompt<br/>开机弹窗]
+    end
+
+    WS --> PA --> TR
+    TR --> PT --> WT
+    TR --> PN --> WN
+    TR --> PC --> UI
+    UI --> ZS
+    UI --> I18
+    UI --> FM
+    UI --> SQ
+    UI --> QD
+    UI --> LD
+    UI --> DM
+    UI --> RM
+    TR --> PS
+    PN --> RM
+    PA --> SB
+</pre>
+  </div>
+
+  <!-- Framework Comparison -->
+  <div class="section-title">Framework Comparison</div>
+  <table class="comparison-table">
+    <thead>
+      <tr>
+        <th>Dimension</th>
+        <th>Tauri v2 <span class="tag tag-green">✓ Recommended</span></th>
+        <th>Electron</th>
+        <th>WPF (C#)</th>
+        <th>Flutter Desktop</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Bundle Size</td>
+        <td class="winner">~2-5 MB <span class="tag tag-green">极小</span></td>
+        <td>~150+ MB <span class="tag tag-red">臃肿</span></td>
+        <td>~10-30 MB <span class="tag tag-orange">中等</span></td>
+        <td>~20-40 MB <span class="tag tag-orange">中等</span></td>
+      </tr>
+      <tr>
+        <td>Memory Usage</td>
+        <td class="winner">~15-30 MB <span class="tag tag-green">极低</span></td>
+        <td>~100-200 MB <span class="tag tag-red">高</span></td>
+        <td>~30-50 MB <span class="tag tag-orange">中等</span></td>
+        <td>~50-80 MB <span class="tag tag-orange">中等</span></td>
+      </tr>
+      <tr>
+        <td>Win11 Native Feel</td>
+        <td class="winner">WebView2 内置 <span class="tag tag-green">原生</span></td>
+        <td>Chromium 内核 <span class="tag tag-red">非原生</span></td>
+        <td>100% 原生 <span class="tag tag-green">原生</span></td>
+        <td>Skia 渲染 <span class="tag tag-orange">接近</span></td>
+      </tr>
+      <tr>
+        <td>UI 灵活度 (Anthropic风格)</td>
+        <td class="winner">Web全能力 <span class="tag tag-green">完美</span></td>
+        <td>Web全能力 <span class="tag tag-green">完美</span></td>
+        <td>XAML受限 <span class="tag tag-red">困难</span></td>
+        <td>Widget受限 <span class="tag tag-orange">可行</span></td>
+      </tr>
+      <tr>
+        <td>开机自启+托盘+通知</td>
+        <td class="winner">官方Plugin <span class="tag tag-green">一站式</span></td>
+        <td>需第三方库 <span class="tag tag-orange">可行</span></td>
+        <td>原生API <span class="tag tag-green">原生</span></td>
+        <td>需第三方包 <span class="tag tag-orange">可行</span></td>
+      </tr>
+      <tr>
+        <td>Security</td>
+        <td class="winner">Rust安全模型 <span class="tag tag-green">最强</span></td>
+        <td>Node.js全开放 <span class="tag tag-red">弱</span></td>
+        <td>.NET安全 <span class="tag tag-orange">中等</span></td>
+        <td>Dart安全 <span class="tag tag-orange">中等</span></td>
+      </tr>
+      <tr>
+        <td>开发效率 (前端复用)</td>
+        <td class="winner">React/Vue等 <span class="tag tag-green">高</span></td>
+        <td>React/Vue等 <span class="tag tag-green">高</span></td>
+        <td>XAML only <span class="tag tag-red">低</span></td>
+        <td>Dart only <span class="tag tag-orange">中</span></td>
+      </tr>
+      <tr>
+        <td>Ecosystem & Community</td>
+        <td>快速增长 <span class="tag tag-blue">发展中</span></td>
+        <td>非常成熟 <span class="tag tag-green">成熟</span></td>
+        <td>微软生态 <span class="tag tag-green">成熟</span></td>
+        <td>Google生态 <span class="tag tag-green">成熟</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="decision-box">
+    <h3>▸ 推荐方案：Tauri v2 + React + TypeScript</h3>
+    <p><strong>核心理由：</strong>Windows 11 内置 WebView2 运行时（即 Edge 的内核），Tauri 直接复用它而不像 Electron 需打包整个 Chromium。这意味着你的 app 安装包只有 ~3MB（vs Electron 150MB+），内存占用极低（~20MB vs 100MB+），对于一个小型待办工具而言，这是决定性优势。</p>
+    <p><strong>Anthropic 风格 UI：</strong>使用 Web 技术（React + Tailwind CSS）可以完美还原 Anthropic 官网的现代设计风格，这是 WPF/XAML 几乎无法做到的，Flutter 也需要额外工作。</p>
+    <p><strong>系统级功能：</strong>Tauri v2 官方提供 autostart、notification、tray、store 等插件，一站式覆盖开机自启、托盘图标、Windows Toast 通知、本地持久化等需求，无需第三方库。</p>
+  </div>
+
+  <!-- Feature Flow Diagram -->
+  <div class="section-title">Feature Flow — Startup & Reminder Logic</div>
+  <div class="mermaid-container">
+<pre class="mermaid">
+sequenceDiagram
+    participant Win as Windows OS
+    participant Auto as Autostart Plugin
+    participant App as TodoApp
+    participant Timer as Delay Timer<br/>5min后触发
+    participant Notify as Notification Plugin
+    participant User as User
+
+    Win->>Auto: 系统开机/登录
+    Auto->>App: 启动 TodoApp (后台)
+    App->>Timer: 注册延迟任务 (5分钟)
+    App->>App: 系统托盘图标就绪
+
+    Timer->>Notify: 时间到达
+    Notify->>User: Toast弹窗 "是否打开待办助手？"
+    User->>Notify: 点击 "开启"
+    Notify->>App: 打开主窗口
+
+    App->>App: 加载待办数据
+    App->>App: 检查截止日期提醒
+
+    loop 每次开机后检查
+        App->>Notify: 发现即将截止的任务
+        Notify->>User: 弹窗提醒 "任务即将到期！"
+    end
+
+    Note over App,User: 用户也可通过托盘图标随时打开
+</pre>
+  </div>
+
+  <!-- Tech Stack Detail -->
+  <div class="section-title">Complete Tech Stack</div>
+  <div class="mermaid-container">
+<pre class="mermaid">
+graph LR
+    subgraph Backend Rust
+        A[Tauri v2 Core]
+        B[autostart-plugin]
+        C[notification-plugin]
+        D[store-plugin]
+        E[tray-plugin]
+        F[window-plugin]
+        G[global-shortcut-plugin]
+        H[SQLite via sqlx]
+    end
+
+    subgraph Frontend
+        I[React 18]
+        J[TypeScript 5]
+        K[Tailwind CSS 4]
+        L[Zustand 5]
+        M[i18next + react-i18next]
+        N[Framer Motion 11]
+        O[date-fns]
+        P[@dnd-kit/sortable]
+        Q[React Icons]
+    end
+
+    subgraph Build Tooling
+        R[Vite 6]
+        S[ESLint + Prettier]
+        T[tauri-cli v2]
+    end
+
+    A --> B & C & D & E & F & G
+    H -.-> A
+    I --> J & K & L & M & N & O & P & Q
+    R --> I
+    T --> A
+</pre>
+  </div>
+
+</div>
+
+<script>
+  mermaid.initialize({ startOnLoad: true, securityLevel: "strict", theme: "base", themeVariables: {
+    primaryColor: "#D97757",
+    primaryTextColor: "#1A1814",
+    primaryBorderColor: "#D97757",
+    lineColor: "#D97757",
+    secondaryColor: "#FFF4F0",
+    tertiaryColor: "#FAF9F7",
+    fontSize: "14px"
+  }});
+</script>
+</body>
+</html>

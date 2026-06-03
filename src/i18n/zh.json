@@ -1,0 +1,60 @@
+{
+  "app": {
+    "title": "待办助手",
+    "addPlaceholder": "添加新的待办事项...",
+    "addButton": "添加",
+    "quick": "临时待办",
+    "longterm": "长时待办",
+    "items": "项",
+    "sortedBy": "按截止时间排序",
+    "completed": "完成",
+    "overdue": "已过期",
+    "dueSoon": "即将截止",
+    "empty": "还没有待办事项，开始添加第一个吧",
+    "deadline": "截止时间",
+    "noDeadline": "无截止时间"
+  },
+  "settings": {
+    "title": "设置",
+    "language": "语言",
+    "theme": "主题",
+    "lightMode": "日间模式",
+    "darkMode": "夜间模式",
+    "startupDelay": "开机弹窗延迟",
+    "minutes": "分钟",
+    "hotkey": "全局快捷键",
+    "hotkeyHint": "按任意键组合设置快捷键",
+    "downloadPath": "下载路径",
+    "selectPath": "选择路径",
+    "backup": "数据备份",
+    "backupNow": "立即备份",
+    "import": "导入数据",
+    "export": "导出数据",
+    "exportJSON": "导出为 JSON",
+    "exportCSV": "导出为 CSV",
+    "exportPDF": "导出为 PDF",
+    "about": "关于",
+    "version": "版本"
+  },
+  "notifications": {
+    "startup": {
+      "title": "是否打开待办助手？",
+      "body": "点击查看详情",
+      "open": "开启 TodoApp",
+      "later": "稍后提醒",
+      "dismiss": "不再提醒"
+    },
+    "reminder": {
+      "urgent": "任务即将到期！",
+      "overdue": "任务已过期",
+      "view": "查看详情",
+      "markDone": "标记完成"
+    }
+  },
+  "tray": {
+    "open": "打开主窗口",
+    "add": "添加新待办",
+    "toggleTheme": "切换日夜模式",
+    "quit": "退出应用"
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "app": {
+    "title": "TodoApp",
+    "addPlaceholder": "Add a new todo...",
+    "addButton": "Add",
+    "quick": "QUICK",
+    "longterm": "LONG-TERM",
+    "items": "items",
+    "sortedBy": "sorted by deadline",
+    "completed": "Completed",
+    "overdue": "Overdue",
+    "dueSoon": "Due Soon",
+    "empty": "No todos yet. Start by adding your first one.",
+    "deadline": "Deadline",
+    "noDeadline": "No deadline"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "theme": "Theme",
+    "lightMode": "Light Mode",
+    "darkMode": "Dark Mode",
+    "startupDelay": "Startup Prompt Delay",
+    "minutes": "minutes",
+    "hotkey": "Global Hotkey",
+    "hotkeyHint": "Press any key combo to set",
+    "downloadPath": "Download Path",
+    "selectPath": "Select Path",
+    "backup": "Data Backup",
+    "backupNow": "Backup Now",
+    "import": "Import Data",
+    "export": "Export Data",
+    "exportJSON": "Export as JSON",
+    "exportCSV": "Export as CSV",
+    "exportPDF": "Export as PDF",
+    "about": "About",
+    "version": "Version"
+  },
+  "notifications": {
+    "startup": {
+      "title": "Open TodoApp?",
+      "body": "Click to view your todos",
+      "open": "Open TodoApp",
+      "later": "Remind Later",
+      "dismiss": "Don't Remind"
+    },
+    "reminder": {
+      "urgent": "Task Due Soon!",
+      "overdue": "Task Overdue",
+      "view": "View Details",
+      "markDone": "Mark as Done"
+    }
+  },
+  "tray": {
+    "open": "Open Main Window",
+    "add": "Add New Todo",
+    "toggleTheme": "Toggle Theme",
+    "quit": "Quit App"
+  }
+}

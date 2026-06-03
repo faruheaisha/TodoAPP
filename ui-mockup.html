@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TodoApp — UI Mockup (Anthropic Style)</title>
+<style>
+  :root { color-scheme: light; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #E5E3DF;
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 40px 20px; gap: 32px;
+  }
+
+  .mockup-label {
+    font-size: 13px; color: #8C8A87; text-transform: uppercase;
+    letter-spacing: 1px; font-weight: 600;
+  }
+
+  /* === STARTUP TOAST NOTIFICATION === */
+  .toast-window {
+    width: 380px;
+    background: #FAF9F7;
+    border-radius: 12px;
+    border: 1px solid #E5E3DF;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    padding: 0;
+    overflow: hidden;
+  }
+  .toast-header {
+    padding: 14px 16px 10px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .toast-logo {
+    width: 24px; height: 24px; background: #D97757; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .toast-logo-text { color: #FAF9F7; font-size: 11px; font-weight: 700; }
+  .toast-app-name { font-size: 13px; font-weight: 600; color: #1A1814; }
+  .toast-body { padding: 4px 16px 12px; }
+  .toast-title { font-size: 14px; font-weight: 600; color: #1A1814; }
+  .toast-desc { font-size: 13px; color: #5C5A57; margin-top: 4px; line-height: 1.4; }
+  .toast-actions { padding: 12px 16px; display: flex; gap: 8px; }
+  .toast-btn-primary {
+    background: #D97757; color: #FAF9F7; border: none;
+    padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .toast-btn-primary:hover { background: #C46840; }
+  .toast-btn-secondary {
+    background: transparent; color: #5C5A57; border: 1px solid #E5E3DF;
+    padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .toast-btn-secondary:hover { background: #F5F3F0; }
+
+  /* === DEADLINE ALERT === */
+  .alert-window {
+    width: 380px;
+    background: #1A1814;
+    border-radius: 12px;
+    border: 1px solid #33312E;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+    padding: 0; overflow: hidden;
+  }
+  .alert-header {
+    padding: 14px 16px 10px;
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(217,119,87,0.15);
+  }
+  .alert-logo {
+    width: 24px; height: 24px; background: #D97757; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .alert-logo-text { color: #FAF9F7; font-size: 11px; font-weight: 700; }
+  .alert-app-name { font-size: 13px; font-weight: 600; color: #FAF9F7; }
+  .alert-badge {
+    margin-left: auto; padding: 2px 8px; border-radius: 4px;
+    background: #D97757; color: #FAF9F7; font-size: 11px; font-weight: 600;
+  }
+  .alert-body { padding: 12px 16px; }
+  .alert-title { font-size: 14px; font-weight: 600; color: #FAF9F7; }
+  .alert-desc { font-size: 13px; color: #8C8A87; margin-top: 4px; line-height: 1.4; }
+  .alert-urgency { font-size: 12px; color: #D97757; margin-top: 8px; font-weight: 500; }
+  .alert-actions { padding: 12px 16px; display: flex; gap: 8px; }
+
+  /* === MAIN APP — LIGHT MODE === */
+  .app-window-light {
+    width: 720px;
+    background: #FAF9F7;
+    border-radius: 16px;
+    border: 1px solid #E5E3DF;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.08);
+    overflow: hidden;
+  }
+  .app-topbar {
+    padding: 14px 20px;
+    display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid #E5E3DF;
+    background: #FAF9F7;
+  }
+  .app-logo-circle {
+    width: 28px; height: 28px; background: #D97757; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .app-logo-char { color: #FAF9F7; font-size: 13px; font-weight: 700; }
+  .app-title { font-size: 16px; font-weight: 600; color: #1A1814; }
+  .app-topbar-controls {
+    margin-left: auto; display: flex; gap: 8px; align-items: center;
+  }
+  .topbar-btn {
+    padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 500;
+    cursor: pointer; transition: all 0.15s; border: 1px solid #E5E3DF;
+    background: transparent; color: #5C5A57;
+  }
+  .topbar-btn:hover { background: #F5F3F0; }
+  .topbar-btn-icon {
+    width: 28px; height: 28px; border-radius: 6px;
+    border: 1px solid #E5E3DF; background: transparent;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 14px; color: #5C5A57;
+  }
+  .topbar-btn-icon:hover { background: #F5F3F0; }
+
+  .app-content { padding: 20px; }
+
+  /* Add todo bar */
+  .add-bar {
+    display: flex; gap: 8px; margin-bottom: 20px;
+  }
+  .add-input {
+    flex: 1; padding: 10px 14px; border-radius: 10px;
+    border: 1px solid #E5E3DF; background: #FFFFFF;
+    font-size: 14px; color: #1A1814; outline: none;
+    transition: border-color 0.15s;
+  }
+  .add-input:focus { border-color: #D97757; }
+  .add-input::placeholder { color: #8C8A87; }
+  .add-btn {
+    padding: 10px 18px; border-radius: 10px; border: none;
+    background: #D97757; color: #FAF9F7;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .add-btn:hover { background: #C46840; }
+
+  /* Section headers */
+  .section-group { margin-bottom: 24px; }
+  .section-header {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 12px;
+  }
+  .section-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+  }
+  .section-dot-quick { background: #8C8A87; }
+  .section-dot-long { background: #D97757; }
+  .section-label { font-size: 13px; font-weight: 600; color: #1A1814; text-transform: uppercase; letter-spacing: 0.5px; }
+  .section-count { font-size: 12px; color: #8C8A87; margin-left: 4px; }
+
+  /* Todo cards */
+  .todo-card {
+    background: #FFFFFF; border-radius: 10px;
+    border: 1px solid #E5E3DF;
+    padding: 12px 16px; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 12px;
+    transition: all 0.15s;
+    cursor: pointer;
+  }
+  .todo-card:hover { border-color: #D97757; box-shadow: 0 2px 8px rgba(217,119,87,0.08); }
+  .todo-card.urgent { border-left: 3px solid #D97757; }
+  .todo-checkbox {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 2px solid #E5E3DF; background: transparent;
+    cursor: pointer; transition: all 0.15s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .todo-checkbox.checked {
+    background: #D97757; border-color: #D97757;
+  }
+  .todo-checkbox.checked::after {
+    content: '✓'; color: #FAF9F7; font-size: 10px; font-weight: 700;
+  }
+  .todo-text { font-size: 14px; color: #1A1814; flex: 1; }
+  .todo-text.done { color: #8C8A87; text-decoration: line-through; }
+  .todo-deadline {
+    font-size: 12px; color: #8C8A87; padding: 3px 8px;
+    background: #F5F3F0; border-radius: 4px;
+  }
+  .todo-deadline.urgent { color: #D97757; background: #FFF4F0; font-weight: 600; }
+  .todo-delete {
+    width: 20px; height: 20px; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 12px; color: #8C8A87;
+    opacity: 0; transition: opacity 0.15s;
+  }
+  .todo-card:hover .todo-delete { opacity: 1; }
+
+  /* === MAIN APP — DARK MODE === */
+  .app-window-dark {
+    width: 720px;
+    background: #1A1814;
+    border-radius: 16px;
+    border: 1px solid #33312E;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.3);
+    overflow: hidden;
+  }
+  .app-topbar-dark {
+    padding: 14px 20px;
+    display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid #33312E;
+    background: #1A1814;
+  }
+  .app-title-dark { font-size: 16px; font-weight: 600; color: #FAF9F7; }
+  .topbar-btn-dark {
+    padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 500;
+    cursor: pointer; transition: all 0.15s; border: 1px solid #33312E;
+    background: transparent; color: #8C8A87;
+  }
+  .topbar-btn-dark:hover { background: #33312E; }
+  .topbar-btn-icon-dark {
+    width: 28px; height: 28px; border-radius: 6px;
+    border: 1px solid #33312E; background: transparent;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 14px; color: #8C8A87;
+  }
+  .topbar-btn-icon-dark:hover { background: #33312E; }
+
+  .app-content-dark { padding: 20px; }
+
+  .add-input-dark {
+    flex: 1; padding: 10px 14px; border-radius: 10px;
+    border: 1px solid #33312E; background: #262420;
+    font-size: 14px; color: #FAF9F7; outline: none;
+  }
+  .add-input-dark::placeholder { color: #5C5A57; }
+
+  .section-label-dark { color: #FAF9F7; }
+  .section-count-dark { color: #5C5A57; }
+
+  .todo-card-dark {
+    background: #262420; border-radius: 10px;
+    border: 1px solid #33312E;
+    padding: 12px 16px; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 12px;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .todo-card-dark:hover { border-color: #D97757; }
+  .todo-card-dark.urgent { border-left: 3px solid #D97757; }
+  .todo-checkbox-dark {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 2px solid #33312E; background: transparent;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .todo-checkbox-dark.checked {
+    background: #D97757; border-color: #D97757;
+  }
+  .todo-checkbox-dark.checked::after {
+    content: '✓'; color: #FAF9F7; font-size: 10px; font-weight: 700;
+  }
+  .todo-text-dark { font-size: 14px; color: #FAF9F7; flex: 1; }
+  .todo-text-dark.done { color: #5C5A57; text-decoration: line-through; }
+  .todo-deadline-dark {
+    font-size: 12px; color: #8C8A87; padding: 3px 8px;
+    background: #33312E; border-radius: 4px;
+  }
+  .todo-deadline-dark.urgent { color: #D97757; background: rgba(217,119,87,0.15); font-weight: 600; }
+  .todo-delete-dark {
+    width: 20px; height: 20px; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 12px; color: #5C5A57;
+    opacity: 0; transition: opacity 0.15s;
+  }
+  .todo-card-dark:hover .todo-delete-dark { opacity: 1; }
+
+  /* Tray icon mockup */
+  .tray-mockup {
+    display: flex; align-items: center; gap: 12px;
+    background: #1A1814; padding: 8px 16px; border-radius: 8px;
+  }
+  .tray-icon {
+    width: 18px; height: 18px; background: #D97757; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .tray-icon-text { color: #FAF9F7; font-size: 8px; font-weight: 700; }
+  .tray-label { font-size: 12px; color: #FAF9F7; font-weight: 500; }
+</style>
+</head>
+<body>
+
+<!-- Startup Toast Notification (Light) -->
+<div class="mockup-label">1 · STARTUP TOAST — LIGHT MODE</div>
+<div class="toast-window">
+  <div class="toast-header">
+    <div class="toast-logo"><span class="toast-logo-text">T</span></div>
+    <span class="toast-app-name">TodoApp</span>
+  </div>
+  <div class="toast-body">
+    <div class="toast-title">是否打开待办助手？</div>
+    <div class="toast-desc">你有 2 个待办事项即将到期，点击查看详情</div>
+  </div>
+  <div class="toast-actions">
+    <button class="toast-btn-primary">开启 TodoApp</button>
+    <button class="toast-btn-secondary">稍后提醒</button>
+  </div>
+</div>
+
+<!-- Deadline Alert (Dark) -->
+<div class="mockup-label">2 · DEADLINE ALERT — DARK MODE</div>
+<div class="alert-window">
+  <div class="alert-header">
+    <div class="alert-logo"><span class="alert-logo-text">T</span></div>
+    <span class="alert-app-name">TodoApp</span>
+    <span class="alert-badge">⚠ URGENT</span>
+  </div>
+  <div class="alert-body">
+    <div class="alert-title">任务即将到期！</div>
+    <div class="alert-desc">「提交季度报告」将在 2 小时内截止</div>
+    <div class="alert-urgency">剩余时间：1小时58分 · 请尽快处理</div>
+  </div>
+  <div class="alert-actions">
+    <button class="toast-btn-primary">查看详情</button>
+    <button class="toast-btn-secondary" style="border-color:#33312E; color:#8C8A87;">标记完成</button>
+  </div>
+</div>
+
+<!-- Main App — Light Mode -->
+<div class="mockup-label">3 · MAIN APP — LIGHT MODE (EN)</div>
+<div class="app-window-light">
+  <div class="app-topbar">
+    <div class="app-logo-circle"><span class="app-logo-char">T</span></div>
+    <span class="app-title">TodoApp</span>
+    <div class="app-topbar-controls">
+      <button class="topbar-btn">中 / EN</button>
+      <div class="topbar-btn-icon">☀</div>
+      <div class="topbar-btn-icon">⚙</div>
+    </div>
+  </div>
+  <div class="app-content">
+    <div class="add-bar">
+      <input class="add-input" placeholder="Add a new todo..." />
+      <button class="add-btn">+ Add</button>
+    </div>
+
+    <!-- Quick Todos Section -->
+    <div class="section-group">
+      <div class="section-header">
+        <div class="section-dot section-dot-quick"></div>
+        <span class="section-label">QUICK</span>
+        <span class="section-count">3 items</span>
+      </div>
+      <div class="todo-card">
+        <div class="todo-checkbox"></div>
+        <span class="todo-text">Buy groceries after work</span>
+        <div class="todo-delete">✕</div>
+      </div>
+      <div class="todo-card">
+        <div class="todo-checkbox checked"></div>
+        <span class="todo-text done">Reply to Sarah's email</span>
+        <div class="todo-delete">✕</div>
+      </div>
+      <div class="todo-card">
+        <div class="todo-checkbox"></div>
+        <span class="todo-text">Clean the kitchen</span>
+        <div class="todo-delete">✕</div>
+      </div>
+    </div>
+
+    <!-- Long-term Todos Section -->
+    <div class="section-group">
+      <div class="section-header">
+        <div class="section-dot section-dot-long"></div>
+        <span class="section-label">LONG-TERM</span>
+        <span class="section-count">4 items · sorted by deadline</span>
+      </div>
+      <div class="todo-card urgent">
+        <div class="todo-checkbox"></div>
+        <span class="todo-text">Submit quarterly report</span>
+        <span class="todo-deadline urgent">Today · 5pm</span>
+        <div class="todo-delete">✕</div>
+      </div>
+      <div class="todo-card">
+        <div class="todo-checkbox"></div>
+        <span class="todo-text">Prepare presentation for Monday</span>
+        <span class="todo-deadline">Jun 5 · 9am</span>
+        <div class="todo-delete">✕</div>
+      </div>
+      <div class="todo-card">
+        <div class="todo-checkbox"></div>
+        <span class="todo-text">Book flight to Shanghai</span>
+        <span class="todo-deadline">Jun 10</span>
+        <div class="todo-delete">✕</div>
+      </div>
+      <div class="todo-card">
+        <div class="todo-checkbox"></div>
+        <span class="todo-text">Complete online course module 5</span>
+        <span class="todo-deadline">Jun 15</span>
+        <div class="todo-delete">✕</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Main App — Dark Mode (Chinese) -->
+<div class="mockup-label">4 · MAIN APP — DARK MODE (中文)</div>
+<div class="app-window-dark">
+  <div class="app-topbar-dark">
+    <div class="app-logo-circle"><span class="app-logo-char">T</span></div>
+    <span class="app-title-dark">待办助手</span>
+    <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+      <button class="topbar-btn-dark">中 / EN</button>
+      <div class="topbar-btn-icon-dark">🌙</div>
+      <div class="topbar-btn-icon-dark">⚙</div>
+    </div>
+  </div>
+  <div class="app-content-dark">
+    <div class="add-bar">
+      <input class="add-input-dark" placeholder="添加新的待办事项..." />
+      <button class="add-btn">+ 添加</button>
+    </div>
+
+    <!-- Quick Todos Section -->
+    <div class="section-group">
+      <div class="section-header">
+        <div class="section-dot section-dot-quick"></div>
+        <span class="section-label section-label-dark">临时待办</span>
+        <span class="section-count section-count-dark">3 项</span>
+      </div>
+      <div class="todo-card-dark">
+        <div class="todo-checkbox-dark"></div>
+        <span class="todo-text-dark">下班后买菜</span>
+        <div class="todo-delete-dark">✕</div>
+      </div>
+      <div class="todo-card-dark">
+        <div class="todo-checkbox-dark checked"></div>
+        <span class="todo-text-dark done">回复 Sarah 的邮件</span>
+        <div class="todo-delete-dark">✕</div>
+      </div>
+      <div class="todo-card-dark">
+        <div class="todo-checkbox-dark"></div>
+        <span class="todo-text-dark">打扫厨房</span>
+        <div class="todo-delete-dark">✕</div>
+      </div>
+    </div>
+
+    <!-- Long-term Todos Section -->
+    <div class="section-group">
+      <div class="section-header">
+        <div class="section-dot section-dot-long"></div>
+        <span class="section-label section-label-dark">长时待办</span>
+        <span class="section-count section-count-dark">4 项 · 按截止时间排序</span>
+      </div>
+      <div class="todo-card-dark urgent">
+        <div class="todo-checkbox-dark"></div>
+        <span class="todo-text-dark">提交季度报告</span>
+        <span class="todo-deadline-dark urgent">今天 · 下午5点</span>
+        <div class="todo-delete-dark">✕</div>
+      </div>
+      <div class="todo-card-dark">
+        <div class="todo-checkbox-dark"></div>
+        <span class="todo-text-dark">准备周一的演示文稿</span>
+        <span class="todo-deadline-dark">6月5日 · 上午9点</span>
+        <div class="todo-delete-dark">✕</div>
+      </div>
+      <div class="todo-card-dark">
+        <div class="todo-checkbox-dark"></div>
+        <span class="todo-text-dark">预订去上海的机票</span>
+        <span class="todo-deadline-dark">6月10日</span>
+        <div class="todo-delete-dark">✕</div>
+      </div>
+      <div class="todo-card-dark">
+        <div class="todo-checkbox-dark"></div>
+        <span class="todo-text-dark">完成在线课程第5模块</span>
+        <span class="todo-deadline-dark">6月15日</span>
+        <div class="todo-delete-dark">✕</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tray Icon Mockup -->
+<div class="mockup-label">5 · SYSTEM TRAY ICON (Windows Taskbar)</div>
+<div style="display:flex; gap:16px; align-items:flex-end; flex-wrap:wrap;">
+  <div class="tray-mockup">
+    <div class="tray-icon"><span class="tray-icon-text">T</span></div>
+    <span class="tray-label">TodoApp</span>
+  </div>
+  <div style="font-size:12px; color:#8C8A87; max-width:300px; line-height:1.5;">
+    右键菜单：<br>
+    · 打开主窗口<br>
+    · 添加新待办<br>
+    · 切换日夜模式<br>
+    · 退出应用
+  </div>
+</div>
+
+</body>
+</html>

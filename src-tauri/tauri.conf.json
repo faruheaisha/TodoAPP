@@ -1,0 +1,51 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicholasgriffith/tauri-v2-schema/master/config.schema.json",
+  "productName": "TodoApp",
+  "version": "0.1.0",
+  "identifier": "com.todoapp.desktop",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "TodoApp",
+        "width": 780,
+        "height": 600,
+        "minWidth": 520,
+        "minHeight": 400,
+        "resizable": true,
+        "center": true,
+        "decorations": true,
+        "hiddenTitle": true,
+        "titleBarStyle": "Overlay",
+        "transparent": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": [
+      "icons/icon.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "installMode": "perMachine",
+        "languages": ["SimpChinese", "English"]
+      },
+      "webviewInstallMode": {
+        "type": "embed"
+      }
+    }
+  }
+}
