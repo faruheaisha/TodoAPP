@@ -1,3 +1,5 @@
+mod lib;
+
 fn main() {
-    todoapp_lib::run();
+    lib::run();
 }
