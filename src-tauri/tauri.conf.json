@@ -43,9 +43,7 @@
         "installMode": "perMachine",
         "languages": ["SimpChinese", "English"]
       },
-      "webviewInstallMode": {
-        "type": "embed"
-      }
+      "webviewInstallMode": "skip"
     }
   }
 }
