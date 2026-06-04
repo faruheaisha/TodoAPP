@@ -23,11 +23,9 @@
     "store:allow-entries",
     "store:allow-get",
     "store:allow-has",
-    "store:allow-is-initialized",
     "store:allow-load",
     "store:allow-save",
     "store:allow-set",
-    "store:allow-get-or-insert-default",
     "notification:default",
     "notification:allow-is-permission-granted",
     "notification:allow-request-permission",
@@ -37,8 +35,9 @@
     "autostart:allow-disable",
     "autostart:allow-is-enabled",
     "fs:default",
-    "fs:allow-read-all",
-    "fs:allow-write-all",
+    "fs:allow-app-read-recursive",
+    "fs:allow-app-write-recursive",
+    "fs:allow-app-meta-recursive",
     "dialog:default",
     "dialog:allow-open",
     "dialog:allow-save",
@@ -47,9 +46,12 @@
     "dialog:allow-confirm",
     "sql:default",
     "sql:allow-load",
+    "sql:allow-execute",
+    "sql:allow-select",
     "global-shortcut:default",
     "global-shortcut:allow-register",
     "global-shortcut:allow-is-registered",
-    "global-shortcut:allow-unregister"
+    "global-shortcut:allow-unregister",
+    "window-state:default"
   ]
 }
