@@ -1,5 +1,5 @@
-mod lib;
+mod app_core;
 
 fn main() {
-    lib::run();
+    app_core::run();
 }

@@ -1,5 +1,5 @@
 use std::time::Duration as StdDuration;
-use tauri::{Emitter, Manager};
+use tauri::Emitter;
 
 pub fn run() {
     tauri::Builder::default()
