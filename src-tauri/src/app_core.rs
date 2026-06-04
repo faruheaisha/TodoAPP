@@ -16,8 +16,8 @@ pub fn run() {
         .plugin(tauri_plugin_sql::Builder::default().build())
         .setup(move |app| {
             let app_handle = app.handle().clone();
-            // Schedule startup prompt after 5 minutes
-            tokio::spawn(async move {
+            // Schedule startup prompt after 5 minutes using Tauri's managed runtime
+            tauri::async_runtime::spawn(async move {
                 tokio::time::sleep(StdDuration::from_secs(300)).await;
                 let _ = app_handle.emit("startup-prompt", ());
             });

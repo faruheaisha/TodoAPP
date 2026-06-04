@@ -130,12 +130,12 @@ function SettingsButton() {
   return (
     <button
       onClick={() => setIsOpen(!isOpen)}
-      className={`w-7 h-7 rounded-md flex items-center justify-center border transition-all hover:bg-opacity-80 ${isOpen ? 'ring-2'}`}
+      className="w-7 h-7 rounded-md flex items-center justify-center border transition-all hover:bg-opacity-80"
       style={{
         borderColor: 'var(--color-border)',
         backgroundColor: 'transparent',
         color: 'var(--color-text-secondary)',
-        ringColor: 'var(--color-accent)',
+        ...(isOpen ? { ring: '2px', ringColor: 'var(--color-accent)' } : {}),
       }}
       title={t('settings.title')}
     >

@@ -87,7 +87,7 @@ export default function SettingsDrawer() {
               </SettingItem>
 
               {/* Theme */}
-              <SettingItem icon={<theme === 'light' ? Sun : Moon size={14} />} label={t('settings.theme')}>
+              <SettingItem icon={theme === 'light' ? <Sun size={14} /> : <Moon size={14} />} label={t('settings.theme')}>
                 <div className="flex gap-1">
                   <button
                     onClick={() => setTheme('light')}
