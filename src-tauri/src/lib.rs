@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 use tauri::Emitter;
 use chrono::Local;
 use std::time::Duration as StdDuration;
-use tauri::Manager;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Todo {
@@ -38,12 +37,12 @@ fn parse_row(row: &(String, String, String, Option<String>, bool, String, bool))
     }
 }
 
-type Db = tauri::sql::Sql<tauri::sql::Sqlite>;
+use tauri_plugin_sql::{Sql, Sqlite};
 
 /// Initialize the SQLite database on first run
 #[tauri::command]
 pub async fn init_database(
-    db: tauri::State<'_, Db>,
+    db: tauri::State<'_, Sql<Sqlite>>,
 ) -> Result<(), String> {
     db.execute(
         r#"
@@ -67,7 +66,7 @@ pub async fn init_database(
 /// Create a new todo
 #[tauri::command]
 pub async fn create_todo(
-    db: tauri::State<'_, Db>,
+    db: tauri::State<'_, Sql<Sqlite>>,
     title: String,
     todo_type: TodoType,
     deadline: Option<String>,
@@ -97,10 +96,10 @@ pub async fn create_todo(
     })
 }
 
-/// Update a todo (title, deadline, type, completed)
+/// Update a todo
 #[tauri::command]
 pub async fn update_todo(
-    db: tauri::State<'_, Db>,
+    db: tauri::State<'_, Sql<Sqlite>>,
     id: String,
     title: Option<String>,
     todo_type: Option<TodoType>,
@@ -131,14 +130,13 @@ pub async fn update_todo(
             .await
             .map_err(|e| e.to_string())?;
     }
-
     Ok(())
 }
 
 /// Delete a todo by ID
 #[tauri::command]
 pub async fn delete_todo(
-    db: tauri::State<'_, Db>,
+    db: tauri::State<'_, Sql<Sqlite>>,
     id: String,
 ) -> Result<(), String> {
     db.execute("DELETE FROM todos WHERE id = ?", (id,))
@@ -147,10 +145,10 @@ pub async fn delete_todo(
         .map_err(|e| e.to_string())
 }
 
-/// Get all todos, sorted by type and deadline
+/// Get all todos, sorted
 #[tauri::command]
 pub async fn get_all_todos(
-    db: tauri::State<'_, Db>,
+    db: tauri::State<'_, Sql<Sqlite>>,
 ) -> Result<Vec<Todo>, String> {
     let rows = db
         .query::<(String, String, String, Option<String>, bool, String, bool)>(
@@ -176,10 +174,10 @@ pub async fn get_all_todos(
     Ok(todos)
 }
 
-/// Check for todos that are due soon and emit a notification
+/// Check for todos that are due soon
 #[tauri::command]
 pub async fn check_due_soon_todos(
-    db: tauri::State<'_, Db>,
+    db: tauri::State<'_, Sql<Sqlite>>,
     app_handle: tauri::AppHandle,
 ) -> Result<Vec<Todo>, String> {
     let rows = db
@@ -227,10 +225,10 @@ pub async fn check_due_soon_todos(
     Ok(urgent_todos)
 }
 
-/// Clear reminder flags for today
+/// Clear reminder flags
 #[tauri::command]
 pub async fn clear_reminder_flags(
-    db: tauri::State<'_, Db>,
+    db: tauri::State<'_, Sql<Sqlite>>,
 ) -> Result<(), String> {
     db.execute("UPDATE todos SET reminder_sent = 0", ())
         .await
@@ -253,7 +251,6 @@ pub fn run() {
         .plugin(tauri_plugin_sql::Builder::default().build())
         .setup(move |app| {
             let app_handle = app.handle().clone();
-            // Schedule reminder check after startup delay
             tokio::spawn(async move {
                 tokio::time::sleep(StdDuration::from_secs(300)).await;
                 let _ = app_handle.emit("startup-prompt", ());
