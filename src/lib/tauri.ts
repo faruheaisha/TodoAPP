@@ -1,13 +1,13 @@
-import { invoke, listen } from '@tauri-apps/plugin-core';
-import { open } from '@tauri-apps/plugin-sql';
+import { listen } from '@tauri-apps/api/event';
+import Database from '@tauri-apps/plugin-sql';
 import type { Todo } from '../store/todoStore';
 
 // Database reference (lazy init)
-let db: Awaited<ReturnType<typeof open>> | null = null;
+let db: Database | null = null;
 
-async function getDB() {
+async function getDB(): Promise<Database> {
   if (!db) {
-    db = await open('sqlite:todos.db');
+    db = await Database.load('sqlite:todos.db');
   }
   return db;
 }
@@ -154,9 +154,7 @@ export async function checkDueSoon(): Promise<void> {
     );
 
     for (const row of rows) {
-      // Mark reminder as sent
       await database.execute('UPDATE todos SET reminder_sent = 1 WHERE id = ?', [row.id]);
-      // Emit event for frontend to show notification
       window.dispatchEvent(new CustomEvent('todo-reminder', { detail: row }));
     }
   } catch (e) {

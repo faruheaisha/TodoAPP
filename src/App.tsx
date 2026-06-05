@@ -9,15 +9,15 @@ import './styles/globals.css';
 
 import Header from './components/Header';
 import AddTodoBar from './components/AddTodoBar';
+import FilterTabs from './components/FilterTabs';
 import TodoSection from './components/TodoSection';
 import EmptyState from './components/EmptyState';
 import SettingsDrawer from './components/SettingsDrawer';
 
 function App() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { theme, language } = useSettingsStore();
-  const { todos, isLoading, loadTodos: loadStoreTodos } = useTodoStore();
-  const { isOpen: settingsOpen } = useSettingsStore();
+  const { todos, isLoading, setTodos } = useTodoStore();
 
   // Apply theme
   useEffect(() => {
@@ -26,18 +26,21 @@ function App() {
 
   // Apply language
   useEffect(() => {
-    const { i18n } = require('react-i18next');
-    if (language) {
+    if (language && i18n && i18n.changeLanguage) {
       i18n.changeLanguage(language);
     }
-  }, [language]);
+  }, [language, i18n]);
 
   // Load todos on mount
   useEffect(() => {
     async function init() {
-      await initDB();
-      const data = await loadTodos();
-      loadStoreTodos(data);
+      try {
+        await initDB();
+        const data = await loadTodos();
+        setTodos(data);
+      } catch (e) {
+        console.error('Failed to initialize app:', e);
+      }
     }
     init();
   }, []);
@@ -50,14 +53,20 @@ function App() {
       color: 'var(--color-text-primary)',
     }}>
       <Header />
-      {!hasTodos && !isLoading ? (
-        <EmptyState />
-      ) : (
-        <div className="flex-1 overflow-y-auto px-5 pt-4 pb-6">
-          <AddTodoBar />
-          <TodoSection />
-        </div>
-      )}
+      {/* 输入框常驻可见 — P0 修复 */}
+      <AddTodoBar />
+      {/* 过滤 Tab — 任务 > 5 条时决定性地提升效率 */}
+      {hasTodos && <FilterTabs />}
+      {/* 内容区 */}
+      <div className="flex-1 overflow-y-auto">
+        {!hasTodos && !isLoading ? (
+          <EmptyState />
+        ) : (
+          <div className="px-5 pt-2 pb-6">
+            <TodoSection />
+          </div>
+        )}
+      </div>
       <SettingsDrawer />
     </div>
   );

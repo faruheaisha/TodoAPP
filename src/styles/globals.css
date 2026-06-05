@@ -1,64 +1,104 @@
 @import '@fontsource-variable/inter';
+@import 'tailwindcss';
 
+/* ═══════════════════════════════════════════════════════════
+   Anthropic 象牙-石板 9级中性色阶
+   ═══════════════════════════════════════════════════════════ */
 :root {
-  /* Anthropic-inspired color system */
-  --color-bg-primary: #FAF9F7;
-  --color-bg-secondary: #FFFFFF;
-  --color-bg-tertiary: #F5F3F0;
-  --color-bg-input: #FFFFFF;
+  /* ── 页面基底 ── */
+  --ivory-light: #faf9f5;       /* 主背景 — 羊皮纸暖调 */
+  --ivory-md:    #f0eee6;       /* 次级面 — 导航栏、分隔 */
+  --ivory-dk:    #e8e6dc;       /* 三级面 — 卡片填充 */
+  --oat:         #e3dacc;       /* 四级面 — 禁用态填充 */
 
-  --color-text-primary: #1A1814;
-  --color-text-secondary: #5C5A57;
-  --color-text-tertiary: #8C8A87;
-  --color-text-placeholder: #B0AEA9;
-  --color-text-done: #8C8A87;
+  /* ── 文字与边框 ── */
+  --slate:       #141413;       /* 主文字 / 深色卡片背景 */
+  --slate-md:    #3d3d3a;       /* 次级文字 */
+  --cloud:       #87867f;       /* 三级文字 — 占位符、说明 */
+  --cloud-md:    #b0aea5;       /* 静态 UI — 禁用边框 */
+  --cloud-dk:    #5e5d59;       /* 深色模式文字 */
 
-  --color-border: #E5E3DF;
-  --color-border-hover: #D97757;
+  /* ── 主题色（极度克制，每个截面最多一个）── */
+  --clay:        #d97757;       /* CTA only — 陶土橙 */
+  --clay-hover:  #c0532a;       /* hover 加深 */
+  --clay-light:  rgba(217, 119, 87, 0.12); /* 浅底标签 */
 
-  --color-accent: #D97757;
-  --color-accent-hover: #C46840;
-  --color-accent-light: #FFF4F0;
-  --color-accent-urgent: #D97757;
+  /* ── 语义色 ── */
+  --olive:       #788c5d;       /* 完成态 */
+  --sky:         #6a9bcc;       /* 信息标签 */
+  --fig:         #c46686;       /* 警告标签 */
 
-  --color-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  --color-card-shadow-hover: 0 4px 12px rgba(217, 119, 87, 0.08);
+  /* ── 应用 token（映射到中性色阶）── */
+  --color-bg-primary:     var(--ivory-light);
+  --color-bg-secondary:   #ffffff;      /* 卡片面 — 保留白卡对比 */
+  --color-bg-tertiary:    var(--ivory-md);
+  --color-bg-input:       #ffffff;
 
+  --color-text-primary:   var(--slate);
+  --color-text-secondary: var(--slate-md);
+  --color-text-tertiary:  var(--cloud);
+  --color-text-placeholder: var(--cloud-md);
+  --color-text-done:      var(--cloud);
+
+  --color-border:         var(--ivory-dk);
+  --color-border-hover:   var(--clay);
+
+  --color-accent:         var(--clay);
+  --color-accent-hover:   var(--clay-hover);
+  --color-accent-light:   var(--clay-light);
+
+  --color-card-shadow:        0 1px 3px rgba(20, 20, 19, 0.04);
+  --color-card-shadow-hover:  0 4px 12px rgba(20, 20, 19, 0.06);
+
+  /* ── 字体 ── */
   --font-family: 'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'IBM Plex Mono', 'Cascadia Code', monospace;
 
+  /* ── 圆角 ── */
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;
 
-  --transition-fast: 120ms ease;
+  /* ── 过渡 ── */
+  --transition-fast: 150ms ease;
   --transition-normal: 200ms ease;
+
+  /* ── 字距（按尺寸负相关）── */
+  --tracking-tight:  -0.02em;
+  --tracking-normal: -0.005em;
+  --tracking-loose:  -0.002em;
 }
 
-/* Dark mode overrides */
+/* ═══════════════════════════════════════════════════════════
+   深色模式 — 暖调近黑，而非冷硬纯黑
+   ═══════════════════════════════════════════════════════════ */
 [data-theme='dark'] {
-  --color-bg-primary: #1A1814;
-  --color-bg-secondary: #262420;
-  --color-bg-tertiary: #33312E;
-  --color-bg-input: #262420;
+  --color-bg-primary:     var(--slate);       /* #141413 — 暖调深底 */
+  --color-bg-secondary:   #1e1e1c;            /* 卡片面 */
+  --color-bg-tertiary:    #2a2a28;            /* 三级面 */
+  --color-bg-input:       #1e1e1c;
 
-  --color-text-primary: #FAF9F7;
-  --color-text-secondary: #8C8A87;
-  --color-text-tertiary: #5C5A57;
-  --color-text-placeholder: #5C5A57;
-  --color-text-done: #5C5A57;
+  --color-text-primary:   var(--ivory-light);
+  --color-text-secondary: var(--cloud-dk);
+  --color-text-tertiary:  var(--cloud);
+  --color-text-placeholder: var(--cloud-md);
+  --color-text-done:      var(--cloud-dk);
 
-  --color-border: #33312E;
-  --color-border-hover: #D97757;
+  --color-border:         #2a2a28;
+  --color-border-hover:   var(--clay);
 
-  --color-accent: #D97757;
-  --color-accent-hover: #E88A6C;
-  --color-accent-light: rgba(217, 119, 87, 0.15);
+  --color-accent:         var(--clay);
+  --color-accent-hover:   #e0886c;
+  --color-accent-light:   rgba(217, 119, 87, 0.15);
 
-  --color-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-  --color-card-shadow-hover: 0 4px 12px rgba(217, 119, 87, 0.12);
+  --color-card-shadow:        0 1px 3px rgba(0, 0, 0, 0.2);
+  --color-card-shadow-hover:  0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
+/* ═══════════════════════════════════════════════════════════
+   全局样式
+   ═══════════════════════════════════════════════════════════ */
 * {
   margin: 0;
   padding: 0;
@@ -80,20 +120,16 @@ body {
   transition: background-color var(--transition-normal), color var(--transition-normal);
 }
 
-/* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
 }
-
 ::-webkit-scrollbar-track {
   background: transparent;
 }
-
 ::-webkit-scrollbar-thumb {
   background: var(--color-border);
   border-radius: 3px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-tertiary);
 }

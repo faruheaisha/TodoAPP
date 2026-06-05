@@ -8,7 +8,6 @@ export default function AddTodoBar() {
   const { t } = useTranslation();
   const { addTodo } = useTodoStore();
   const [title, setTitle] = useState('');
-  const [showOptions, setShowOptions] = useState(false);
   const [todoType, setTodoType] = useState<'quick' | 'longterm'>('quick');
   const [deadline, setDeadline] = useState('');
 
@@ -16,7 +15,6 @@ export default function AddTodoBar() {
     if (!title.trim()) return;
     addTodo(title.trim(), todoType, todoType === 'longterm' && deadline ? deadline : null);
     setTitle('');
-    setShowOptions(false);
     setDeadline('');
   }, [title, todoType, deadline, addTodo]);
 
@@ -27,97 +25,100 @@ export default function AddTodoBar() {
   };
 
   return (
-    <div className="mb-5">
-      <div className="flex gap-2">
+    <div
+      className="px-5 pt-3 pb-1.5 border-b"
+      style={{
+        borderColor: 'var(--color-border)',
+        backgroundColor: 'var(--color-bg-primary)',
+      }}
+    >
+      <div className="flex gap-0">
         <input
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           onKeyDown={handleKeyDown}
-          onFocus={() => setShowOptions(true)}
-          placeholder={t('app.addPlaceholder')}
-          className="flex-1 rounded-xl border px-4 py-2.5 text-sm outline-none transition-all focus:ring-1"
+          placeholder={`${t('app.addPlaceholder')} — 按 Enter 确认`}
+          className="flex-1 px-4 py-2.5 text-sm outline-none transition-all"
           style={{
-            borderColor: 'var(--color-border)',
             backgroundColor: 'var(--color-bg-input)',
             color: 'var(--color-text-primary)',
-            transition: 'border-color 150ms ease, box-shadow 150ms ease',
+            border: '0.5px solid var(--color-border)',
+            borderRight: 'none',
+            /* 非对称圆角 — Anthropic 风格：顶部平直，底部圆角 */
+            borderRadius: '0 0 0 8px',
+            transition: 'border-color 150ms ease',
           }}
           onFocus={(e) => {
             e.currentTarget.style.borderColor = 'var(--color-border-hover)';
-            e.currentTarget.style.boxShadow = '0 0 0 3px var(--color-accent-light)';
           }}
           onBlur={(e) => {
             e.currentTarget.style.borderColor = 'var(--color-border)';
-            e.currentTarget.style.boxShadow = 'none';
           }}
         />
         <button
           onClick={handleSubmit}
-          className="rounded-xl border-none px-4 py-2.5 text-sm font-semibold text-white transition-all hover:opacity-90 flex items-center gap-1.5"
-          style={{ backgroundColor: 'var(--color-accent)' }}
+          className="px-5 py-2.5 text-sm font-semibold transition-all"
+          style={{
+            backgroundColor: 'var(--slate)',
+            color: 'var(--ivory-light)',
+            border: 'none',
+            /* 非对称圆角 — 顶部平直，底部圆角 */
+            borderRadius: '0 0 8px 0',
+            cursor: 'pointer',
+            letterSpacing: 'var(--tracking-normal)',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = 'var(--clay)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'var(--slate)';
+          }}
         >
-          <Plus size={15} />
-          <span>{t('app.addButton')}</span>
+          <Plus size={15} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} />
+          {t('app.addButton')}
         </button>
       </div>
 
-      {/* Options Panel */}
-      <AnimatePresence>
-        {showOptions && title.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="mt-2 px-1"
-          >
-            <div className="flex items-center gap-3">
-              {/* Type Selector */}
-              <div className="flex gap-1">
-                <button
-                  onClick={() => setTodoType('quick')}
-                  className={`px-3 py-1 rounded-md text-xs font-medium transition-all border ${
-                    todoType === 'quick' ? '' : ''
-                  }`}
-                  style={{
-                    backgroundColor: todoType === 'quick' ? 'var(--color-accent)' : 'transparent',
-                    color: todoType === 'quick' ? '#FAF9F7' : 'var(--color-text-secondary)',
-                    borderColor: 'var(--color-border)',
-                  }}
-                >
-                  {t('app.quick')}
-                </button>
-                <button
-                  onClick={() => setTodoType('longterm')}
-                  className={`px-3 py-1 rounded-md text-xs font-medium transition-all border`}
-                  style={{
-                    backgroundColor: todoType === 'longterm' ? 'var(--color-accent)' : 'transparent',
-                    color: todoType === 'longterm' ? '#FAF9F7' : 'var(--color-text-secondary)',
-                    borderColor: 'var(--color-border)',
-                  }}
-                >
-                  {t('app.longterm')}
-                </button>
-              </div>
+      {/* Type selector row */}
+      <div className="flex items-center gap-3 mt-2 pb-0.5">
+        <button
+          onClick={() => setTodoType('quick')}
+          className={`px-2.5 py-0.5 rounded text-xs font-medium transition-all border`}
+          style={{
+            backgroundColor: todoType === 'quick' ? 'var(--slate)' : 'transparent',
+            color: todoType === 'quick' ? 'var(--ivory-light)' : 'var(--color-text-tertiary)',
+            borderColor: todoType === 'quick' ? 'var(--slate)' : 'var(--color-border)',
+          }}
+        >
+          {t('app.quick')}
+        </button>
+        <button
+          onClick={() => setTodoType('longterm')}
+          className="px-2.5 py-0.5 rounded text-xs font-medium transition-all border"
+          style={{
+            backgroundColor: todoType === 'longterm' ? 'var(--slate)' : 'transparent',
+            color: todoType === 'longterm' ? 'var(--ivory-light)' : 'var(--color-text-tertiary)',
+            borderColor: todoType === 'longterm' ? 'var(--slate)' : 'var(--color-border)',
+          }}
+        >
+          {t('app.longterm')}
+        </button>
 
-              {/* Deadline Picker (only for longterm) */}
-              {todoType === 'longterm' && (
-                <input
-                  type="datetime-local"
-                  value={deadline}
-                  onChange={(e) => setDeadline(e.target.value)}
-                  className="px-2 py-1 rounded-md text-xs border"
-                  style={{
-                    borderColor: 'var(--color-border)',
-                    backgroundColor: 'var(--color-bg-input)',
-                    color: 'var(--color-text-secondary)',
-                  }}
-                />
-              )}
-            </div>
-          </motion.div>
+        {todoType === 'longterm' && (
+          <input
+            type="datetime-local"
+            value={deadline}
+            onChange={(e) => setDeadline(e.target.value)}
+            className="px-2 py-0.5 rounded text-xs border"
+            style={{
+              borderColor: 'var(--color-border)',
+              backgroundColor: 'var(--color-bg-input)',
+              color: 'var(--color-text-secondary)',
+            }}
+          />
         )}
-      </AnimatePresence>
+      </div>
     </div>
   );
 }

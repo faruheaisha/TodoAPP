@@ -1,46 +1,50 @@
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
+import { Plus } from 'lucide-react';
 
 export default function EmptyState() {
   const { t } = useTranslation();
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
       className="flex-1 flex flex-col items-center justify-center px-8 text-center"
     >
-      {/* Illustration */}
+      {/* Minimal icon — no dotted line, just solid */}
       <motion.div
-        animate={{ y: [0, -4, 0] }}
+        animate={{ y: [0, -3, 0] }}
         transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-        className="mb-6"
+        className="mb-5"
       >
-        <svg
-          width="80"
-          height="80"
-          viewBox="0 0 80 80"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
+        <div
+          className="w-12 h-12 rounded-full flex items-center justify-center"
+          style={{
+            backgroundColor: 'var(--clay-light)',
+            border: '1px solid var(--clay)',
+          }}
         >
-          <circle cx="40" cy="40" r="36" stroke="var(--color-border)" strokeWidth="1.5" />
-          <circle cx="40" cy="40" r="6" fill="var(--color-accent)" opacity="0.3" />
-          <circle cx="40" cy="40" r="16" stroke="var(--color-accent)" strokeWidth="1" strokeDasharray="4 4" opacity="0.5" />
-          <path d="M36 40 L39 43 L45 37" stroke="var(--color-accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" />
-        </svg>
+          <Plus size={18} style={{ color: 'var(--clay)' }} />
+        </div>
       </motion.div>
 
-      <h2
-        className="text-sm font-semibold mb-2"
-        style={{ color: 'var(--color-text-secondary)' }}
+      <p
+        className="text-sm font-medium mb-1.5 select-none"
+        style={{
+          color: 'var(--slate-md)',
+          letterSpacing: 'var(--tracking-loose)',
+        }}
       >
         {t('app.empty')}
-      </h2>
+      </p>
       <p
-        className="text-xs max-w-xs"
-        style={{ color: 'var(--color-text-tertiary)' }}
+        className="text-xs max-w-xs select-none"
+        style={{
+          color: 'var(--cloud)',
+          lineHeight: 1.6,
+        }}
       >
-        在上方输入框中添加你的第一个待办事项
+        在上方输入你的第一个待办事项
       </p>
     </motion.div>
   );

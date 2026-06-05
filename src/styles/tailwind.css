@@ -1,4 +1,2 @@
-@import 'tailwindcss';
-
-/* Tailwind v4 uses @import 'tailwindcss' instead of @tailwind directives */
-/* Custom theme tokens are handled via CSS variables in globals.css */
+// Tailwind CSS v4 uses @import 'tailwindcss' in globals.css
+// This file is no longer needed but kept for compatibility
