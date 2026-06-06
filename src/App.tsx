@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from './store/settingsStore';
 import { useTodoStore } from './store/todoStore';
@@ -9,7 +9,7 @@ import './styles/globals.css';
 
 import Header from './components/Header';
 import AddTodoBar from './components/AddTodoBar';
-import FilterTabs from './components/FilterTabs';
+import FilterTabs, { type FilterType } from './components/FilterTabs';
 import TodoSection from './components/TodoSection';
 import EmptyState from './components/EmptyState';
 import SettingsDrawer from './components/SettingsDrawer';
@@ -18,6 +18,7 @@ function App() {
   const { t, i18n } = useTranslation();
   const { theme, language } = useSettingsStore();
   const { todos, isLoading, setTodos } = useTodoStore();
+  const [filter, setFilter] = useState<FilterType>('all');
 
   // Apply theme
   useEffect(() => {
@@ -46,6 +47,7 @@ function App() {
   }, []);
 
   const hasTodos = todos.length > 0;
+  const hasCompletedTodos = todos.filter(t => t.completed).length > 0;
 
   return (
     <div className="h-screen flex flex-col overflow-hidden" style={{
@@ -53,17 +55,22 @@ function App() {
       color: 'var(--color-text-primary)',
     }}>
       <Header />
-      {/* 输入框常驻可见 — P0 修复 */}
+      {/* 输入框常驻可见 */}
       <AddTodoBar />
-      {/* 过滤 Tab — 任务 > 5 条时决定性地提升效率 */}
-      {hasTodos && <FilterTabs />}
+      {/* 过滤 Tab — 仅当有任务时显示 */}
+      {hasTodos && (
+        <FilterTabs
+          activeFilter={filter}
+          onFilterChange={setFilter}
+        />
+      )}
       {/* 内容区 */}
       <div className="flex-1 overflow-y-auto">
         {!hasTodos && !isLoading ? (
           <EmptyState />
         ) : (
           <div className="px-5 pt-2 pb-6">
-            <TodoSection />
+            <TodoSection filter={filter} />
           </div>
         )}
       </div>

@@ -76,14 +76,15 @@
 [data-theme='dark'] {
   --color-bg-primary:     var(--slate);       /* #141413 — 暖调深底 */
   --color-bg-secondary:   #1e1e1c;            /* 卡片面 */
-  --color-bg-tertiary:    #2a2a28;            /* 三级面 */
+  --color-bg-tertiary:    #1a1a18;            /* 次级面 — 浅灰底用于section header */
   --color-bg-input:       #1e1e1c;
 
-  --color-text-primary:   var(--ivory-light);
-  --color-text-secondary: var(--cloud-dk);
-  --color-text-tertiary:  var(--cloud);
-  --color-text-placeholder: var(--cloud-md);
-  --color-text-done:      var(--cloud-dk);
+  /* 文字层次 — 确保所有文字至少#5e5d59以上亮度 */
+  --color-text-primary:   var(--ivory-light); /* #faf9f5 */
+  --color-text-secondary: var(--cloud);       /* #87867f — section header/说明 */
+  --color-text-tertiary:  var(--cloud-dk);    /* #5e5d59 — 计数/占位 */
+  --color-text-placeholder: var(--cloud-md);  /* #b0aea5 — 输入框placeholder */
+  --color-text-done:      var(--cloud-dk);    /* #5e5d59 — 已完成文字 */
 
   --color-border:         #2a2a28;
   --color-border-hover:   var(--clay);
