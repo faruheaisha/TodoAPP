@@ -1,4 +1,4 @@
-import { listen } from '@tauri-apps/api/event';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import Database from '@tauri-apps/plugin-sql';
 import type { Todo } from '../store/todoStore';
 
@@ -36,17 +36,15 @@ export async function initDB(): Promise<void> {
 export async function loadTodos(): Promise<Todo[]> {
   try {
     const database = await getDB();
-    const rows = await database.select<
-      {
-        id: string;
-        title: string;
-        todo_type: string;
-        deadline: string | null;
-        completed: number;
-        created_at: string;
-        reminder_sent: number;
-      }
-    >(`
+    const rows = await database.select<{
+      id: string;
+      title: string;
+      todo_type: string;
+      deadline: string | null;
+      completed: number;
+      created_at: string;
+      reminder_sent: number;
+    }[]>(`
       SELECT id, title, todo_type, deadline, completed, created_at, reminder_sent
       FROM todos
       ORDER BY
@@ -60,7 +58,15 @@ export async function loadTodos(): Promise<Todo[]> {
         created_at DESC
     `);
 
-    return rows.map((r) => ({
+    return rows.map((r: {
+      id: string;
+      title: string;
+      todo_type: string;
+      deadline: string | null;
+      completed: number;
+      created_at: string;
+      reminder_sent: number;
+    }) => ({
       id: r.id,
       title: r.title,
       todoType: r.todo_type === 'longterm' ? 'longterm' : 'quick',
@@ -148,7 +154,7 @@ export async function checkDueSoon(): Promise<void> {
     const now = new Date().toISOString();
     const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
-    const rows = await database.select<{ id: string; title: string }>(
+    const rows = await database.select<{ id: string; title: string }[]>(
       `SELECT id, title FROM todos WHERE completed = 0 AND deadline IS NOT NULL AND deadline != '' AND deadline >= ? AND deadline <= ? ORDER BY deadline ASC`,
       [now, tomorrow]
     );
@@ -172,22 +178,22 @@ export async function clearReminders(): Promise<void> {
   }
 }
 
-// Listen for events from backend
-export function onStartupPrompt(callback: () => void): () => void {
+// Listen for events from backend — returns a cleanup function
+export async function onStartupPrompt(callback: () => void): Promise<UnlistenFn> {
   return listen('startup-prompt', callback);
 }
 
-export function onTodoReminder(callback: (todo: Todo) => void): () => void {
+export async function onTodoReminder(callback: (todo: Todo) => void): Promise<UnlistenFn> {
   return listen('todo-reminder', (event) => {
-    const payload = event.payload as any;
+    const payload = event.payload as Record<string, unknown>;
     callback({
-      id: payload.id,
-      title: payload.title,
-      todoType: payload.todo_type === 'longterm' ? 'longterm' : 'quick',
-      deadline: payload.deadline ?? null,
-      completed: payload.completed,
-      createdAt: payload.created_at,
-      reminderSent: payload.reminder_sent,
+      id: (payload.id as string) ?? '',
+      title: (payload.title as string) ?? '',
+      todoType: (payload.todo_type as string) === 'longterm' ? 'longterm' : 'quick',
+      deadline: (payload.deadline as string) ?? null,
+      completed: Boolean(payload.completed),
+      createdAt: (payload.created_at as string) ?? '',
+      reminderSent: Boolean(payload.reminder_sent),
     });
   });
 }

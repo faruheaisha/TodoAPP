@@ -13,7 +13,6 @@ export default function FilterTabs({ activeFilter: externalFilter, onFilterChang
   const { t } = useTranslation();
   const { todos } = useTodoStore();
 
-  // Count by status
   const activeCount = todos.filter((t) => !t.completed).length;
   const completedCount = todos.filter((t) => t.completed).length;
 
@@ -23,24 +22,33 @@ export default function FilterTabs({ activeFilter: externalFilter, onFilterChang
     { key: 'completed', label: '已完成', count: completedCount },
   ];
 
-  // Use internal state if no external control
   const [internalFilter, setInternalFilter] = React.useState<FilterType>('all');
   const activeFilter = externalFilter ?? internalFilter;
   const setFilter = onFilterChange ?? setInternalFilter;
 
   return (
-    <div className="flex gap-1 px-5 pb-2" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
+    <div
+      className="flex flex-shrink-0"
+      style={{
+        gap: '4px',
+        padding: '5px 14px',
+        height: 'var(--filter-row-h)',
+        backgroundColor: 'var(--color-bg-primary)',
+      }}
+    >
       {filters.map((f) => {
         const isActive = activeFilter === f.key;
         return (
           <button
             key={f.key}
             onClick={() => setFilter(f.key)}
-            className="px-3 py-1 rounded text-xs font-medium transition-all border"
+            className="text-xs font-medium transition-colors cursor-pointer"
             style={{
+              padding: '2px 10px',
+              borderRadius: '4px',
+              border: 'none',
               color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)',
               backgroundColor: isActive ? 'var(--color-bg-tertiary)' : 'transparent',
-              borderColor: isActive ? 'var(--color-text-primary)' : 'var(--color-border)',
               fontWeight: isActive ? 500 : 400,
             }}
           >

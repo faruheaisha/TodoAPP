@@ -30,7 +30,7 @@
 
   /* ── 应用 token（映射到中性色阶）── */
   --color-bg-primary:     var(--ivory-light);
-  --color-bg-secondary:   #ffffff;      /* 卡片面 — 保留白卡对比 */
+  --color-bg-secondary:   #ffffff;
   --color-bg-tertiary:    var(--ivory-md);
   --color-bg-input:       #ffffff;
 
@@ -60,31 +60,38 @@
   --radius-lg: 12px;
   --radius-xl: 16px;
 
-  /* ── 过渡 ── */
+  /* ── 过渡 — 只允许 color/background/border-color/opacity 有 transition ── */
   --transition-fast: 150ms ease;
   --transition-normal: 200ms ease;
 
-  /* ── 字距（按尺寸负相关）── */
+  /* ── 字距 ── */
   --tracking-tight:  -0.02em;
   --tracking-normal: -0.005em;
   --tracking-loose:  -0.002em;
+
+  /* ── 间距 token（统一 14px 水平内边距体系）─ */
+  --pad-x: 14px;               /* 全局统一水平内边距 */
+  --header-h: 44px;            /* 导航栏高度 */
+  --input-row-h: 38px;         /* 输入行高度 */
+  --filter-row-h: 30px;        /* 过滤器行高度 */
+  --section-header-h: 26px;    /* 分组 header 高度 */
+  --todo-row-h: 34px;          /* 任务行高度 */
 }
 
 /* ═══════════════════════════════════════════════════════════
-   深色模式 — 暖调近黑，而非冷硬纯黑
+   深色模式 — 暖调近黑
    ═══════════════════════════════════════════════════════════ */
 [data-theme='dark'] {
-  --color-bg-primary:     var(--slate);       /* #141413 — 暖调深底 */
-  --color-bg-secondary:   #1e1e1c;            /* 卡片面 */
-  --color-bg-tertiary:    #1a1a18;            /* 次级面 — 浅灰底用于section header */
+  --color-bg-primary:     var(--slate);
+  --color-bg-secondary:   #1e1e1c;
+  --color-bg-tertiary:    #1a1a18;
   --color-bg-input:       #1e1e1c;
 
-  /* 文字层次 — 确保所有文字至少#5e5d59以上亮度 */
-  --color-text-primary:   var(--ivory-light); /* #faf9f5 */
-  --color-text-secondary: var(--cloud);       /* #87867f — section header/说明 */
-  --color-text-tertiary:  var(--cloud-dk);    /* #5e5d59 — 计数/占位 */
-  --color-text-placeholder: var(--cloud-md);  /* #b0aea5 — 输入框placeholder */
-  --color-text-done:      var(--cloud-dk);    /* #5e5d59 — 已完成文字 */
+  --color-text-primary:   var(--ivory-light);
+  --color-text-secondary: var(--cloud);
+  --color-text-tertiary:  var(--cloud-dk);
+  --color-text-placeholder: var(--cloud-md);
+  --color-text-done:      var(--cloud-dk);
 
   --color-border:         #2a2a28;
   --color-border-hover:   var(--clay);
@@ -121,16 +128,8 @@ body {
   transition: background-color var(--transition-normal), color var(--transition-normal);
 }
 
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-tertiary);
-}
+/* ── 统一滚动条 ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:h

@@ -11,16 +11,19 @@ export default function Header() {
 
   return (
     <header
-      className="flex items-center gap-3 px-5 py-2.5 border-b"
+      className="flex items-center border-b flex-shrink-0"
       style={{
+        height: 'var(--header-h)',
+        padding: '8px 14px',
         borderColor: 'var(--color-border)',
         backgroundColor: 'var(--color-bg-primary)',
+        gap: '8px',
       }}
     >
-      {/* Logo — Clay 橙色 */}
+      {/* Logo */}
       <div
-        className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-        style={{ backgroundColor: 'var(--clay)' }}
+        className="rounded-full flex items-center justify-center flex-shrink-0"
+        style={{ width: '28px', height: '28px', backgroundColor: 'var(--clay)' }}
       >
         <span className="text-xs font-bold" style={{ color: 'var(--ivory-light)' }}>
           T
@@ -29,7 +32,7 @@ export default function Header() {
 
       {/* Title */}
       <h1
-        className="text-[16px] font-semibold select-none"
+        className="text-[16px] font-semibold select-none app-title"
         style={{
           color: 'var(--color-text-primary)',
           letterSpacing: 'var(--tracking-normal)',
@@ -42,20 +45,10 @@ export default function Header() {
       <div className="flex-1" />
 
       {/* Controls */}
-      <div className="flex items-center gap-2">
-        {/* Language Switcher — with tooltip */}
+      <div className="flex items-center" style={{ gap: '4px' }}>
+        {/* Language Switcher */}
         <div className="relative" title={language === 'zh' ? 'Switch to English' : '切换到中文'}>
-          <button
-            onClick={() => setShowLangMenu(!showLangMenu)}
-            className="px-2.5 py-1.5 rounded text-xs font-medium transition-all border"
-            style={{
-              color: 'var(--color-text-secondary)',
-              borderColor: 'var(--color-border)',
-              backgroundColor: 'transparent',
-            }}
-          >
-            {language === 'zh' ? '中' : 'EN'}
-          </button>
+          <LanguageButton label={language === 'zh' ? '中' : 'EN'} onClick={() => setShowLangMenu(!showLangMenu)} />
           {showLangMenu && (
             <motion.div
               initial={{ opacity: 0, y: -4 }}
@@ -73,7 +66,7 @@ export default function Header() {
                 onMouseEnter={(e) => { (e.target as HTMLElement).style.backgroundColor = 'var(--color-bg-tertiary)'; }}
                 onMouseLeave={(e) => { (e.target as HTMLElement).style.backgroundColor = 'transparent'; }}
               >
-                中文
+                {'中文'}
               </button>
               <button
                 onClick={() => { setLanguage('en'); setShowLangMenu(false); }}
@@ -88,24 +81,58 @@ export default function Header() {
           )}
         </div>
 
-        {/* Theme Toggle — with tooltip */}
-        <button
+        {/* Theme Toggle */}
+        <IconButton
           onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-          className="w-7 h-7 rounded flex items-center justify-center border transition-all"
           title={theme === 'light' ? '切换到深色模式' : 'Switch to light mode'}
-          style={{
-            borderColor: 'var(--color-border)',
-            backgroundColor: 'transparent',
-            color: 'var(--color-text-secondary)',
-          }}
+          color="var(--color-text-secondary)"
         >
           {theme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
-        </button>
+        </IconButton>
 
-        {/* Settings Button — with tooltip */}
+        {/* Settings */}
         <SettingsButton />
       </div>
     </header>
+  );
+}
+
+function IconButton({ onClick, title, children, color }: { onClick: () => void; title?: string; children: React.ReactNode; color?: string }) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className="flex items-center justify-center border transition-all flex-shrink-0"
+      style={{
+        width: '28px',
+        height: '28px',
+        borderRadius: '5px',
+        borderColor: 'var(--color-border)',
+        backgroundColor: 'transparent',
+        color: color ?? 'var(--color-text-secondary)',
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function LanguageButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center justify-center border text-xs font-medium transition-all flex-shrink-0"
+      style={{
+        width: '28px',
+        height: '28px',
+        borderRadius: '5px',
+        borderColor: 'var(--color-border)',
+        backgroundColor: 'transparent',
+        color: 'var(--color-text-secondary)',
+      }}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -114,17 +141,12 @@ function SettingsButton() {
   const { isOpen, setIsOpen } = useSettingsStore();
 
   return (
-    <button
+    <IconButton
       onClick={() => setIsOpen(!isOpen)}
-      className="w-7 h-7 rounded flex items-center justify-center border transition-all"
       title={t('settings.title')}
-      style={{
-        borderColor: isOpen ? 'var(--clay)' : 'var(--color-border)',
-        backgroundColor: 'transparent',
-        color: isOpen ? 'var(--clay)' : 'var(--color-text-secondary)',
-      }}
+      color={isOpen ? 'var(--clay)' : 'var(--color-text-secondary)'}
     >
       <Settings size={14} />
-    </button>
+    </IconButton>
   );
 }

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useTodoStore, type Todo } from '../store/todoStore';
 import { formatDeadline, isUrgent, isOverdue } from '../lib/utils';
 import { motion } from 'framer-motion';
-import { X, Edit2 } from 'lucide-react';
+import { X } from 'lucide-react';
 
 interface TodoCardProps {
   todo: Todo;
@@ -26,37 +26,44 @@ export function TodoCard({ todo }: TodoCardProps) {
       exit={{ opacity: 0, x: 12 }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="rounded-lg px-4 py-3 flex items-center gap-3 transition-all cursor-pointer"
+      className="flex items-center cursor-pointer"
       style={{
-        backgroundColor: 'var(--color-bg-secondary)',
-        border: '0.5px solid var(--color-border)',
-        boxShadow: 'var(--color-card-shadow)',
-        transition: 'border-color 150ms ease, box-shadow 150ms ease',
-        marginBottom: 6,
-        // Ancestor to the todo card
-        borderLeft: hasAlert ? '3px solid var(--clay)' : undefined,
+        height: 'var(--todo-row-h)',
+        padding: '7px 14px',
+        gap: '8px',
+        borderTop: '0.5px solid var(--color-bg-tertiary)',
       }}
     >
-      {/* Checkbox — uses Clay orange when completed */}
+      {/* Checkbox — 16x16px */}
       <button
-        onClick={() => toggleComplete(todo.id)}
-        className="w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0"
+        onClick={() => toggleComplete(todo.id).catch(console.error)}
+        className="flex items-center justify-center flex-shrink-0 transition-colors"
         style={{
+          width: '16px',
+          height: '16px',
+          borderRadius: '50%',
+          border: '1.5px solid',
           borderColor: todo.completed ? 'var(--clay)' : 'var(--color-border)',
           backgroundColor: todo.completed ? 'var(--clay)' : 'transparent',
+          cursor: 'pointer',
         }}
       >
         {todo.completed && (
-          <span className="text-[10px] font-bold" style={{ color: 'var(--ivory-light)' }}>
-            ✓
+          <span className="text-[8px] font-bold" style={{ color: 'var(--ivory-light)' }}>
+            {'✓'}
           </span>
         )}
       </button>
 
       {/* Title */}
       <span
-        className="text-sm flex-1 transition-all select-none"
+        className="text-sm select-none"
         style={{
+          flex: 1,
+          minWidth: 0,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
           color: todo.completed ? 'var(--color-text-done)' : 'var(--color-text-primary)',
           textDecoration: todo.completed ? 'line-through' : 'none',
         }}
@@ -64,10 +71,10 @@ export function TodoCard({ todo }: TodoCardProps) {
         {todo.title}
       </span>
 
-      {/* Deadline Badge — Clay for urgent */}
+      {/* Deadline badge */}
       {todo.deadline && (
         <span
-          className="text-xs px-2 py-0.5 rounded font-medium"
+          className="deadline-label text-xs px-2 py-0.5 rounded font-medium flex-shrink-0"
           style={{
             color: hasAlert ? 'var(--clay)' : 'var(--color-text-tertiary)',
             backgroundColor: hasAlert ? 'var(--clay-light)' : 'var(--color-bg-tertiary)',
@@ -75,29 +82,33 @@ export function TodoCard({ todo }: TodoCardProps) {
             letterSpacing: '0.04em',
           }}
         >
-          {overdue
-            ? t('app.overdue')
-            : formatDeadline(todo.deadline, 'zh' as const)}
+          {overdue ? t('app.overdue') : formatDeadline(todo.deadline, 'zh' as const)}
         </span>
       )}
 
-      {/* Hover Actions — Clay hover on delete */}
+      {/* Delete button on hover */}
       {isHovered && (
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => deleteTodo(todo.id)}
-            className="w-5 h-5 rounded flex items-center justify-center transition-all"
-            style={{ color: 'var(--color-text-tertiary)' }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.color = 'var(--clay)';
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.color = 'var(--color-text-tertiary)';
-            }}
-          >
-            <X size={12} />
-          </button>
-        </div>
+        <button
+          onClick={() => deleteTodo(todo.id).catch(console.error)}
+          className="flex items-center justify-center flex-shrink-0 transition-colors"
+          style={{
+            width: '18px',
+            height: '18px',
+            borderRadius: '4px',
+            color: 'var(--color-text-tertiary)',
+            cursor: 'pointer',
+            border: 'none',
+            backgroundColor: 'transparent',
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLElement).style.color = 'var(--clay)';
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.color = 'var(--color-text-tertiary)';
+          }}
+        >
+          <X size={12} />
+        </button>
       )}
     </motion.div>
   );
