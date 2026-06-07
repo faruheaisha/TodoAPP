@@ -31,7 +31,7 @@ export function TodoCard({ todo }: TodoCardProps) {
         height: 'var(--todo-row-h)',
         padding: '7px 14px',
         gap: '8px',
-        borderTop: '0.5px solid var(--color-bg-tertiary)',
+        borderTop: '0.5px solid var(--color-separator)',
       }}
     >
       {/* Checkbox — 16x16px */}
@@ -43,7 +43,7 @@ export function TodoCard({ todo }: TodoCardProps) {
           height: '16px',
           borderRadius: '50%',
           border: '1.5px solid',
-          borderColor: todo.completed ? 'var(--clay)' : 'var(--color-border)',
+          borderColor: todo.completed ? 'var(--clay)' : 'var(--color-checkbox-border)',
           backgroundColor: todo.completed ? 'var(--clay)' : 'transparent',
           cursor: 'pointer',
         }}
@@ -80,6 +80,7 @@ export function TodoCard({ todo }: TodoCardProps) {
             backgroundColor: hasAlert ? 'var(--clay-light)' : 'var(--color-bg-tertiary)',
             fontFamily: 'var(--font-mono)',
             letterSpacing: '0.04em',
+            marginLeft: 'auto',
           }}
         >
           {overdue ? t('app.overdue') : formatDeadline(todo.deadline, 'zh' as const)}

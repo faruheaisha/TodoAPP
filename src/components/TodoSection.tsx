@@ -37,7 +37,7 @@ export default function TodoSection({ filter = 'all' }: TodoSectionProps) {
             {quickTodos.length > 0 ? (
               quickTodos.map((todo) => <TodoCard key={todo.id} todo={todo} />)
             ) : (
-              <EmptyText />
+              <EmptyText text={t('app.noActiveTasks')} />
             )}
           </motion.section>
         )}
@@ -55,12 +55,12 @@ export default function TodoSection({ filter = 'all' }: TodoSectionProps) {
               color="var(--color-accent)"
               label={t('app.longterm')}
               count={longtermTodos.length}
-              suffix={`${t('app.items')} . ${t('app.sortedBy')}`}
+              suffix={t('app.items') + ' ' + t('app.sortedBy')}
             />
             {longtermTodos.length > 0 ? (
               longtermTodos.map((todo) => <TodoCard key={todo.id} todo={todo} />)
             ) : (
-              <EmptyText />
+              <EmptyText text={t('app.noActiveTasks')} />
             )}
           </motion.section>
         )}
@@ -77,6 +77,7 @@ function SectionHeader({ color, label, count, suffix }: { color: string; label: 
         height: 'var(--section-header-h)',
         padding: '5px 14px 3px',
         gap: '5px',
+        backgroundColor: 'var(--color-section-bg)',
       }}
     >
       <div
@@ -104,7 +105,7 @@ function SectionHeader({ color, label, count, suffix }: { color: string; label: 
   );
 }
 
-function EmptyText() {
+function EmptyText({ text }: { text: string }) {
   return (
     <p
       className="text-center select-none"
@@ -114,7 +115,7 @@ function EmptyText() {
         color: 'var(--color-text-tertiary)',
       }}
     >
-      {'无进行中'}
+      {text}
     </p>
   );
 }

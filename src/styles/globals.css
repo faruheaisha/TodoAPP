@@ -9,7 +9,7 @@
   --ivory-light: #faf9f5;       /* 主背景 — 羊皮纸暖调 */
   --ivory-md:    #f0eee6;       /* 次级面 — 导航栏、分隔 */
   --ivory-dk:    #e8e6dc;       /* 三级面 — 卡片填充 */
-  --oat:         #e3dacc;       /* 四级面 — 禁用态填充 */
+  --oat:         #e3dacc;       /* 四级面 — 禁用态填充 / 边框 */
 
   /* ── 文字与边框 ── */
   --slate:       #141413;       /* 主文字 / 深色卡片背景 */
@@ -40,9 +40,20 @@
   --color-text-placeholder: var(--cloud-md);
   --color-text-done:      var(--cloud);
 
-  --color-border:         var(--ivory-dk);
+  /* ---- 边框 ---- */
+  --color-border:         var(--oat);           /* #e3dacc — 比 ivory-dk 暖一度 */
   --color-border-hover:   var(--clay);
+  --color-checkbox-border: #d1cfc5;             /* 复选框未选中边框 */
+  --color-separator:      var(--ivory-md);       /* 任务行分隔线 #f0eee6 */
 
+  /* ---- 填充色（用于 type-btn / filter / add-button 等 slate 底 states）---- */
+  --color-fill:           var(--slate);         /* 填充背景（深色底） */
+  --color-fill-text:      var(--ivory-light);   /* 填充上的文字（白字） */
+
+  /* ---- 区块背景 ---- */
+  --color-section-bg:     #f8f7f2;              /* 分组 header / 区块背景 */
+
+  /* ---- 以下保留 ---- */
   --color-accent:         var(--clay);
   --color-accent-hover:   var(--clay-hover);
   --color-accent-light:   var(--clay-light);
@@ -95,6 +106,14 @@
 
   --color-border:         #2a2a28;
   --color-border-hover:   var(--clay);
+  --color-checkbox-border: #3d3d3a;
+  --color-separator:      #1e1e1c;
+
+  /* 填充反转：深色模式下填充变亮、文字变深 */
+  --color-fill:           var(--ivory-dk);      /* #e8e6dc 亮底 */
+  --color-fill-text:      var(--slate);          /* 深文字 */
+
+  --color-section-bg:     var(--color-bg-tertiary); /* #1a1a18 */
 
   --color-accent:         var(--clay);
   --color-accent-hover:   #e0886c;
@@ -132,4 +151,32 @@ body {
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:h
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-tertiary); }
+
+/* ═══════════════════════════════════════════════════════════
+   响应式断点 — 桌面应用
+   所有 padding / gap / height 固定不变，
+   变化的是内容区 flex 拉伸和文案缩写。
+   ═══════════════════════════════════════════════════════════ */
+
+/* XS 紧凑 380–520px：类型按钮单字、添加按钮仅+、截止标签简化 */
+@media (max-width: 520px) {
+  .type-btn-long { display: none; }
+  .type-btn-short { display: inline; }
+  .add-btn-text { display: none; }
+  .add-btn-icon-only { display: inline-flex; }
+  .deadline-label { font-size: 10px; max-width: 60px; }
+}
+
+/* SM 标准 520–720px：默认，所有值完整 */
+/* （无需特殊规则） */
+
+/* MD 宽松 720–960px：任务行悬停操作显现 */
+/* （由组件内的 hover state 自然控制） */
+
+/* LG 双栏 >960px：保留扩展位 */
+
+/* ── 高度方向断点 ── */
+@media (max-height: 280px) {
+  .app-title { display: none; }
+}

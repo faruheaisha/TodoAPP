@@ -64,11 +64,11 @@ export default function AddTodoBar() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={`${t('app.addPlaceholder')} - Enter`}
+            placeholder={t('app.addPlaceholder') + ' ' + t('app.enterConfirm')}
             className="w-full h-full text-sm outline-none transition-colors"
             style={{
               backgroundColor: 'var(--color-bg-input)',
-              color: 'var(--color-text-primary)',
+              color: 'var(--color-text-secondary)',
               border: '0.5px solid var(--color-border)',
               borderRight: 'none',
               borderLeft: 'none',
@@ -85,8 +85,8 @@ export default function AddTodoBar() {
           className="flex items-center justify-center font-medium transition-colors flex-shrink-0"
           style={{
             padding: '5px 12px',
-            backgroundColor: 'var(--slate)',
-            color: 'var(--ivory-light)',
+            backgroundColor: 'var(--color-fill)',
+            color: 'var(--color-fill-text)',
             border: 'none',
             borderRadius: '0 5px 5px 0',
             cursor: 'pointer',
@@ -94,7 +94,7 @@ export default function AddTodoBar() {
             gap: '4px',
           }}
           onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--clay)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--slate)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--color-fill)'; }}
         >
           <Plus size={15} />
           <span className="add-btn-text">{t('app.addButton')}</span>
@@ -132,8 +132,8 @@ function TypeBtn({ active, onClick, children }: { active: boolean; onClick: () =
         fontSize: '11px',
         border: 'none',
         borderRight: '0.5px solid var(--color-border)',
-        color: active ? 'var(--ivory-light)' : 'var(--color-text-tertiary)',
-        backgroundColor: active ? 'var(--slate)' : 'transparent',
+        color: active ? 'var(--color-fill-text)' : 'var(--color-text-tertiary)',
+        backgroundColor: active ? 'var(--color-fill)' : 'transparent',
         cursor: 'pointer',
       }}
     >

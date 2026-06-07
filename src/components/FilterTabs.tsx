@@ -17,9 +17,9 @@ export default function FilterTabs({ activeFilter: externalFilter, onFilterChang
   const completedCount = todos.filter((t) => t.completed).length;
 
   const filters: { key: FilterType; label: string; count: number }[] = [
-    { key: 'all', label: '全部', count: todos.length },
-    { key: 'active', label: '进行中', count: activeCount },
-    { key: 'completed', label: '已完成', count: completedCount },
+    { key: 'all', label: t('app.filterAll'), count: todos.length },
+    { key: 'active', label: t('app.filterActive'), count: activeCount },
+    { key: 'completed', label: t('app.filterCompleted'), count: completedCount },
   ];
 
   const [internalFilter, setInternalFilter] = React.useState<FilterType>('all');
@@ -44,11 +44,12 @@ export default function FilterTabs({ activeFilter: externalFilter, onFilterChang
             onClick={() => setFilter(f.key)}
             className="text-xs font-medium transition-colors cursor-pointer"
             style={{
-              padding: '2px 10px',
+              padding: '2px 9px',
               borderRadius: '4px',
-              border: 'none',
-              color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)',
-              backgroundColor: isActive ? 'var(--color-bg-tertiary)' : 'transparent',
+              border: '0.5px solid',
+              borderColor: isActive ? 'var(--color-fill)' : 'var(--color-border)',
+              color: isActive ? 'var(--color-fill-text)' : 'var(--color-text-tertiary)',
+              backgroundColor: isActive ? 'var(--color-fill)' : 'transparent',
               fontWeight: isActive ? 500 : 400,
             }}
           >
@@ -57,8 +58,8 @@ export default function FilterTabs({ activeFilter: externalFilter, onFilterChang
               <span
                 className="ml-1"
                 style={{
-                  color: isActive ? 'var(--color-text-secondary)' : 'var(--color-text-tertiary)',
-                  opacity: isActive ? 1 : 0.6,
+                  color: isActive ? 'var(--color-fill-text)' : 'var(--color-text-tertiary)',
+                  opacity: isActive ? 0.8 : 0.6,
                 }}
               >
                 {f.count}
