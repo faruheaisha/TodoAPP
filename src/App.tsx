@@ -13,6 +13,7 @@ import FilterTabs, { type FilterType } from './components/FilterTabs';
 import TodoSection from './components/TodoSection';
 import EmptyState from './components/EmptyState';
 import SettingsDrawer from './components/SettingsDrawer';
+import ToolsPanel from './components/ToolsPanel';
 
 function App() {
   const { t, i18n } = useTranslation();
@@ -75,6 +76,7 @@ function App() {
         )}
       </div>
       <SettingsDrawer />
+      <ToolsPanel />
     </div>
   );
 }

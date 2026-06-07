@@ -17,9 +17,7 @@
     "filterAll": "全部",
     "filterActive": "进行中",
     "filterCompleted": "已完成",
-    "noActiveTasks": "无进行中",
-    "quickShort": "临",
-    "longtermShort": "长"
+    "noActiveTasks": "无进行中"
   },
   "settings": {
     "title": "设置",
@@ -63,16 +61,23 @@
     "importHint": "支持 JSON 备份文件，将替换当前所有待办事项"
   },
   "pdf": {
-    "title": "导出 PDF",
+    "title": "选择 PDF 模板",
     "cancel": "取消",
-    "templateClassic": "经典报告",
-    "templateClassicDesc": "标准清单样式，含分组统计",
-    "templateCompact": "紧凑清单",
-    "templateCompactDesc": "一行一项，节能省纸",
-    "templateDetailed": "详细卡片",
-    "templateDetailedDesc": "含截止时间和备注的详情视图",
-    "templateKanban": "看板视图",
-    "templateKanbanDesc": "按完成状态分组展示",
+    "exportButton": "导出 PDF",
+    "selected": "已选",
+    "selectedLabel": "已选：",
+    "noteLabel": "备注",
+    "titleLabel": "标题",
+    "notePlaceholder": "添加备注...",
+    "titlePlaceholder": "任务报告",
+    "templateClassic": "经典象牙",
+    "templateClassicSub": "暖白底 · Clay橙分隔",
+    "templateSlate": "深夜石板",
+    "templateSlateSub": "近黑底 · 橙色高亮",
+    "templateEditorial": "编辑手稿",
+    "templateEditorialSub": "Serif标题 · 报告质感",
+    "templateMinimal": "极简线条",
+    "templateMinimalSub": "纯白 · 细线无装饰",
     "reportTitle": "待办事项报告",
     "sectionLongterm": "长时待办",
     "sectionQuick": "临时待办",
@@ -98,5 +103,23 @@
     "add": "添加新待办",
     "toggleTheme": "切换日夜模式",
     "quit": "退出应用"
+  },
+  "tools": {
+    "title": "工具",
+    "pomodoro": "番茄钟",
+    "calendar": "日历",
+    "habits": "习惯打卡",
+    "moreSoon": "更多工具即将上线"
+  },
+  "pomodoro": {
+    "modeWork": "专注",
+    "modeShortBreak": "短休息",
+    "modeLongBreak": "长休息",
+    "reset": "重置",
+    "toggleSound": "完成提醒",
+    "durationSettings": "时长设置",
+    "autoStartNext": "自动开始下一段",
+    "totalCompleted": "累计完成 {{count}} 个专注段",
+    "sessionDoneToast": "{{mode}}阶段已完成"
   }
 }

@@ -17,9 +17,7 @@
     "filterAll": "All",
     "filterActive": "Active",
     "filterCompleted": "Completed",
-    "noActiveTasks": "No active tasks",
-    "quickShort": "QK",
-    "longtermShort": "TM"
+    "noActiveTasks": "No active tasks"
   },
   "settings": {
     "title": "Settings",
@@ -63,16 +61,23 @@
     "importHint": "Supports JSON backup files. This will replace all current todos."
   },
   "pdf": {
-    "title": "Export PDF",
+    "title": "Choose Template",
     "cancel": "Cancel",
-    "templateClassic": "Classic Report",
-    "templateClassicDesc": "Standard list with grouped counters",
-    "templateCompact": "Compact List",
-    "templateCompactDesc": "One item per line, ink-saving",
-    "templateDetailed": "Detailed Cards",
-    "templateDetailedDesc": "Full detail with deadlines and notes",
-    "templateKanban": "Kanban View",
-    "templateKanbanDesc": "Grouped by completion status",
+    "exportButton": "Export PDF",
+    "selected": "Selected",
+    "selectedLabel": "Selected: ",
+    "noteLabel": "Notes",
+    "titleLabel": "Title",
+    "notePlaceholder": "Add notes...",
+    "titlePlaceholder": "Task Report",
+    "templateClassic": "Classic Ivory",
+    "templateClassicSub": "Warm paper · Clay accent",
+    "templateSlate": "Midnight Slate",
+    "templateSlateSub": "Near-black · Orange highlights",
+    "templateEditorial": "Editorial Draft",
+    "templateEditorialSub": "Serif title · Report feel",
+    "templateMinimal": "Minimal Lines",
+    "templateMinimalSub": "Pure white · Bare lines",
     "reportTitle": "Todo Report",
     "sectionLongterm": "Long-term",
     "sectionQuick": "Quick",
@@ -98,5 +103,23 @@
     "add": "Add New Todo",
     "toggleTheme": "Toggle Theme",
     "quit": "Quit App"
+  },
+  "tools": {
+    "title": "Tools",
+    "pomodoro": "Pomodoro",
+    "calendar": "Calendar",
+    "habits": "Habits",
+    "moreSoon": "More tools coming soon"
+  },
+  "pomodoro": {
+    "modeWork": "Focus",
+    "modeShortBreak": "Short Break",
+    "modeLongBreak": "Long Break",
+    "reset": "Reset",
+    "toggleSound": "Completion alerts",
+    "durationSettings": "Durations",
+    "autoStartNext": "Auto-start next session",
+    "totalCompleted": "{{count}} focus sessions completed",
+    "sessionDoneToast": "{{mode}} session complete"
   }
 }

@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Settings, Moon, Sun } from 'lucide-react';
+import { Settings, Moon, Sun, Timer } from 'lucide-react';
 import { useSettingsStore } from '../store/settingsStore';
+import { useToolsPanelStore } from '../store/toolsStore';
+import { useFocusStore } from '../store/focusStore';
 import { motion } from 'framer-motion';
 
 export default function Header() {
@@ -81,6 +83,9 @@ export default function Header() {
           )}
         </div>
 
+        {/* Tools 入口 */}
+        <ToolsButton />
+
         {/* Theme Toggle */}
         <IconButton
           onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
@@ -132,6 +137,44 @@ function LanguageButton({ label, onClick }: { label: string; onClick: () => void
       }}
     >
       {label}
+    </button>
+  );
+}
+
+function ToolsButton() {
+  const { t } = useTranslation();
+  const { isOpen, activeTool, openTool, setIsOpen } = useToolsPanelStore();
+  const { isRunning, remainingSeconds } = useFocusStore();
+
+  const showBadge = isRunning;
+  const mm = String(Math.floor(remainingSeconds / 60)).padStart(2, '0');
+  const ss = String(remainingSeconds % 60).padStart(2, '0');
+
+  return (
+    <button
+      onClick={() => (isOpen ? setIsOpen(false) : openTool(activeTool))}
+      title={t('tools.title')}
+      className="flex items-center justify-center border transition-all flex-shrink-0"
+      style={{
+        height: '28px',
+        minWidth: '28px',
+        padding: showBadge ? '0 8px' : 0,
+        borderRadius: '5px',
+        borderColor: isOpen ? 'var(--clay)' : 'var(--color-border)',
+        backgroundColor: 'transparent',
+        color: isOpen ? 'var(--clay)' : 'var(--color-text-secondary)',
+        gap: '5px',
+      }}
+    >
+      <Timer size={14} />
+      {showBadge && (
+        <span
+          className="text-[10px] font-medium tabular-nums"
+          style={{ color: 'var(--clay)', fontFamily: 'var(--font-mono)' }}
+        >
+          {mm}:{ss}
+        </span>
+      )}
     </button>
   );
 }
