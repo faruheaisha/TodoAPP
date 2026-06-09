@@ -1,24 +1,23 @@
 /**
- * pdf-export.ts — PDF 导出引擎（jsPDF v4 + Windows 系统字体）
+ * pdf-export.ts — 字体随 App 打包分发，无需用户额外安装
  *
- * 替换原 @react-pdf/renderer 方案，解决以下问题：
- *  1. Google Fonts 运行时 fetch 在 Tauri WebView 中不稳定（网络/CSP 限制）
- *  2. woff2 子集只含单一 Unicode range，导致拉丁字符也乱码
- *  3. 模板通过 StyleSheet 写死，难以后续扩展
+ * 字体策略（跨平台一致，自包含）：
+ *   public/fonts/NotoSansSC-zh.woff2    ← 简体中文子集 (1.1 MB)
+ *   public/fonts/NotoSansSC-latin.woff2 ← 拉丁/英文子集 (13 KB)
+ *   来源: @fontsource/noto-sans-sc (SIL OFL, 可随商业 app 分发)
+ *   随 `tauri build` 打包入安装包，用户无感知，iOS/Android 同理
  *
- * 新方案：
- *  - jsPDF (GitHub ⭐29k, parallax/jsPDF)：纯 JS PDF 生成，无 React 渲染依赖
- *  - 通过 Tauri FS 读取 Windows 系统 SimHei.ttf（TTF 单文件，支持中英文）
- *  - TemplateConfig 数据对象驱动 4 套模板，后续增减只需加一条配置
+ * 渲染流程：
+ *   FontFace API 加载打包字体 → Canvas 2D 渲染页面 → jsPDF 封装为 PDF
+ *   FontFace API 由 WebView (Chromium/WebKit) 保证跨平台一致
  */
 import { jsPDF } from 'jspdf';
 import type { Todo } from '../store/todoStore';
 
+// ─── 模板系统（数据驱动，扩展只需增加一条配置）──────────────────────────────
 export type PdfTemplateId = 'classic' | 'slate' | 'editorial' | 'minimal';
 
-// ─── 模板配置（数据驱动，后续增减只需修改此处）───────────────────────────────
 interface TemplateConfig {
-  name: string;
   bg: string;
   textPrimary: string;
   textSecondary: string;
@@ -29,123 +28,286 @@ interface TemplateConfig {
   titleSize: number;
   bodySize: number;
   metaSize: number;
+  noteLeftBar?: boolean;
 }
 
 export const TEMPLATE_CONFIGS: Record<PdfTemplateId, TemplateConfig> = {
   classic: {
-    name: 'Classic Ivory',
-    bg: '#faf9f5',
-    textPrimary: '#141413',
-    textSecondary: '#3d3d3a',
-    textMuted: '#b0aea5',
-    accent: '#d97757',
-    borderColor: '#e3dacc',
-    headerLineWidth: 2,
-    titleSize: 20,
-    bodySize: 10,
-    metaSize: 9,
+    bg: '#faf9f5', textPrimary: '#141413', textSecondary: '#3d3d3a',
+    textMuted: '#b0aea5', accent: '#d97757', borderColor: '#e3dacc',
+    headerLineWidth: 2.5, titleSize: 26, bodySize: 13, metaSize: 11,
   },
   slate: {
-    name: 'Midnight Slate',
-    bg: '#141413',
-    textPrimary: '#e8e6dc',
-    textSecondary: '#87867f',
-    textMuted: '#5e5d59',
-    accent: '#d97757',
-    borderColor: '#2a2a28',
-    headerLineWidth: 2,
-    titleSize: 20,
-    bodySize: 10,
-    metaSize: 9,
+    bg: '#141413', textPrimary: '#e8e6dc', textSecondary: '#87867f',
+    textMuted: '#5e5d59', accent: '#d97757', borderColor: '#2a2a28',
+    headerLineWidth: 2.5, titleSize: 26, bodySize: 13, metaSize: 11,
   },
   editorial: {
-    name: 'Editorial Draft',
-    bg: '#fffdf6',
-    textPrimary: '#141413',
-    textSecondary: '#3d3d3a',
-    textMuted: '#b0aea5',
-    accent: '#d97757',
-    borderColor: '#e3dacc',
-    headerLineWidth: 0.5,
-    titleSize: 22,
-    bodySize: 10,
-    metaSize: 9,
+    bg: '#fffdf6', textPrimary: '#141413', textSecondary: '#3d3d3a',
+    textMuted: '#b0aea5', accent: '#d97757', borderColor: '#e3dacc',
+    headerLineWidth: 0.8, titleSize: 30, bodySize: 13, metaSize: 11,
+    noteLeftBar: true,
   },
   minimal: {
-    name: 'Minimal Lines',
-    bg: '#ffffff',
-    textPrimary: '#3d3d3a',
-    textSecondary: '#5e5d59',
-    textMuted: '#b0aea5',
-    accent: '#d97757',
-    borderColor: '#e3dacc',
-    headerLineWidth: 0.5,
-    titleSize: 18,
-    bodySize: 10,
-    metaSize: 9,
+    bg: '#ffffff', textPrimary: '#3d3d3a', textSecondary: '#5e5d59',
+    textMuted: '#b0aea5', accent: '#d97757', borderColor: '#e3dacc',
+    headerLineWidth: 0.8, titleSize: 22, bodySize: 13, metaSize: 11,
   },
 };
 
-// ─── 工具函数 ────────────────────────────────────────────────────────────────
-function hexToRgb(hex: string): [number, number, number] {
-  const c = hex.replace('#', '');
-  return [
-    parseInt(c.substring(0, 2), 16),
-    parseInt(c.substring(2, 4), 16),
-    parseInt(c.substring(4, 6), 16),
-  ];
+// ─── 字体加载（app bundle 内，FontFace API）───────────────────────────────────
+const FONT_FAMILY = 'NotoSansSC-PDF';
+let fontLoadPromise: Promise<void> | null = null;
+
+function ensureFonts(): Promise<void> {
+  if (fontLoadPromise) return fontLoadPromise;
+
+  fontLoadPromise = (async () => {
+    try {
+      // 在 Tauri 中，public/ 下的文件通过内部 asset server 提供
+      // URL 格式: /fonts/xxx.woff2 (Vite dev) 或 asset://localhost/fonts/xxx.woff2 (prod)
+      const base = '';  // Tauri + Vite 均使用相对路径，asset server 自动处理
+
+      const zhFont  = new FontFace(FONT_FAMILY, `url(${base}/fonts/NotoSansSC-zh.woff2)`, {
+        weight: '400',
+        style: 'normal',
+        unicodeRange: 'U+0000-00FF,U+4E00-9FFF,U+3400-4DBF,U+F900-FAFF,U+2E80-2EFF,U+3000-303F,U+FE30-FE4F,U+FF00-FFEF',
+      });
+      const latinFont = new FontFace(FONT_FAMILY, `url(${base}/fonts/NotoSansSC-latin.woff2)`, {
+        weight: '400',
+        style: 'normal',
+        unicodeRange: 'U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD',
+      });
+
+      const [loaded1, loaded2] = await Promise.all([zhFont.load(), latinFont.load()]);
+      document.fonts.add(loaded1);
+      document.fonts.add(loaded2);
+      await document.fonts.ready;
+      console.log('[PDF] NotoSansSC fonts loaded from app bundle');
+    } catch (e) {
+      console.warn('[PDF] Bundle font load failed, falling back to system fonts:', e);
+      // 降级：Canvas 仍会用系统 CJK 字体（Microsoft YaHei / PingFang SC）
+    }
+  })();
+
+  return fontLoadPromise;
 }
 
-function getDeadlineText(deadline: string, lang: 'zh' | 'en'): string {
+// ─── 工具函数 ─────────────────────────────────────────────────────────────────
+function deadlineText(deadline: string, lang: 'zh' | 'en'): string {
   const diff = new Date(deadline).getTime() - Date.now();
   if (diff < 0) return lang === 'zh' ? '已过期' : 'Overdue';
-  const hours = Math.floor(diff / 3600000);
-  if (hours < 24) return lang === 'zh' ? `${hours}小时后` : `${hours}h left`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return lang === 'zh' ? `${days}天后` : `${days}d left`;
+  const h = Math.floor(diff / 3600000);
+  if (h < 24) return lang === 'zh' ? `${h}小时后` : `${h}h left`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return lang === 'zh' ? `${d}天后` : `${d}d left`;
   return new Date(deadline).toLocaleDateString();
 }
 
-// ─── 字体加载（Windows 系统字体，离线可用）──────────────────────────────────
-let fontBase64Cache: string | null = null;
-let fontLoadAttempted = false;
-
-async function loadCJKFontBase64(): Promise<string | null> {
-  if (fontLoadAttempted) return fontBase64Cache;
-  fontLoadAttempted = true;
-  try {
-    const { readFile } = await import('@tauri-apps/plugin-fs');
-    // Windows 内置 CJK 字体候选（均含中英文，TTF 单文件）
-    const candidates = [
-      'C:\\Windows\\Fonts\\simhei.ttf',   // 黑体（Win7+，约 9.7MB）
-      'C:\\Windows\\Fonts\\SIMHEI.TTF',
-      'C:\\Windows\\Fonts\\simkai.ttf',    // 楷体（备选）
-      'C:\\Windows\\Fonts\\SIMKAI.TTF',
-    ];
-    for (const path of candidates) {
-      try {
-        const bytes = await readFile(path);
-        // Uint8Array → base64（分块避免 call stack overflow）
-        const CHUNK = 8192;
-        let binary = '';
-        for (let i = 0; i < bytes.length; i += CHUNK) {
-          binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
-        }
-        fontBase64Cache = btoa(binary);
-        console.log(`[PDF] CJK font loaded from ${path}`);
-        return fontBase64Cache;
-      } catch {
-        // 尝试下一个候选
-      }
-    }
-    console.warn('[PDF] No system CJK font found, falling back to Helvetica');
-  } catch (e) {
-    console.warn('[PDF] Font loading failed:', e);
-  }
-  return null;
+function ellipsis(ctx: CanvasRenderingContext2D, text: string, maxW: number): string {
+  if (ctx.measureText(text).width <= maxW) return text;
+  let t = text;
+  while (t.length > 1 && ctx.measureText(t + '…').width > maxW) t = t.slice(0, -1);
+  return t + '…';
 }
 
-// ─── PDF 生成主函数 ──────────────────────────────────────────────────────────
+// ─── Canvas 渲染 ──────────────────────────────────────────────────────────────
+function renderToCanvas(
+  todos: Todo[],
+  lang: 'zh' | 'en',
+  cfg: TemplateConfig,
+  note: string,
+  reportTitle: string,
+  userName: string,
+): HTMLCanvasElement {
+  const SCALE = 2;
+  const W = 794;
+  const H = 1123;
+  const PAD = 50;
+  const CW = W - PAD * 2;
+  const ROW_H = 26;
+  const GAP = 12;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = W * SCALE;
+  canvas.height = H * SCALE;
+  const ctx = canvas.getContext('2d')!;
+  ctx.scale(SCALE, SCALE);
+
+  // 字体栈：优先使用打包的 NotoSansSC，其次回退系统 CJK 字体
+  const FALLBACK = '"Microsoft YaHei","微软雅黑","PingFang SC","Noto Sans CJK SC",SimHei,sans-serif';
+  const F = (size: number, bold = false) =>
+    `${bold ? 'bold ' : ''}${size}px "${FONT_FAMILY}",${FALLBACK}`;
+
+  // 背景
+  ctx.fillStyle = cfg.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  let y = PAD;
+
+  // ── 页眉 ────────────────────────────────────────────────────────────────────
+  const appTitle   = lang === 'zh' ? '待办助手' : 'TodoApp';
+  const title      = reportTitle.trim() || (lang === 'zh' ? '任务报告' : 'Task Report');
+  const done       = todos.filter(t => t.completed).length;
+  const totalLabel = lang === 'zh' ? `共 ${todos.length} 项 · 完成 ${done}` : `${todos.length} items · ${done} done`;
+  const today      = new Date().toLocaleDateString(
+    lang === 'zh' ? 'zh-CN' : 'en-US',
+    { year: 'numeric', month: '2-digit', day: '2-digit' }
+  );
+
+  ctx.font = F(cfg.titleSize, true);
+  ctx.fillStyle = cfg.textPrimary;
+  ctx.fillText(appTitle, PAD, y + cfg.titleSize * 0.8);
+
+  ctx.font = F(cfg.metaSize);
+  ctx.fillStyle = cfg.accent;
+  ctx.fillText(title, PAD, y + cfg.titleSize * 0.8 + 18);
+
+  ctx.textAlign = 'right';
+  const RX = W - PAD;
+  if (userName.trim()) {
+    ctx.font = F(cfg.metaSize, true);
+    ctx.fillStyle = cfg.textPrimary;
+    ctx.fillText(userName, RX, y + cfg.metaSize + 2);
+    ctx.font = F(cfg.metaSize);
+    ctx.fillStyle = cfg.textSecondary;
+    ctx.fillText(today,      RX, y + cfg.metaSize + 19);
+    ctx.fillText(totalLabel, RX, y + cfg.metaSize + 36);
+  } else {
+    ctx.font = F(cfg.metaSize);
+    ctx.fillStyle = cfg.textSecondary;
+    ctx.fillText(today,      RX, y + cfg.metaSize + 2);
+    ctx.fillText(totalLabel, RX, y + cfg.metaSize + 19);
+  }
+  ctx.textAlign = 'left';
+
+  y += cfg.titleSize + 30;
+
+  // 分割线
+  ctx.strokeStyle = cfg.textPrimary;
+  ctx.lineWidth   = cfg.headerLineWidth;
+  ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(W - PAD, y); ctx.stroke();
+  y += 20;
+
+  // ── 备注框 ──────────────────────────────────────────────────────────────────
+  if (note.trim()) {
+    const BP = 10;
+    const noteLabel = lang === 'zh' ? '备注' : 'Notes';
+    ctx.font = F(cfg.bodySize);
+    const lines: string[] = [];
+    let line = '';
+    const maxW = CW - BP * 2 - (cfg.noteLeftBar ? 14 : 4);
+    for (const ch of note) {
+      const test = line + ch;
+      if (ctx.measureText(test).width > maxW) { lines.push(line); line = ch; }
+      else line = test;
+    }
+    if (line) lines.push(line);
+    const boxH = BP * 2 + 16 + lines.length * (cfg.bodySize + 5);
+
+    ctx.strokeStyle = cfg.borderColor; ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.roundRect(PAD, y, CW, boxH, 4); ctx.stroke();
+    if (cfg.noteLeftBar) {
+      ctx.fillStyle = cfg.accent;
+      ctx.beginPath(); ctx.roundRect(PAD, y + 3, 3, boxH - 6, 1); ctx.fill();
+    }
+
+    const tx = PAD + BP + (cfg.noteLeftBar ? 10 : 0);
+    ctx.font = F(10); ctx.fillStyle = cfg.accent;
+    ctx.fillText(noteLabel, tx, y + BP + 12);
+    ctx.font = F(cfg.bodySize); ctx.fillStyle = cfg.textSecondary;
+    lines.forEach((l, i) => ctx.fillText(l, tx, y + BP + 28 + i * (cfg.bodySize + 5)));
+
+    y += boxH + 16;
+  }
+
+  // ── 待办分节 ─────────────────────────────────────────────────────────────────
+  const renderSection = (items: Todo[], label: string) => {
+    if (!items.length) return;
+
+    ctx.font = F(cfg.metaSize, true);
+    ctx.fillStyle = cfg.textPrimary;
+    ctx.fillText(label, PAD, y + 12);
+    const lw = ctx.measureText(label).width;
+
+    ctx.strokeStyle = cfg.borderColor; ctx.lineWidth = 0.7;
+    ctx.beginPath(); ctx.moveTo(PAD + lw + 8, y + 7); ctx.lineTo(W - PAD, y + 7); ctx.stroke();
+    y += 22;
+
+    for (const todo of items) {
+      const CX = PAD + 7.5;
+      const CY = y + ROW_H / 2;
+
+      // 复选圆
+      if (todo.completed) {
+        ctx.fillStyle = cfg.accent;
+        ctx.beginPath(); ctx.arc(CX, CY, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5;
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(CX - 2.5, CY);
+        ctx.lineTo(CX - 0.5, CY + 2.5);
+        ctx.lineTo(CX + 3, CY - 2.5);
+        ctx.stroke();
+      } else {
+        ctx.strokeStyle = cfg.borderColor; ctx.lineWidth = 0.9;
+        ctx.beginPath(); ctx.arc(CX, CY, 5, 0, Math.PI * 2); ctx.stroke();
+      }
+
+      // 截止时间宽度预留
+      let dlW = 0, dlText = '';
+      if (todo.deadline && !todo.completed) {
+        dlText = deadlineText(todo.deadline, lang);
+        ctx.font = F(10);
+        dlW = ctx.measureText(dlText).width + 6;
+      }
+
+      const tX = PAD + 20;
+      ctx.font = F(cfg.bodySize);
+      const titleStr = ellipsis(ctx, todo.title, CW - 20 - dlW);
+
+      if (todo.completed) {
+        ctx.fillStyle = cfg.textMuted;
+        ctx.fillText(titleStr, tX, y + ROW_H / 2 + cfg.bodySize * 0.35);
+        const tw = ctx.measureText(titleStr).width;
+        ctx.strokeStyle = cfg.textMuted; ctx.lineWidth = 0.7;
+        ctx.beginPath(); ctx.moveTo(tX, CY - 1); ctx.lineTo(tX + tw, CY - 1); ctx.stroke();
+      } else {
+        ctx.fillStyle = cfg.textSecondary;
+        ctx.fillText(titleStr, tX, y + ROW_H / 2 + cfg.bodySize * 0.35);
+      }
+
+      if (dlText) {
+        ctx.font = F(10); ctx.fillStyle = cfg.accent;
+        ctx.textAlign = 'right';
+        ctx.fillText(dlText, W - PAD, y + ROW_H / 2 + 4);
+        ctx.textAlign = 'left';
+      }
+
+      ctx.strokeStyle = cfg.borderColor; ctx.lineWidth = 0.4;
+      ctx.beginPath(); ctx.moveTo(PAD, y + ROW_H); ctx.lineTo(W - PAD, y + ROW_H); ctx.stroke();
+      y += ROW_H;
+    }
+    y += GAP;
+  };
+
+  renderSection(todos.filter(t => t.todoType === 'longterm'), lang === 'zh' ? '长时待办' : 'LONG-TERM');
+  renderSection(todos.filter(t => t.todoType === 'quick'),    lang === 'zh' ? '临时待办' : 'QUICK');
+
+  // ── 页脚 ─────────────────────────────────────────────────────────────────────
+  ctx.strokeStyle = cfg.borderColor; ctx.lineWidth = 0.6;
+  ctx.beginPath(); ctx.moveTo(PAD, H - PAD - 10); ctx.lineTo(W - PAD, H - PAD - 10); ctx.stroke();
+
+  ctx.font = F(cfg.metaSize); ctx.fillStyle = cfg.textMuted;
+  ctx.fillText('TodoApp v0.1.0', PAD, H - PAD);
+  ctx.textAlign = 'right';
+  ctx.fillText('1 / 1', W - PAD, H - PAD);
+  ctx.textAlign = 'left';
+
+  return canvas;
+}
+
+// ─── 导出入口 ─────────────────────────────────────────────────────────────────
 export async function exportTodosPDF(
   todos: Todo[],
   lang: 'zh' | 'en',
@@ -155,206 +317,20 @@ export async function exportTodosPDF(
   userName: string = '',
   downloadPath: string = '',
 ): Promise<void> {
-  const cfg = TEMPLATE_CONFIGS[template];
+  // 1. 确保打包字体已加载（app bundle 内，无网络依赖）
+  await ensureFonts();
 
-  // jsPDF A4 竖版，单位 pt（1pt = 1/72 inch）
-  const doc = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait' });
-  const PAGE_W = 595.28;
-  const PAGE_H = 841.89;
-  const PAD = 42;               // 页面四周留白
-  const CONTENT_W = PAGE_W - PAD * 2;
-  const LINE_H = 17;            // 待办行高
-  const SECTION_GAP = 8;        // 分节间距
+  // 2. Canvas 渲染
+  const cfg    = TEMPLATE_CONFIGS[template];
+  const canvas = renderToCanvas(todos, lang, cfg, note, reportTitle, userName);
 
-  // 注册 CJK 字体
-  const fontB64 = await loadCJKFontBase64();
-  let fontFamily = 'helvetica';
-  if (fontB64) {
-    doc.addFileToVFS('TodoAppCJK.ttf', fontB64);
-    doc.addFont('TodoAppCJK.ttf', 'TodoAppCJK', 'normal');
-    fontFamily = 'TodoAppCJK';
-  }
+  // 3. Canvas → PDF
+  const dataUrl = canvas.toDataURL('image/png');
+  const doc     = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait' });
+  doc.addImage(dataUrl, 'PNG', 0, 0, 595.28, 841.89);
 
-  // 辅助：设置文字颜色（接受 hex string）
-  const setColor = (hex: string) => doc.setTextColor(...hexToRgb(hex));
-  const setDraw  = (hex: string) => doc.setDrawColor(...hexToRgb(hex));
-  const setFill  = (hex: string) => doc.setFillColor(...hexToRgb(hex));
-
-  // ── 背景 ──────────────────────────────────────────────────────────────────
-  setFill(cfg.bg);
-  doc.rect(0, 0, PAGE_W, PAGE_H, 'F');
-
-  let y = PAD;
-  doc.setFont(fontFamily, 'normal');
-
-  // ── 页眉 ──────────────────────────────────────────────────────────────────
-  const appTitle   = lang === 'zh' ? '待办助手' : 'TodoApp';
-  const title      = reportTitle || (lang === 'zh' ? '任务报告' : 'Task Report');
-  const done       = todos.filter(t => t.completed).length;
-  const totalLabel = lang === 'zh'
-    ? `共 ${todos.length} 项 · 完成 ${done}`
-    : `${todos.length} items · ${done} done`;
-  const today = new Date().toLocaleDateString(
-    lang === 'zh' ? 'zh-CN' : 'en-US',
-    { year: 'numeric', month: '2-digit', day: '2-digit' }
-  );
-
-  // 左：应用名
-  doc.setFontSize(cfg.titleSize);
-  setColor(cfg.textPrimary);
-  doc.text(appTitle, PAD, y + cfg.titleSize * 0.78);
-
-  // 左：报告副标题
-  doc.setFontSize(cfg.metaSize);
-  setColor(cfg.accent);
-  doc.text(title, PAD, y + cfg.titleSize * 0.78 + 13);
-
-  // 右：用户名 / 日期 / 统计
-  const rightX = PAGE_W - PAD;
-  const opts = { align: 'right' as const };
-  if (userName) {
-    doc.setFontSize(cfg.metaSize);
-    setColor(cfg.textPrimary);
-    doc.text(userName, rightX, y + cfg.metaSize + 2, opts);
-  }
-  doc.setFontSize(cfg.metaSize);
-  setColor(cfg.textSecondary);
-  doc.text(today,      rightX, y + cfg.metaSize + 14, opts);
-  doc.text(totalLabel, rightX, y + cfg.metaSize + 26, opts);
-
-  y += cfg.titleSize + 20;
-
-  // 分割线
-  setDraw(cfg.textPrimary);
-  doc.setLineWidth(cfg.headerLineWidth);
-  doc.line(PAD, y, PAGE_W - PAD, y);
-  y += 16;
-
-  // ── 备注框（可选）────────────────────────────────────────────────────────
-  if (note.trim()) {
-    const noteLabel = lang === 'zh' ? '备注' : 'Notes';
-    const BOX_PAD   = 8;
-    const noteLines = doc.splitTextToSize(note, CONTENT_W - BOX_PAD * 2 - 6);
-    const boxH      = BOX_PAD * 2 + 11 + noteLines.length * 13;
-
-    setDraw(cfg.borderColor);
-    doc.setLineWidth(0.5);
-    doc.roundedRect(PAD, y, CONTENT_W, boxH, 3, 3, 'S');
-
-    // 左侧强调线（editorial 专属）
-    if (template === 'editorial') {
-      setDraw(cfg.accent);
-      doc.setLineWidth(2);
-      doc.line(PAD, y + 2, PAD, y + boxH - 2);
-    }
-
-    doc.setFontSize(8);
-    setColor(cfg.accent);
-    doc.text(noteLabel, PAD + BOX_PAD + (template === 'editorial' ? 6 : 0), y + BOX_PAD + 8);
-
-    doc.setFontSize(cfg.bodySize);
-    setColor(cfg.textSecondary);
-    doc.text(noteLines, PAD + BOX_PAD + (template === 'editorial' ? 6 : 0), y + BOX_PAD + 21);
-
-    y += boxH + 14;
-  }
-
-  // ── 待办分节渲染 ─────────────────────────────────────────────────────────
-  const renderSection = (items: Todo[], label: string) => {
-    if (items.length === 0) return;
-
-    // 分节标题
-    doc.setFontSize(cfg.metaSize);
-    setColor(cfg.textPrimary);
-    doc.text(label, PAD, y + 9);
-    const labelW = doc.getTextWidth(label);
-
-    setDraw(cfg.borderColor);
-    doc.setLineWidth(0.5);
-    doc.line(PAD + labelW + 6, y + 5.5, PAGE_W - PAD, y + 5.5);
-    y += 18;
-
-    // 待办条目
-    for (const todo of items) {
-      const CX = PAD + 5.5;
-      const CY = y + LINE_H / 2;
-      const CR = 3.8;
-
-      // 复选框
-      if (todo.completed) {
-        setFill(cfg.accent);
-        doc.circle(CX, CY, CR, 'F');
-        // 勾
-        setDraw('#ffffff');
-        doc.setLineWidth(0.9);
-        doc.line(CX - 2,   CY + 0.3, CX - 0.5, CY + 2);
-        doc.line(CX - 0.5, CY + 2,   CX + 2.5, CY - 1.8);
-      } else {
-        setDraw(cfg.borderColor);
-        doc.setLineWidth(0.7);
-        doc.circle(CX, CY, CR, 'S');
-      }
-
-      // 标题文字（截断超长内容）
-      const deadlineW = todo.deadline && !todo.completed ? 68 : 0;
-      const titleMaxW = CONTENT_W - 14 - deadlineW;
-      const titleX    = PAD + 14;
-
-      doc.setFontSize(cfg.bodySize);
-      if (todo.completed) {
-        setColor(cfg.textMuted);
-        const line0 = doc.splitTextToSize(todo.title, titleMaxW)[0];
-        doc.text(line0, titleX, y + 11);
-        // 删除线（手动绘制）
-        const tw = Math.min(doc.getTextWidth(line0), titleMaxW);
-        setDraw(cfg.textMuted);
-        doc.setLineWidth(0.5);
-        doc.line(titleX, y + 8, titleX + tw, y + 8);
-      } else {
-        setColor(cfg.textSecondary);
-        const titleLines = doc.splitTextToSize(todo.title, titleMaxW);
-        doc.text(titleLines[0], titleX, y + 11);
-        // 多行续排
-        for (let li = 1; li < titleLines.length && li < 3; li++) {
-          y += LINE_H;
-          doc.text(titleLines[li], titleX, y + 11);
-        }
-      }
-
-      // 截止时间
-      if (todo.deadline && !todo.completed) {
-        doc.setFontSize(8);
-        setColor(cfg.accent);
-        doc.text(getDeadlineText(todo.deadline, lang), PAGE_W - PAD, y + 11, { align: 'right' });
-      }
-
-      // 行分隔线
-      setDraw(cfg.borderColor);
-      doc.setLineWidth(0.3);
-      doc.line(PAD, y + LINE_H, PAGE_W - PAD, y + LINE_H);
-
-      y += LINE_H;
-    }
-    y += SECTION_GAP;
-  };
-
-  renderSection(todos.filter(t => t.todoType === 'longterm'), lang === 'zh' ? '长时待办' : 'LONG-TERM');
-  renderSection(todos.filter(t => t.todoType === 'quick'),    lang === 'zh' ? '临时待办' : 'QUICK');
-
-  // ── 页脚 ──────────────────────────────────────────────────────────────────
-  const footerY = PAGE_H - PAD + 4;
-  setDraw(cfg.borderColor);
-  doc.setLineWidth(0.5);
-  doc.line(PAD, footerY - 8, PAGE_W - PAD, footerY - 8);
-
-  doc.setFontSize(cfg.metaSize);
-  setColor(cfg.textMuted);
-  doc.text('TodoApp v0.1.0',      PAD,          footerY);
-  doc.text('1/1',                 PAGE_W - PAD, footerY, { align: 'right' });
-
-  // ── 保存 ─────────────────────────────────────────────────────────────────
+  // 4. 保存
   const filename = `TodoApp-Report-${new Date().toISOString().split('T')[0]}.pdf`;
-
   try {
     const { save }      = await import('@tauri-apps/plugin-dialog');
     const { writeFile } = await import('@tauri-apps/plugin-fs');
@@ -366,9 +342,7 @@ export async function exportTodosPDF(
       await writeFile(path, new Uint8Array(doc.output('arraybuffer')));
       return;
     }
-  } catch {
-    // Tauri 环境不可用，回退到浏览器下载
-  }
+  } catch { /* Tauri 不可用 */ }
 
   doc.save(filename);
 }
