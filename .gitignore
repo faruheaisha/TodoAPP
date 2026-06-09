@@ -22,3 +22,12 @@ Thumbs.db
 # Environment
 .env
 .env.local
+
+# User data — SQLite 数据库存储在系统用户数据目录运行时生成，
+# 绝不应随仓库分发，避免开源后携带个人待办数据
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3

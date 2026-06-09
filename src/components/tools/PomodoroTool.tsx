@@ -95,8 +95,11 @@ export function PomodoroTool() {
             <button
               key={m}
               onClick={() => switchMode(m)}
-              className="px-3 py-1.5 text-[11px] font-medium transition-all cursor-pointer"
+              className="text-[11px] font-medium transition-all cursor-pointer flex-shrink-0"
               style={{
+                padding: '6px 14px',
+                whiteSpace: 'nowrap',
+                lineHeight: 1.2,
                 color: isActive ? 'var(--color-fill-text)' : 'var(--color-text-tertiary)',
                 backgroundColor: isActive ? 'var(--color-fill)' : 'transparent',
                 border: 'none',

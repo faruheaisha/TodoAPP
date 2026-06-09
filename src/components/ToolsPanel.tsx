@@ -1,9 +1,10 @@
 import type { ComponentType } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Timer } from 'lucide-react';
+import { X, Timer, CheckSquare } from 'lucide-react';
 import { useToolsPanelStore, type ToolId } from '../store/toolsStore';
 import { PomodoroTool } from './tools/PomodoroTool';
+import { HabitTool } from './tools/HabitTool';
 
 /**
  * ToolsPanel — 可扩展的工具面板框架
@@ -24,10 +25,10 @@ interface ToolDef {
 }
 
 const TOOLS: ToolDef[] = [
-  { id: 'pomodoro', icon: Timer, labelKey: 'tools.pomodoro', Component: PomodoroTool },
+  { id: 'pomodoro', icon: Timer,       labelKey: 'tools.pomodoro', Component: PomodoroTool },
+  { id: 'habits',   icon: CheckSquare, labelKey: 'tools.habits',   Component: HabitTool },
   // 占位示例 — 后续接入时取消注释并实现对应组件：
   // { id: 'calendar', icon: CalendarDays, labelKey: 'tools.calendar', Component: CalendarTool },
-  // { id: 'habits',   icon: ListChecks,   labelKey: 'tools.habits',   Component: HabitsTool },
 ];
 
 export default function ToolsPanel() {
@@ -52,23 +53,22 @@ export default function ToolsPanel() {
             onClick={() => setIsOpen(false)}
           />
 
-          {/* Tools modal */}
+          {/* Centering layer — flex 居中而非 transform: translate(-50%,-50%)，
+              避免与 Framer Motion 自身管理的 scale transform 互相覆盖导致偏移 */}
+          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
           <motion.div
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.96 }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-            className="fixed z-50 flex overflow-hidden"
+            className="flex overflow-hidden pointer-events-auto"
             style={{
-              width: 'min(640px, 92vw)',
+              width: 'min(700px, 92vw)',
               maxHeight: '86vh',
               borderRadius: 'var(--radius-lg)',
               backgroundColor: 'var(--color-bg-secondary)',
               border: '0.5px solid var(--color-border)',
               boxShadow: '0 16px 48px rgba(0,0,0,0.2)',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
             }}
           >
             {/* Left nav — 工具列表，宽度与 SettingsDrawer 对齐以统一视觉节奏 */}
@@ -78,7 +78,7 @@ export default function ToolsPanel() {
                   {t('tools.title')}
                 </span>
               </div>
-              <div className="flex-1 overflow-y-auto py-1">
+              <div className="flex-1 overflow-y-auto py-1.5 px-2.5 flex flex-col" style={{ gap: '2px' }}>
                 {TOOLS.map((tool) => {
                   const isActive = activeTool === tool.id;
                   const Icon = tool.icon;
@@ -86,16 +86,17 @@ export default function ToolsPanel() {
                     <button
                       key={tool.id}
                       onClick={() => setActiveTool(tool.id)}
-                      className="w-full text-left flex items-center gap-2 transition-all cursor-pointer"
+                      className="w-full text-left flex items-center gap-2 transition-all cursor-pointer rounded-md"
                       style={{
                         height: '30px',
                         padding: '0 10px',
                         fontSize: '11px',
-                        color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)',
-                        backgroundColor: isActive ? 'var(--color-bg-tertiary)' : 'transparent',
-                        borderLeft: isActive ? '2px solid var(--clay)' : '2px solid transparent',
+                        color: isActive ? 'var(--color-fill-text)' : 'var(--color-text-tertiary)',
+                        backgroundColor: isActive ? 'var(--color-fill)' : 'transparent',
                         fontWeight: isActive ? 500 : 400,
                       }}
+                      onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-bg-tertiary)'; }}
+                      onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
                     >
                       <Icon size={13} />
                       {t(tool.labelKey)}
@@ -124,11 +125,12 @@ export default function ToolsPanel() {
                   <X size={13} />
                 </button>
               </div>
-              <div className="flex-1 overflow-y-auto" style={{ padding: '16px' }}>
+              <div className="flex-1 overflow-y-auto" style={{ padding: '22px 24px' }}>
                 <ActiveComponent />
               </div>
             </div>
           </motion.div>
+          </div>
         </>
       )}
     </AnimatePresence>

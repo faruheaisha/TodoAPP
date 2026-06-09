@@ -3,6 +3,18 @@ import Database from '@tauri-apps/plugin-sql';
 import type { Todo } from '../store/todoStore';
 
 // Database reference (lazy init)
+//
+// 重要：'sqlite:todos.db' 是相对路径，Tauri SQL 插件会在运行时
+// 将其解析到操作系统的「应用数据目录」（例如 Windows 上的
+// %APPDATA%/<bundle-identifier>/todos.db），而不是项目源码目录或
+// 安装目录。这意味着：
+//   1) 每个用户的待办数据完全独立存储在自己的系统账户下；
+//   2) 该文件不会被打包进安装包，也不会出现在 git 仓库中
+//      （已在 .gitignore 中显式排除 *.db）；
+//   3) 开源后，其他用户下载并运行本应用时会拥有全新的空数据库，
+//      不会看到原作者的个人数据。
+// 如需自定义存储位置，可通过 plugin-store 持久化一个用户可配置的
+// 路径，并在此处据此构造连接字符串（保持与「下载路径」设置同源的模式）。
 let db: Database | null = null;
 
 async function getDB(): Promise<Database> {

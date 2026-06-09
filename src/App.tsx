@@ -17,7 +17,10 @@ import ToolsPanel from './components/ToolsPanel';
 
 function App() {
   const { t, i18n } = useTranslation();
-  const { theme, language } = useSettingsStore();
+  const {
+    theme, language,
+    startupDelay, reminderIgnored, lastPromptDate, setLastPromptDate,
+  } = useSettingsStore();
   const { todos, isLoading, setTodos } = useTodoStore();
   const [filter, setFilter] = useState<FilterType>('all');
 
@@ -32,6 +35,41 @@ function App() {
       i18n.changeLanguage(language);
     }
   }, [language, i18n]);
+
+  // 开机弹窗提醒 — 真正按用户在设置中配置的「开机弹窗延迟」(分钟) 调度系统通知，
+  // 而不是依赖后端写死的固定时长。每天最多提醒一次，且尊重用户的「不再提醒」选择。
+  // 说明：原 Rust 端 setup() 中也会在固定 5 分钟后 emit("startup-prompt")，
+  // 但前端从未监听过该事件 —— 该机制实际上从未生效。这里改为完全由前端
+  // 按用户设置调度，确保滑块的数值能真实影响提醒时机。
+  useEffect(() => {
+    if (reminderIgnored) return;
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (lastPromptDate === todayStr) return; // 今天已经提醒过，避免重复打扰
+
+    const delayMs = Math.max(1, startupDelay) * 60 * 1000;
+    const timer = setTimeout(async () => {
+      try {
+        const { isPermissionGranted, requestPermission, sendNotification } = await import('@tauri-apps/plugin-notification');
+        let granted = await isPermissionGranted();
+        if (!granted) {
+          const permission = await requestPermission();
+          granted = permission === 'granted';
+        }
+        if (granted) {
+          sendNotification({
+            title: t('notifications.startup.title'),
+            body: t('notifications.startup.body'),
+          });
+        }
+      } catch (e) {
+        console.warn('Startup prompt notification skipped:', e);
+      } finally {
+        setLastPromptDate(todayStr);
+      }
+    }, delayMs);
+
+    return () => clearTimeout(timer);
+  }, [startupDelay, reminderIgnored, lastPromptDate, setLastPromptDate, t]);
 
   // Load todos on mount
   useEffect(() => {

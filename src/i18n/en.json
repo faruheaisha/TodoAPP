@@ -45,8 +45,16 @@
     "navPath": "Storage Path",
     "navExport": "Export",
     "navImport": "Import",
+    "navAbout": "About",
     "groupGeneral": "General",
     "groupData": "Data",
+    "groupAbout": "About",
+    "aboutTagline": "A quiet, focused todo companion that keeps your attention where it belongs — on what matters.",
+    "aboutBody": "TodoApp brings quick tasks and long-term goals into one calm, focused space. Deadline reminders keep you on track, the built-in focus timer helps you enter a flow state, and one-click exports to JSON, CSV, or a polished PDF report let you share or archive your progress anytime. Everything is stored locally on your device, isolated per account — private, yours, always.",
+    "aboutHighlights": "Why TodoApp",
+    "aboutHighlightsBody": "A distraction-free interface keeps you focused on tasks, not tooling. Light and dark themes plus full bilingual support (Chinese / English) adapt to any context. A global hotkey summons the app instantly without breaking your focus. Focus timer, deadline alerts, data backup, and multi-format export — one app, complete workflow.",
+    "aboutCompare": "How we compare",
+    "aboutCompareBody": "Unlike mainstream todo apps that require accounts, cloud sync, and monthly subscriptions, TodoApp is local-first: no sign-up, no recurring fees, no data leaving your device. The quick/long-term task split plus deadline reminders reduce missed items that flat lists often lose. A built-in focus timer means you no longer juggle a separate Pomodoro app. If you want a reliable, calm task manager that stays out of your way, TodoApp was built for exactly that.",
     "exportSuccess": "Exported",
     "importSuccess": "Imported",
     "importInvalid": "Invalid format",
@@ -110,6 +118,15 @@
     "calendar": "Calendar",
     "habits": "Habits",
     "moreSoon": "More tools coming soon"
+  },
+  "habits": {
+    "subtitle": "Last 7 Days",
+    "add": "Add Habit",
+    "addFirst": "Add your first habit",
+    "namePlaceholder": "Habit name...",
+    "confirm": "Add",
+    "empty": "No habits yet. Start building one.",
+    "streakDays": "day streak"
   },
   "pomodoro": {
     "modeWork": "Focus",

@@ -4,15 +4,16 @@ import { useSettingsStore } from '../store/settingsStore';
 import { useTodoStore } from '../store/todoStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, FolderOpen, Save, Upload, FileText, FileJson, FileSpreadsheet } from 'lucide-react';
-import { exportTodosJSON, exportTodosCSV, downloadFile } from '../lib/csv-export';
+import { todosToCSV, saveFileWithDialog } from '../lib/csv-export';
 import { useToast } from './Toast';
 
-type NavSection = 'appearance' | 'shortcut' | 'path' | 'export' | 'import';
+type NavSection = 'appearance' | 'shortcut' | 'path' | 'export' | 'import' | 'about';
+type NavGroup = 'general' | 'data' | 'about';
 
 interface NavItem {
   key: NavSection;
   label: string;
-  group: 'general' | 'data';
+  group: NavGroup;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -21,7 +22,21 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'path', label: 'settings.navPath', group: 'general' },
   { key: 'export', label: 'settings.navExport', group: 'data' },
   { key: 'import', label: 'settings.navImport', group: 'data' },
+  { key: 'about', label: 'settings.navAbout', group: 'about' },
 ];
+
+// 分组强调色 — 仅用于分组标签文字本身的着色，不再使用色点装饰
+const GROUP_ACCENT: Record<NavGroup, string> = {
+  general: 'var(--clay)',
+  data: 'var(--sky)',
+  about: 'var(--olive)',
+};
+
+const GROUP_LABEL_KEY: Record<NavGroup, string> = {
+  general: 'settings.groupGeneral',
+  data: 'settings.groupData',
+  about: 'settings.groupAbout',
+};
 
 type PdfTemplateId = 'classic' | 'slate' | 'editorial' | 'minimal';
 
@@ -99,7 +114,7 @@ function eventToShortcut(e: React.KeyboardEvent): string {
 
 function SettingRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between py-1.5" style={{ borderBottom: '0.5px solid var(--color-separator)' }}>
+    <div className="flex items-center justify-between" style={{ padding: '10px 2px', borderBottom: '0.5px solid var(--color-separator)' }}>
       <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>{label}</span>
       <div className="flex-shrink-0">{children}</div>
     </div>
@@ -107,14 +122,17 @@ function SettingRow({ label, children }: { label: string; children: React.ReactN
 }
 
 function ToggleGroup({ children }: { children: React.ReactNode }) {
-  return <div className="flex rounded overflow-hidden border" style={{ borderColor: 'var(--color-border)' }}>{children}</div>;
+  return <div className="flex rounded-md overflow-hidden border flex-shrink-0" style={{ borderColor: 'var(--color-border)' }}>{children}</div>;
 }
 
 function ToggleBtn({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
   return (
     <button onClick={onClick}
-      className="px-2.5 py-1 text-[10px] font-medium transition-all cursor-pointer"
+      className="text-[11px] font-medium transition-all cursor-pointer flex-shrink-0"
       style={{
+        padding: '5px 12px',
+        whiteSpace: 'nowrap',
+        lineHeight: 1.2,
         color: active ? 'var(--color-fill-text)' : 'var(--color-text-tertiary)',
         backgroundColor: active ? 'var(--color-fill)' : 'transparent',
         border: 'none',
@@ -174,19 +192,21 @@ export default function SettingsDrawer() {
     return () => window.removeEventListener('keydown', handler);
   }, [isOpen, showPdfPicker, setIsOpen]);
 
-  const handleExportJSON = () => {
-    exportTodosJSON(todos, 'todoapp-' + today + '.json');
+  const handleExportJSON = async () => {
+    const json = JSON.stringify(todos, null, 2);
+    await saveFileWithDialog(json, 'todoapp-' + today + '.json', 'application/json', downloadPath);
     show(t('settings.exportSuccess'));
   };
 
-  const handleExportCSV = () => {
-    exportTodosCSV(todos, 'todoapp-' + today + '.csv');
+  const handleExportCSV = async () => {
+    const csv = todosToCSV(todos);
+    await saveFileWithDialog(csv, 'todoapp-' + today + '.csv', 'text/csv', downloadPath);
     show(t('settings.exportSuccess'));
   };
 
-  const handleBackup = () => {
+  const handleBackup = async () => {
     const backupData = JSON.stringify({ todos, exportedAt: new Date().toISOString() }, null, 2);
-    downloadFile(backupData, 'todoapp-backup-' + today + '.json', 'application/json');
+    await saveFileWithDialog(backupData, 'todoapp-backup-' + today + '.json', 'application/json', downloadPath);
     show(t('settings.backupSuccess'));
   };
 
@@ -219,7 +239,7 @@ export default function SettingsDrawer() {
   const handleExportPDF = async (template: PdfTemplateId) => {
     try {
       const { exportTodosPDF } = await import('../lib/pdf-export');
-      await exportTodosPDF(todos, lang, template, pdfNote, pdfTitle || t('pdf.titlePlaceholder'));
+      await exportTodosPDF(todos, lang, template, pdfNote, pdfTitle || t('pdf.titlePlaceholder'), '', downloadPath);
       show(t('settings.pdfExportSuccess'));
       setShowPdfPicker(false);
       setPdfNote('');
@@ -263,23 +283,22 @@ export default function SettingsDrawer() {
             style={{ backgroundColor: 'rgba(0,0,0,0.35)' }}
             onClick={() => setIsOpen(false)}
           />
-          {/* Settings modal */}
+          {/* Centering layer — flex 居中而非 transform: translate(-50%,-50%)，
+              避免与 Framer Motion 自身管理的 scale transform 互相覆盖导致偏移 */}
+          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
           <motion.div
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.96 }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-            className="fixed z-50 flex overflow-hidden"
+            className="flex overflow-hidden pointer-events-auto"
             style={{
-              width: 'min(720px, 92vw)',
-              maxHeight: '88vh',
+              width: 'min(760px, 92vw)',
+              height: 'min(560px, 88vh)',
               borderRadius: 'var(--radius-lg)',
               backgroundColor: 'var(--color-bg-secondary)',
               border: '0.5px solid var(--color-border)',
               boxShadow: '0 16px 48px rgba(0,0,0,0.2)',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
             }}
           >
             {/* Left nav — 150px per spec */}
@@ -289,35 +308,50 @@ export default function SettingsDrawer() {
                   {t('settings.title')}
                 </span>
               </div>
-              <div className="flex-1 overflow-y-auto py-1">
-                {(['general', 'data'] as const).map((group) => (
-                  <div key={group}>
-                    <div className="px-4 pt-3 pb-1 text-[9px] font-medium uppercase tracking-widest select-none" style={{ color: 'var(--color-text-tertiary)' }}>
-                      {t('settings.group' + (group === 'general' ? 'General' : 'Data'))}
-                    </div>
-                    {NAV_ITEMS.filter((item) => item.group === group).map((item) => {
+              <div className="flex-1 overflow-y-auto py-1.5">
+                {(['general', 'data', 'about'] as const).map((group, gi) => {
+                  const items = NAV_ITEMS.filter((item) => item.group === group);
+                  // "关于" 分组下只有一个同名条目，单独显示分组标题会造成「关于」标题重复，因此跳过
+                  const showGroupLabel = !(items.length === 1 && GROUP_LABEL_KEY[group] === items[0].label);
+                  return (
+                  <div key={group} style={{ marginTop: gi === 0 ? 0 : '12px' }}>
+                    {showGroupLabel && (
+                      <div className="px-4 pb-1.5 select-none">
+                        <span className="text-[9px] font-medium uppercase tracking-widest" style={{ color: GROUP_ACCENT[group] }}>
+                          {t(GROUP_LABEL_KEY[group])}
+                        </span>
+                      </div>
+                    )}
+                    <div className="px-2.5 flex flex-col" style={{ gap: '2px' }}>
+                    {items.map((item) => {
                       const isActive = activeNav === item.key;
                       return (
                         <button
                           key={item.key}
                           onClick={() => setActiveNav(item.key)}
-                          className="w-full text-left flex items-center gap-2 transition-all cursor-pointer"
+                          className="w-full text-left flex items-center gap-2 transition-all cursor-pointer rounded-md"
                           style={{
-                            height: '28px',
+                            height: '30px',
                             padding: '0 10px',
                             fontSize: '11px',
-                            color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)',
-                            backgroundColor: isActive ? 'var(--color-bg-tertiary)' : 'transparent',
-                            borderLeft: isActive ? '2px solid var(--clay)' : '2px solid transparent',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            color: isActive ? 'var(--color-fill-text)' : 'var(--color-text-tertiary)',
+                            backgroundColor: isActive ? 'var(--color-fill)' : 'transparent',
                             fontWeight: isActive ? 500 : 400,
                           }}
+                          onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-bg-tertiary)'; }}
+                          onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
                         >
                           {t(item.label)}
                         </button>
                       );
                     })}
+                    </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
               <div className="px-4 py-2.5 border-t" style={{ borderColor: 'var(--color-border)' }}>
                 <span className="text-[9px]" style={{ color: 'var(--color-text-tertiary)' }}>v0.1.0</span>
@@ -326,7 +360,7 @@ export default function SettingsDrawer() {
 
             {/* Right panel */}
             <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0" style={{ borderColor: 'var(--color-border)' }}>
+              <div className="flex items-center justify-between border-b flex-shrink-0" style={{ borderColor: 'var(--color-border)', padding: '14px 26px' }}>
                 <span className="text-xs font-medium" style={{ color: 'var(--color-text-primary)' }}>
                   {t(NAV_ITEMS.find((i) => i.key === activeNav)?.label ?? '')}
                 </span>
@@ -335,9 +369,9 @@ export default function SettingsDrawer() {
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto" style={{ padding: '12px 16px' }}>
+              <div className="flex-1 overflow-y-auto" style={{ padding: '22px 26px' }}>
                 {activeNav === 'appearance' && (
-                  <div style={{ gap: '16px', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <SettingRow label={t('settings.language')}>
                       <ToggleGroup>
                         <ToggleBtn active={language === 'zh'} onClick={() => setLanguage('zh')} label="中文" />
@@ -401,19 +435,46 @@ export default function SettingsDrawer() {
                 )}
 
                 {activeNav === 'export' && (
-                  <div className="space-y-1">
-                    <ExportRow
-                      icon={<FileText size={13} />}
-                      label={t('settings.exportPDF')}
-                      feature="New"
-                      onClick={() => {
-                        setSelectedTemplate('classic');
-                        setShowPdfPicker(true);
-                      }}
-                    />
-                    <ExportRow icon={<FileJson size={13} />} label={t('settings.exportJSON')} onClick={handleExportJSON} />
-                    <ExportRow icon={<FileSpreadsheet size={13} />} label={t('settings.exportCSV')} onClick={handleExportCSV} />
-                    <ExportRow icon={<Save size={13} />} label={t('settings.backupNow')} onClick={handleBackup} />
+                  <div className="flex flex-col" style={{ gap: '16px' }}>
+                    {/* 导出格式分组 */}
+                    <div
+                      className="flex flex-col"
+                      style={{ borderRadius: 10, border: '0.5px solid var(--color-border)', overflow: 'hidden' }}
+                    >
+                      <div className="px-3 py-2" style={{ backgroundColor: 'var(--color-bg-tertiary)', borderBottom: '0.5px solid var(--color-border)' }}>
+                        <span className="text-[9px] font-medium uppercase tracking-widest" style={{ color: 'var(--clay)' }}>
+                          {t('settings.export')}
+                        </span>
+                      </div>
+                      <div className="flex flex-col" style={{ gap: '2px', padding: '6px' }}>
+                        <ExportRow
+                          icon={<FileText size={13} />}
+                          label={t('settings.exportPDF')}
+                          feature="New"
+                          onClick={() => {
+                            setSelectedTemplate('classic');
+                            setShowPdfPicker(true);
+                          }}
+                        />
+                        <ExportRow icon={<FileJson size={13} />} label={t('settings.exportJSON')} onClick={handleExportJSON} />
+                        <ExportRow icon={<FileSpreadsheet size={13} />} label={t('settings.exportCSV')} onClick={handleExportCSV} />
+                      </div>
+                    </div>
+
+                    {/* 备份分组 */}
+                    <div
+                      className="flex flex-col"
+                      style={{ borderRadius: 10, border: '0.5px solid var(--color-border)', overflow: 'hidden' }}
+                    >
+                      <div className="px-3 py-2" style={{ backgroundColor: 'var(--color-bg-tertiary)', borderBottom: '0.5px solid var(--color-border)' }}>
+                        <span className="text-[9px] font-medium uppercase tracking-widest" style={{ color: 'var(--sky)' }}>
+                          {t('settings.backup')}
+                        </span>
+                      </div>
+                      <div style={{ padding: '6px' }}>
+                        <ExportRow icon={<Save size={13} />} label={t('settings.backupNow')} onClick={handleBackup} />
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -426,9 +487,58 @@ export default function SettingsDrawer() {
                     </p>
                   </>
                 )}
+
+                {activeNav === 'about' && (
+                  <div className="flex flex-col" style={{ gap: '16px' }}>
+                    <div className="flex items-center" style={{ gap: '12px' }}>
+                      <div
+                        className="flex items-center justify-center flex-shrink-0"
+                        style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: 'var(--clay)', color: 'var(--ivory-light)' }}
+                      >
+                        <span className="text-base font-semibold">T</span>
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>{t('app.title')}</div>
+                        <div className="text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>{t('settings.version')} 0.1.0</div>
+                      </div>
+                    </div>
+
+                    <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
+                      {t('settings.aboutTagline')}
+                    </p>
+                    <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
+                      {t('settings.aboutBody')}
+                    </p>
+
+                    <div
+                      className="flex flex-col"
+                      style={{ gap: '6px', padding: '14px 16px', borderRadius: 10, border: '0.5px solid var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)' }}
+                    >
+                      <span className="text-[10px] font-medium uppercase tracking-widest" style={{ color: 'var(--olive)' }}>
+                        {t('settings.aboutHighlights')}
+                      </span>
+                      <p className="text-[11px] leading-relaxed" style={{ color: 'var(--color-text-tertiary)' }}>
+                        {t('settings.aboutHighlightsBody')}
+                      </p>
+                    </div>
+
+                    <div
+                      className="flex flex-col"
+                      style={{ gap: '6px', padding: '14px 16px', borderRadius: 10, border: '0.5px solid var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)' }}
+                    >
+                      <span className="text-[10px] font-medium uppercase tracking-widest" style={{ color: 'var(--sky)' }}>
+                        {t('settings.aboutCompare')}
+                      </span>
+                      <p className="text-[11px] leading-relaxed" style={{ color: 'var(--color-text-tertiary)' }}>
+                        {t('settings.aboutCompareBody')}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>
+          </div>
 
           {/* PDF Template Picker — per spec: 2x2 grid, visual previews, select + export */}
           {showPdfPicker && (
@@ -437,7 +547,7 @@ export default function SettingsDrawer() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="fixed inset-0 z-50 flex items-center justify-center"
-              style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
+              style={{ backgroundColor: 'rgba(0,0,0,0.45)', padding: '32px' }}
               onClick={() => setShowPdfPicker(false)}
             >
               <motion.div
@@ -445,16 +555,21 @@ export default function SettingsDrawer() {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-                className="rounded-xl p-5"
+                className="rounded-xl pdf-picker-scroll"
                 style={{
-                  width: 'min(540px, 92vw)',
+                  width: 'min(560px, 92vw)',
+                  maxHeight: '86vh',
+                  overflowY: 'auto',
+                  padding: '24px',
                   backgroundColor: 'var(--color-bg-secondary)',
                   border: '0.5px solid var(--color-border)',
                   boxShadow: '0 16px 48px rgba(0,0,0,0.25)',
+                  scrollbarWidth: 'thin',
+                  scrollbarColor: 'transparent transparent',
                 }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between" style={{ marginBottom: '18px' }}>
                   <h2 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>{t('pdf.title')}</h2>
                   <button onClick={() => setShowPdfPicker(false)} className="w-6 h-6 rounded flex items-center justify-center hover:bg-[var(--color-bg-tertiary)] transition-colors cursor-pointer" style={{ color: 'var(--color-text-tertiary)' }}>
                     <X size={13} />
@@ -462,7 +577,7 @@ export default function SettingsDrawer() {
                 </div>
 
                 {/* 2x2 grid with visual previews */}
-                <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="grid grid-cols-2 gap-3" style={{ marginBottom: '16px' }}>
                   {PDF_TEMPLATES.map((tmpl) => {
                     const isSel = selectedTemplate === tmpl.id;
                     return (
@@ -522,7 +637,7 @@ export default function SettingsDrawer() {
                 </div>
 
                 {/* Editable fields — note + report title per spec v2 */}
-                <div className="flex flex-col gap-2 mb-3" style={{ padding: '8px 10px', borderRadius: 8, border: '0.5px dashed var(--color-border)', backgroundColor: 'var(--color-bg-primary)' }}>
+                <div className="flex flex-col gap-2.5" style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: 8, border: '0.5px dashed var(--color-border)', backgroundColor: 'var(--color-bg-primary)' }}>
                   <div className="flex items-center gap-2">
                     <span className="text-[9px] font-medium uppercase tracking-wider flex-shrink-0" style={{ color: '#d97757', minWidth: 48 }}>{t('pdf.noteLabel')}</span>
                     <input
@@ -548,7 +663,7 @@ export default function SettingsDrawer() {
                 </div>
 
                 {/* Bottom bar: selected label + actions */}
-                <div className="flex items-center justify-between pt-3" style={{ borderTop: '0.5px solid var(--color-border)' }}>
+                <div className="flex items-center justify-between" style={{ paddingTop: '16px', borderTop: '0.5px solid var(--color-border)' }}>
                   <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
                     {t('pdf.selectedLabel')}
                     <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{t(selectedTmpl.labelKey)}</span>
@@ -556,8 +671,10 @@ export default function SettingsDrawer() {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setShowPdfPicker(false)}
-                      className="px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer"
+                      className="rounded-md text-xs font-medium transition-colors cursor-pointer"
                       style={{
+                        padding: '7px 18px',
+                        whiteSpace: 'nowrap',
                         color: 'var(--color-text-secondary)',
                         backgroundColor: 'transparent',
                         border: '0.5px solid var(--color-border)',
@@ -569,8 +686,10 @@ export default function SettingsDrawer() {
                     </button>
                     <button
                       onClick={() => handleExportPDF(selectedTemplate)}
-                      className="px-4 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer"
+                      className="rounded-md text-xs font-medium transition-colors cursor-pointer"
                       style={{
+                        padding: '7px 18px',
+                        whiteSpace: 'nowrap',
                         backgroundColor: 'var(--color-fill)',
                         color: 'var(--color-fill-text)',
                         border: 'none',
