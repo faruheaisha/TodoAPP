@@ -1,10 +1,11 @@
 import type { ComponentType } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Timer, CheckSquare } from 'lucide-react';
+import { X, Timer, CheckSquare, BarChart2 } from 'lucide-react';
 import { useToolsPanelStore, type ToolId } from '../store/toolsStore';
 import { PomodoroTool } from './tools/PomodoroTool';
 import { HabitTool } from './tools/HabitTool';
+import { InsightsTool } from './tools/InsightsTool';
 
 /**
  * ToolsPanel — 可扩展的工具面板框架
@@ -27,8 +28,7 @@ interface ToolDef {
 const TOOLS: ToolDef[] = [
   { id: 'pomodoro', icon: Timer,       labelKey: 'tools.pomodoro', Component: PomodoroTool },
   { id: 'habits',   icon: CheckSquare, labelKey: 'tools.habits',   Component: HabitTool },
-  // 占位示例 — 后续接入时取消注释并实现对应组件：
-  // { id: 'calendar', icon: CalendarDays, labelKey: 'tools.calendar', Component: CalendarTool },
+  { id: 'insights', icon: BarChart2,   labelKey: 'tools.insights', Component: InsightsTool },
 ];
 
 export default function ToolsPanel() {

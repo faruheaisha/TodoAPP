@@ -117,7 +117,8 @@
     "pomodoro": "Pomodoro",
     "calendar": "Calendar",
     "habits": "Habits",
-    "moreSoon": "More tools coming soon"
+    "moreSoon": "More tools coming soon",
+    "insights": "Insights"
   },
   "habits": {
     "subtitle": "Last 7 Days",
@@ -138,5 +139,10 @@
     "autoStartNext": "Auto-start next session",
     "totalCompleted": "{{count}} focus sessions completed",
     "sessionDoneToast": "{{mode}} session complete"
+  },
+  "insights": {
+    "focusTitle": "Focus Time (Last 7 Days)",
+    "habitTitle": "Habit Heatmap (Last 5 Weeks)",
+    "statsTitle": "Quick Stats"
   }
 }

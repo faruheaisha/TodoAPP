@@ -117,7 +117,8 @@
     "pomodoro": "番茄钟",
     "calendar": "日历",
     "habits": "习惯打卡",
-    "moreSoon": "更多工具即将上线"
+    "moreSoon": "更多工具即将上线",
+    "insights": "数据洞察"
   },
   "habits": {
     "subtitle": "最近 7 天",
@@ -138,5 +139,10 @@
     "autoStartNext": "自动开始下一段",
     "totalCompleted": "累计完成 {{count}} 个专注段",
     "sessionDoneToast": "{{mode}}阶段已完成"
+  },
+  "insights": {
+    "focusTitle": "专注时长（近7天）",
+    "habitTitle": "习惯热力图（近5周）",
+    "statsTitle": "数据速览"
   }
 }

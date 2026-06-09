@@ -11,6 +11,12 @@ import { persist } from 'zustand/middleware';
 
 export type FocusMode = 'work' | 'shortBreak' | 'longBreak';
 
+/** 单次专注会话记录（用于数据洞察面板） */
+export interface SessionLogEntry {
+  date: string;    // 'YYYY-MM-DD'
+  minutes: number; // 实际专注分钟数
+}
+
 export interface FocusSettings {
   workMinutes: number;
   shortBreakMinutes: number;
@@ -47,9 +53,11 @@ interface FocusState {
   remainingSeconds: number;
   isRunning: boolean;
 
-  completedWorkSessions: number; // 历史累计完成的专注段（持久化，用于统计/未来打通习惯打卡）
-  cycleCount: number; // 自上次长休息以来已完成的专注段数
-  linkedTodoId: string | null; // 可选：将本次专注会话与某个待办关联
+  completedWorkSessions: number; // 历史累计完成的专注段（持久化）
+  cycleCount: number;
+  linkedTodoId: string | null;
+  /** 每次完成 work session 追加一条，最多保留 90 天数据 */
+  sessionLog: SessionLogEntry[];
 
   updateSettings: (updates: Partial<FocusSettings>) => void;
   start: () => void;
@@ -72,6 +80,7 @@ export const useFocusStore = create<FocusState>()(
       completedWorkSessions: 0,
       cycleCount: 0,
       linkedTodoId: null,
+      sessionLog: [],
 
       updateSettings: (updates) => {
         const settings = { ...get().settings, ...updates };
@@ -101,11 +110,21 @@ export const useFocusStore = create<FocusState>()(
           let nextCompleted = completedWorkSessions;
           let nextCycle = cycleCount;
 
+          // 追加每日会话日志（仅 work 阶段）
+          let nextSessionLog = get().sessionLog;
           if (mode === 'work') {
             nextCompleted = completedWorkSessions + 1;
             nextCycle = cycleCount + 1;
             nextMode = nextCycle >= settings.longBreakInterval ? 'longBreak' : 'shortBreak';
             if (nextMode === 'longBreak') nextCycle = 0;
+
+            const todayKey = new Date().toISOString().slice(0, 10);
+            const entry: SessionLogEntry = { date: todayKey, minutes: settings.workMinutes };
+            // 保留最近 90 天（约 360 条记录上限）
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - 90);
+            const cutoffKey = cutoff.toISOString().slice(0, 10);
+            nextSessionLog = [...nextSessionLog.filter(e => e.date >= cutoffKey), entry];
           } else {
             nextMode = 'work';
           }
@@ -122,6 +141,7 @@ export const useFocusStore = create<FocusState>()(
             isRunning: settings.autoStartNext,
             completedWorkSessions: nextCompleted,
             cycleCount: nextCycle,
+            sessionLog: nextSessionLog,
           });
         } else {
           set({ remainingSeconds: remainingSeconds - 1 });
@@ -146,8 +166,9 @@ export const useFocusStore = create<FocusState>()(
         remainingSeconds: state.remainingSeconds,
         completedWorkSessions: state.completedWorkSessions,
         cycleCount: state.cycleCount,
+        sessionLog: state.sessionLog,
       }),
-      merge: (persisted, current) => ({
+      merge: (persisted, current) =>        ({
         ...current,
         ...(persisted as object),
         isRunning: false,
