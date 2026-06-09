@@ -80,8 +80,9 @@ export function PomodoroTool() {
   }, [show, t]);
 
   const total = focusDurationFor(mode, settings);
+  // 倒计时消耗式：满格开始 → 空格结束（参考 react-countdown-circle-timer ⭐715 drain 方向）
   const progress = total > 0 ? (total - remainingSeconds) / total : 0;
-  const dashOffset = RING_CIRCUMFERENCE * (1 - progress);
+  const dashOffset = RING_CIRCUMFERENCE * progress;
   const meta = MODE_META[mode];
   const ModeIcon = meta.icon;
 
@@ -115,6 +116,18 @@ export function PomodoroTool() {
       <div className="flex flex-col items-center" style={{ gap: '14px' }}>
         <div className="relative" style={{ width: 180, height: 180 }}>
           <svg width={180} height={180} viewBox="0 0 180 180">
+            {/* 运行时呼吸光晕（Keyframes opacity 循环，参考 Forest app 的 pulse 效果）*/}
+            {isRunning && (
+              <motion.circle
+                cx={90} cy={90} r={RING_RADIUS + 8}
+                fill="none"
+                stroke={meta.ring}
+                strokeWidth={4}
+                opacity={0}
+                animate={{ opacity: [0, 0.18, 0] }}
+                transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+              />
+            )}
             <circle
               cx={90}
               cy={90}
@@ -337,5 +350,26 @@ async function notifySessionDone(body: string) {
     }
   } catch (e) {
     console.warn('Pomodoro notification skipped:', e);
+  }
+}
+    {children}
+    </button>
+  );
+}
+
+// 系统通知 — 失败时静默降级（如未授权），不影响主流程
+async function notifySessionDone(body: string) {
+  try {
+    const { isPermissionGranted, requestPermission, sendNotification } = await import(`@tauri-apps/plugin-notification`);
+    let granted = await isPermissionGranted();
+    if (!granted) {
+      const permission = await requestPermission();
+      granted = permission === `granted`;
+    }
+    if (granted) {
+      sendNotification({ title: `TodoApp`, body });
+    }
+  } catch (e) {
+    console.warn(`Pomodoro notification skipped:`, e);
   }
 }
