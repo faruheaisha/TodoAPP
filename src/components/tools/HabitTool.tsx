@@ -1,370 +1,537 @@
 /**
- * HabitTool — 习惯打卡工具
+ * HabitTool — 习惯打卡界面 v2
  *
- * UI 设计参考 Loop Habit Tracker (GitHub ⭐9.9k, iSoron/uhabits) 的核心交互模式：
- *   - 每个习惯行展示最近 7 天的可点击打卡圆圈（今日高亮、已打卡填充、未打卡描边）
- *   - 连续天数（Streak）实时显示，使用 Loop 的宽容算法（今日未打卡不清零）
- *   - 颜色分组借鉴 Habitica (GitHub ⭐13.9k) 的视觉分类体系
- * 适配：Anthropic clay/olive/sky/fig 四色设计 token + Framer Motion spring 动画
+ * 参考：
+ *  Loop Habit Tracker (⭐9.9k): 每习惯提醒时间、30天完成率
+ *  Habitica (⭐13.9k): 里程碑勋章体系、打卡奖励反馈
+ *
+ * 新功能：
+ *  - 智能时间建议：输入「睡前读书」自动建议 22:00 提醒
+ *  - 每习惯提醒开关 + 时间设置
+ *  - 里程碑勋章（7/21/30/100/365天）+ 首次达成庆祝 Toast
+ *  - 30天完成率进度条
+ *  - 习惯内联编辑（双击名称修改）
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Trash2, Flame } from 'lucide-react';
+import { Plus, X, Flame, Bell, BellOff, CheckCircle2, Trophy, ChevronDown, ChevronUp } from 'lucide-react';
 import {
-  useHabitStore,
-  HABIT_COLORS,
-  calcStreak,
-  toDateKey,
-  type HabitColor,
+  useHabitStore, HABIT_COLORS, toDateKey, calcStreak, calcCompletionRate,
+  getCurrentMilestone, getNewMilestone, suggestReminderTime, MILESTONES,
+  type HabitColor, type Habit,
 } from '../../store/habitStore';
 
-const COLOR_OPTIONS: HabitColor[] = ['clay', 'olive', 'sky', 'fig'];
-const GRID_DAYS = 7;
-
-/** 生成最近 7 天的日期信息，含当天标识与本地化短标签 */
+// ─── 最近7天日期格子 ───────────────────────────────────────────────────────────
 function useDayGrid(lang: string) {
   const today = new Date();
-  const todayKey = toDateKey(today);
-  const zhLabels = ['日', '一', '二', '三', '四', '五', '六'];
-  const enLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-  return Array.from({ length: GRID_DAYS }, (_, i) => {
+  return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(today);
-    d.setDate(d.getDate() - (GRID_DAYS - 1 - i));
-    const key = toDateKey(d);
-    const label = lang === 'zh' ? zhLabels[d.getDay()] : enLabels[d.getDay()];
-    return { key, label, isToday: key === todayKey };
+    d.setDate(d.getDate() - (6 - i));
+    return {
+      key:   toDateKey(d),
+      label: d.toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-US', { weekday: 'short' }),
+      isToday: i === 6,
+    };
   });
 }
 
-/** 单个打卡圆圈（Loop Habit Tracker 核心视觉元素，适配 Framer Motion） */
-function CheckCircle({
-  checked,
-  color,
-  isToday,
-  onToggle,
-}: {
-  checked: boolean;
-  color: string;
-  isToday: boolean;
-  onToggle: () => void;
-}) {
+// ─── Toast 组件 ───────────────────────────────────────────────────────────────
+interface ToastItem { id: number; message: string; icon: string; }
+function MilestoneToast({ toasts, onRemove }: { toasts: ToastItem[]; onRemove: (id: number) => void }) {
   return (
-    <motion.button
-      onClick={onToggle}
-      whileTap={{ scale: 0.78 }}
-      className="cursor-pointer flex-shrink-0"
-      style={{ width: 24, height: 24, padding: 0, background: 'none', border: 'none' }}
-    >
-      <motion.div
-        initial={false}
-        animate={{ scale: checked ? 1 : 1 }}
-        transition={{ type: 'spring', stiffness: 420, damping: 22 }}
-        style={{
-          width: 20,
-          height: 20,
-          borderRadius: '50%',
-          backgroundColor: checked ? color : 'transparent',
-          border: `1.5px solid ${checked ? color : isToday ? color : 'var(--color-border)'}`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          margin: 'auto',
-          opacity: isToday || checked ? 1 : 0.45,
-          transition: 'background-color 0.15s, border-color 0.15s, opacity 0.15s',
-        }}
-      >
-        <AnimatePresence>
-          {checked && (
-            <motion.svg
-              key="check"
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 520, damping: 24 }}
-              width="11" height="11" viewBox="0 0 11 11" fill="none"
-            >
-              <path
-                d="M2.2 5.5l2.4 2.4L9 2.5"
-                stroke="white"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </motion.svg>
-          )}
-        </AnimatePresence>
-      </motion.div>
-    </motion.button>
+    <div className="fixed top-4 right-4 z-[200] flex flex-col gap-2 pointer-events-none">
+      <AnimatePresence>
+        {toasts.map(t => (
+          <motion.div
+            key={t.id}
+            initial={{ opacity: 0, x: 60, scale: 0.9 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 60, scale: 0.9 }}
+            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg pointer-events-auto shadow-lg"
+            style={{ background: 'var(--color-fill)', color: 'var(--color-fill-text)', fontSize: '12px', maxWidth: '220px' }}
+          >
+            <span style={{ fontSize: '18px' }}>{t.icon}</span>
+            <span>{t.message}</span>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
   );
 }
 
+// ─── 完成率进度条 ──────────────────────────────────────────────────────────────
+function CompletionBar({ rate, color }: { rate: number; color: string }) {
+  return (
+    <div title={`30天完成率 ${rate}%`} style={{ width: '48px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+      <div style={{ fontSize: '8px', color: 'var(--color-text-tertiary)', fontVariantNumeric: 'tabular-nums' }}>{rate}%</div>
+      <div style={{ width: '100%', height: '3px', borderRadius: '2px', background: 'var(--color-border)', overflow: 'hidden' }}>
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: `${rate}%` }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
+          style={{ height: '100%', borderRadius: '2px', background: color }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─── 主组件 ───────────────────────────────────────────────────────────────────
 export function HabitTool() {
   const { t, i18n } = useTranslation();
-  const { habits, addHabit, removeHabit, toggleCheckIn } = useHabitStore();
+  const lang = i18n.language.startsWith('zh') ? 'zh' : 'en';
+  const days = useDayGrid(lang);
+  const today = toDateKey(new Date());
+
+  const { habits, addHabit, removeHabit, updateHabit, toggleCheckIn, markMilestoneShown } = useHabitStore();
+
+  // 新增表单状态
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState('');
   const [newColor, setNewColor] = useState<HabitColor>('clay');
+  const [newReminder, setNewReminder] = useState('');
+  const [newNote, setNewNote] = useState('');
+  const [timeSuggestion, setTimeSuggestion] = useState<string | null>(null);
 
-  const lang = i18n.language as 'zh' | 'en';
-  const days = useDayGrid(lang);
+  // 编辑状态
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const handleAdd = () => {
-    const name = newName.trim();
-    if (!name) return;
-    addHabit(name, newColor);
-    setNewName('');
-    setNewColor('clay');
-    setShowAdd(false);
+  // 删除 hover 状态
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+
+  // 里程碑 Toast
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const toastIdRef = useRef(0);
+
+  const addToast = useCallback((icon: string, message: string) => {
+    const id = ++toastIdRef.current;
+    setToasts(prev => [...prev, { id, icon, message }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
+  }, []);
+
+  // ── 智能时间建议 ─────────────────────────────────────────────────────────────
+  const handleNameChange = (v: string) => {
+    setNewName(v);
+    const s = suggestReminderTime(v);
+    setTimeSuggestion(s);
+    if (s && !newReminder) setNewReminder(s);
   };
 
-  return (
-    <div className="flex flex-col" style={{ gap: '14px' }}>
+  // ── 分钟级提醒检查（Loop 参考）──────────────────────────────────────────────
+  useEffect(() => {
+    const check = async () => {
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      const timeStr = `${hh}:${mm}`;
+      const todayKey = toDateKey(now);
+      for (const habit of habits) {
+        if (habit.reminderEnabled && habit.reminderTime === timeStr && !habit.checkIns.includes(todayKey)) {
+          try {
+            const { sendNotification } = await import('@tauri-apps/plugin-notification');
+            await sendNotification({
+              title: lang === 'zh' ? '习惯提醒' : 'Habit Reminder',
+              body: habit.name,
+            });
+          } catch { /* 桌面通知不可用时静默 */ }
+        }
+      }
+    };
+    check();
+    const timer = setInterval(check, 60000);
+    return () => clearInterval(timer);
+  }, [habits, lang]);
 
-      {/* ── 顶部操作栏 ── */}
-      <div className="flex items-center justify-between">
-        <span className="text-[9px] font-medium uppercase tracking-widest" style={{ color: 'var(--clay)' }}>
+  // ── 打卡 + 里程碑检测 ────────────────────────────────────────────────────────
+  const handleToggle = (habit: Habit, dateKey: string) => {
+    toggleCheckIn(habit.id, dateKey);
+    // 打卡后检测新里程碑（仅今日打卡触发）
+    if (dateKey === today && !habit.checkIns.includes(dateKey)) {
+      const newCheckIns = new Set([...habit.checkIns, dateKey]);
+      const streak = calcStreak(newCheckIns);
+      const ms = getNewMilestone(streak, habit.milestonesShown);
+      if (ms) {
+        markMilestoneShown(habit.id, ms.days);
+        const msg = lang === 'zh'
+          ? `🎉 ${habit.name} 达成 ${ms.label}！`
+          : `🎉 ${habit.name}: ${ms.labelEn}!`;
+        addToast(ms.icon, msg);
+      }
+    }
+  };
+
+  // ── 新增确认 ─────────────────────────────────────────────────────────────────
+  const handleAdd = () => {
+    if (!newName.trim()) return;
+    addHabit(newName.trim(), newColor, newReminder, newNote);
+    setNewName(''); setNewColor('clay'); setNewReminder('');
+    setNewNote(''); setTimeSuggestion(null); setShowAdd(false);
+  };
+
+  // ── 编辑保存 ─────────────────────────────────────────────────────────────────
+  const handleEditSave = (id: string) => {
+    if (editName.trim()) updateHabit(id, { name: editName.trim() });
+    setEditingId(null);
+  };
+
+  const isEmpty = habits.length === 0;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', minHeight: '200px' }}>
+      <MilestoneToast toasts={toasts} onRemove={(id) => setToasts(p => p.filter(t => t.id !== id))} />
+
+      {/* 顶部：标题 + 最近7天列头 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', flex: 1 }}>
           {t('habits.subtitle')}
         </span>
-        <button
-          onClick={() => setShowAdd((v) => !v)}
-          className="flex items-center gap-1 rounded-md text-xs font-medium transition-all cursor-pointer"
-          style={{
-            padding: '5px 10px',
-            backgroundColor: showAdd ? 'var(--color-fill)' : 'transparent',
-            color: showAdd ? 'var(--color-fill-text)' : 'var(--color-text-tertiary)',
-            border: `0.5px solid ${showAdd ? 'transparent' : 'var(--color-border)'}`,
-          }}
-        >
-          <Plus size={11} />
-          {t('habits.add')}
-        </button>
+        <div style={{ display: 'flex', gap: '4px', marginRight: '64px' }}>
+          {days.map(d => (
+            <div key={d.key} style={{
+              width: '26px', textAlign: 'center', fontSize: '9px',
+              color: d.isToday ? 'var(--color-accent)' : 'var(--color-text-tertiary)',
+              fontWeight: d.isToday ? 600 : 400,
+            }}>{d.label}</div>
+          ))}
+        </div>
       </div>
 
-      {/* ── 新增习惯表单 ── */}
+      {/* 习惯列表 */}
+      <AnimatePresence initial={false}>
+        {isEmpty && !showAdd && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ textAlign: 'center', padding: '32px 0', color: 'var(--color-text-tertiary)', fontSize: '12px' }}
+          >
+            {t('habits.empty')}
+          </motion.div>
+        )}
+
+        {habits.map(habit => {
+          const ciSet = new Set(habit.checkIns);
+          const streak = calcStreak(ciSet);
+          const rate   = calcCompletionRate(habit.checkIns);
+          const ms     = getCurrentMilestone(streak);
+          const color  = HABIT_COLORS[habit.color];
+          const isExpanded = expandedId === habit.id;
+
+          return (
+            <motion.div
+              key={habit.id}
+              layout
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.18 }}
+              onMouseEnter={() => setHoveredId(habit.id)}
+              onMouseLeave={() => setHoveredId(null)}
+            >
+              {/* 主行 */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0' }}>
+
+                {/* 颜色点 */}
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: color, flexShrink: 0 }} />
+
+                {/* 名称（双击编辑）*/}
+                {editingId === habit.id ? (
+                  <input
+                    autoFocus
+                    value={editName}
+                    onChange={e => setEditName(e.target.value)}
+                    onBlur={() => handleEditSave(habit.id)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleEditSave(habit.id); if (e.key === 'Escape') setEditingId(null); }}
+                    style={{
+                      flex: 1, fontSize: '12px', background: 'var(--color-bg-tertiary)',
+                      border: '1px solid var(--color-border)', borderRadius: '4px',
+                      padding: '2px 6px', color: 'var(--color-text-primary)', outline: 'none',
+                    }}
+                  />
+                ) : (
+                  <span
+                    onDoubleClick={() => { setEditingId(habit.id); setEditName(habit.name); }}
+                    title={lang === 'zh' ? '双击编辑' : 'Double-click to edit'}
+                    style={{ flex: 1, fontSize: '12px', color: 'var(--color-text-primary)', cursor: 'default', userSelect: 'none' }}
+                  >
+                    {habit.name}
+                  </span>
+                )}
+
+                {/* 提醒图标 */}
+                {habit.reminderEnabled && habit.reminderTime && (
+                  <span style={{ fontSize: '9px', color: 'var(--color-text-tertiary)', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                    <Bell size={9} />
+                    {habit.reminderTime}
+                  </span>
+                )}
+
+                {/* 7天打卡格 */}
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  {days.map(d => {
+                    const checked = ciSet.has(d.key);
+                    const isTodayCell = d.key === today;
+                    return (
+                      <motion.button
+                        key={d.key}
+                        onClick={() => handleToggle(habit, d.key)}
+                        whileTap={{ scale: 0.85 }}
+                        style={{
+                          width: '26px', height: '26px', borderRadius: '50%', border: 'none',
+                          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          background: checked ? color : 'var(--color-bg-tertiary)',
+                          outline: isTodayCell && !checked ? `1.5px solid ${color}` : 'none',
+                          outlineOffset: '-1px',
+                          transition: 'background 0.15s',
+                        }}
+                      >
+                        <AnimatePresence mode="wait">
+                          {checked && (
+                            <motion.svg
+                              key="check"
+                              initial={{ scale: 0, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              exit={{ scale: 0, opacity: 0 }}
+                              transition={{ type: 'spring', damping: 15, stiffness: 400 }}
+                              width="12" height="12" viewBox="0 0 12 12" fill="none"
+                            >
+                              <path d="M2 6L5 9L10 3" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                            </motion.svg>
+                          )}
+                        </AnimatePresence>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+
+                {/* 完成率 */}
+                <CompletionBar rate={rate} color={color} />
+
+                {/* 连续 + 勋章 */}
+                <div style={{ width: '56px', display: 'flex', alignItems: 'center', gap: '3px', justifyContent: 'flex-end' }}>
+                  {streak > 0 && <Flame size={11} style={{ color: '#f59e0b', flexShrink: 0 }} />}
+                  <span style={{ fontSize: '11px', color: streak > 0 ? '#f59e0b' : 'var(--color-text-tertiary)', fontVariantNumeric: 'tabular-nums' }}>
+                    {streak > 0 ? `${streak}${lang === 'zh' ? '天' : 'd'}` : '—'}
+                  </span>
+                  {ms && <span title={lang === 'zh' ? ms.label : ms.labelEn} style={{ fontSize: '13px', cursor: 'default' }}>{ms.icon}</span>}
+                </div>
+
+                {/* 展开/删除 */}
+                <div style={{ display: 'flex', gap: '2px', opacity: hoveredId === habit.id ? 1 : 0, transition: 'opacity 0.15s' }}>
+                  <button
+                    onClick={() => setExpandedId(isExpanded ? null : habit.id)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-tertiary)', padding: '2px', borderRadius: '4px', display: 'flex' }}
+                  >
+                    {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                  </button>
+                  <button
+                    onClick={() => removeHabit(habit.id)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-tertiary)', padding: '2px', borderRadius: '4px', display: 'flex' }}
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              </div>
+
+              {/* 展开详情（提醒设置 + 里程碑进度）*/}
+              <AnimatePresence>
+                {isExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.18 }}
+                    style={{ overflow: 'hidden' }}
+                  >
+                    <div style={{
+                      margin: '4px 0 6px 16px', padding: '10px 12px', borderRadius: '8px',
+                      background: 'var(--color-bg-tertiary)', border: '0.5px solid var(--color-border)',
+                      display: 'flex', flexDirection: 'column', gap: '8px',
+                    }}>
+                      {/* 提醒设置 */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <label style={{ fontSize: '11px', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={habit.reminderEnabled}
+                            onChange={e => updateHabit(habit.id, { reminderEnabled: e.target.checked })}
+                            style={{ accentColor: color }}
+                          />
+                          {lang === 'zh' ? '每日提醒' : 'Daily reminder'}
+                        </label>
+                        {habit.reminderEnabled && (
+                          <input
+                            type="time"
+                            value={habit.reminderTime}
+                            onChange={e => updateHabit(habit.id, { reminderTime: e.target.value })}
+                            style={{
+                              fontSize: '11px', background: 'var(--color-bg-secondary)',
+                              border: '0.5px solid var(--color-border)', borderRadius: '4px',
+                              padding: '2px 6px', color: 'var(--color-text-primary)',
+                              colorScheme: 'dark',
+                            }}
+                          />
+                        )}
+                      </div>
+
+                      {/* 里程碑进度 */}
+                      <div>
+                        <div style={{ fontSize: '10px', color: 'var(--color-text-tertiary)', marginBottom: '5px' }}>
+                          {lang === 'zh' ? '里程碑进度' : 'Milestones'}
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                          {MILESTONES.map(m => {
+                            const reached = streak >= m.days;
+                            return (
+                              <div
+                                key={m.days}
+                                title={`${lang === 'zh' ? m.label : m.labelEn} (${m.days}${lang === 'zh' ? '天' : 'd'})`}
+                                style={{
+                                  display: 'flex', alignItems: 'center', gap: '3px',
+                                  padding: '2px 6px', borderRadius: '10px', fontSize: '10px',
+                                  background: reached ? color + '22' : 'var(--color-bg-secondary)',
+                                  border: `0.5px solid ${reached ? color + '44' : 'var(--color-border)'}`,
+                                  color: reached ? color : 'var(--color-text-tertiary)',
+                                  opacity: reached ? 1 : 0.6,
+                                }}
+                              >
+                                <span>{m.icon}</span>
+                                <span>{m.days}{lang === 'zh' ? '天' : 'd'}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
+
+      {/* 新增表单 */}
       <AnimatePresence>
         {showAdd && (
           <motion.div
-            initial={{ opacity: 0, height: 0, marginTop: -8 }}
-            animate={{ opacity: 1, height: 'auto', marginTop: 0 }}
-            exit={{ opacity: 0, height: 0, marginTop: -8 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-            style={{ overflow: 'hidden' }}
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.15 }}
+            style={{
+              padding: '12px', borderRadius: '10px', border: '0.5px solid var(--color-border)',
+              background: 'var(--color-bg-tertiary)', display: 'flex', flexDirection: 'column', gap: '10px',
+            }}
           >
-            <div
+            {/* 习惯名称 */}
+            <input
+              autoFocus
+              value={newName}
+              onChange={e => handleNameChange(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setShowAdd(false); }}
+              placeholder={t('habits.namePlaceholder')}
               style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '10px',
-                padding: '12px 14px',
-                borderRadius: 10,
-                border: '0.5px solid var(--color-border)',
-                backgroundColor: 'var(--color-bg-tertiary)',
+                fontSize: '12px', background: 'var(--color-bg-secondary)',
+                border: '0.5px solid var(--color-border)', borderRadius: '6px',
+                padding: '6px 10px', color: 'var(--color-text-primary)', outline: 'none', width: '100%',
               }}
-            >
-              <input
-                type="text"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleAdd();
-                  if (e.key === 'Escape') { setShowAdd(false); setNewName(''); }
-                }}
-                placeholder={t('habits.namePlaceholder')}
-                autoFocus
-                className="text-xs outline-none bg-transparent"
-                style={{ color: 'var(--color-text-primary)' }}
-              />
-              <div className="flex items-center justify-between">
-                {/* 颜色选择器 — 参考 Habitica 的任务颜色分类体系 */}
-                <div className="flex items-center" style={{ gap: '8px' }}>
-                  {COLOR_OPTIONS.map((c) => (
-                    <button
-                      key={c}
-                      onClick={() => setNewColor(c)}
-                      className="cursor-pointer transition-all"
-                      style={{
-                        width: 16,
-                        height: 16,
-                        borderRadius: '50%',
-                        backgroundColor: HABIT_COLORS[c],
-                        transform: newColor === c ? 'scale(1.25)' : 'scale(1)',
-                        boxShadow:
-                          newColor === c
-                            ? `0 0 0 2px var(--color-bg-secondary), 0 0 0 3.5px ${HABIT_COLORS[c]}`
-                            : 'none',
-                        border: 'none',
-                        padding: 0,
-                      }}
-                    />
-                  ))}
-                </div>
-                <button
-                  onClick={handleAdd}
-                  disabled={!newName.trim()}
-                  className="rounded-md text-xs font-medium transition-all cursor-pointer"
-                  style={{
-                    padding: '5px 12px',
-                    backgroundColor: newName.trim() ? 'var(--color-fill)' : 'var(--color-bg-secondary)',
-                    color: newName.trim() ? 'var(--color-fill-text)' : 'var(--color-text-tertiary)',
-                    border: 'none',
-                    opacity: newName.trim() ? 1 : 0.5,
-                  }}
-                >
-                  {t('habits.confirm')}
-                </button>
+            />
+
+            {/* 智能时间建议 */}
+            {timeSuggestion && newReminder === timeSuggestion && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', color: 'var(--color-text-tertiary)' }}>
+                <Bell size={10} style={{ color: 'var(--color-accent)' }} />
+                <span style={{ color: 'var(--color-accent)' }}>
+                  {lang === 'zh' ? `智能建议：${timeSuggestion}` : `Suggested: ${timeSuggestion}`}
+                </span>
               </div>
+            )}
+
+            {/* 颜色 + 提醒 */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              {/* 颜色选择 */}
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {(Object.keys(HABIT_COLORS) as HabitColor[]).map(c => (
+                  <button
+                    key={c}
+                    onClick={() => setNewColor(c)}
+                    style={{
+                      width: '18px', height: '18px', borderRadius: '50%', border: 'none', cursor: 'pointer',
+                      background: HABIT_COLORS[c],
+                      outline: newColor === c ? `2px solid ${HABIT_COLORS[c]}` : 'none',
+                      outlineOffset: '2px',
+                    }}
+                  />
+                ))}
+              </div>
+
+              {/* 提醒开关 + 时间 */}
+              <label style={{ fontSize: '11px', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={newReminder !== ''}
+                  onChange={e => setNewReminder(e.target.checked ? (timeSuggestion || '08:00') : '')}
+                  style={{ accentColor: 'var(--color-accent)' }}
+                />
+                {lang === 'zh' ? '提醒' : 'Remind'}
+              </label>
+              {newReminder !== '' && (
+                <input
+                  type="time"
+                  value={newReminder}
+                  onChange={e => setNewReminder(e.target.value)}
+                  style={{
+                    fontSize: '11px', background: 'var(--color-bg-secondary)',
+                    border: '0.5px solid var(--color-border)', borderRadius: '4px',
+                    padding: '2px 6px', color: 'var(--color-text-primary)', colorScheme: 'dark',
+                  }}
+                />
+              )}
+            </div>
+
+            {/* 确认/取消 */}
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowAdd(false)}
+                style={{ fontSize: '11px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-tertiary)', padding: '4px 10px' }}
+              >
+                {lang === 'zh' ? '取消' : 'Cancel'}
+              </button>
+              <button
+                onClick={handleAdd}
+                disabled={!newName.trim()}
+                style={{
+                  fontSize: '11px', padding: '4px 14px', borderRadius: '6px', border: 'none',
+                  cursor: newName.trim() ? 'pointer' : 'not-allowed',
+                  background: newName.trim() ? 'var(--color-fill)' : 'var(--color-border)',
+                  color: newName.trim() ? 'var(--color-fill-text)' : 'var(--color-text-tertiary)',
+                }}
+              >
+                {t('habits.confirm')}
+              </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── 日期列标题（与习惯行的打卡圆圈列对齐）── */}
-      {habits.length > 0 && (
-        <div className="flex items-center" style={{ paddingRight: 28 }}>
-          <div className="flex-1" />
-          <div className="flex items-center" style={{ gap: '4px' }}>
-            {days.map((d) => (
-              <div
-                key={d.key}
-                style={{
-                  width: 24,
-                  textAlign: 'center',
-                  fontSize: 9,
-                  fontWeight: d.isToday ? 700 : 400,
-                  color: d.isToday ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)',
-                }}
-              >
-                {d.label}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── 习惯列表 ── */}
-      <div className="flex flex-col" style={{ gap: '3px' }}>
-        <AnimatePresence initial={false}>
-          {habits.map((habit) => {
-            const checkSet = new Set(habit.checkIns);
-            const streak = calcStreak(checkSet);
-            const color = HABIT_COLORS[habit.color];
-
-            return (
-              <motion.div
-                key={habit.id}
-                layout
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, x: -16 }}
-                transition={{ duration: 0.18, ease: 'easeOut' }}
-                className="flex items-center rounded-lg group"
-                style={{ padding: '6px 8px', gap: '8px', cursor: 'default' }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-bg-tertiary)'; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
-              >
-                {/* 习惯色点 */}
-                <div
-                  style={{
-                    width: 7,
-                    height: 7,
-                    borderRadius: '50%',
-                    backgroundColor: color,
-                    flexShrink: 0,
-                  }}
-                />
-
-                {/* 习惯名 + streak */}
-                <div className="flex-1 flex items-center gap-2 min-w-0">
-                  <span
-                    className="text-xs truncate"
-                    style={{ color: 'var(--color-text-primary)', fontWeight: 450 }}
-                  >
-                    {habit.name}
-                  </span>
-                  {streak > 0 && (
-                    <div className="flex items-center gap-0.5 flex-shrink-0">
-                      <Flame size={9} style={{ color: '#d97757' }} />
-                      <span className="text-[9px] font-medium tabular-nums" style={{ color: 'var(--color-text-tertiary)' }}>
-                        {streak}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* 7 天打卡格子（Loop Habit Tracker 核心视觉模式） */}
-                <div className="flex items-center flex-shrink-0" style={{ gap: '4px' }}>
-                  {days.map((d) => (
-                    <CheckCircle
-                      key={d.key}
-                      checked={checkSet.has(d.key)}
-                      color={color}
-                      isToday={d.isToday}
-                      onToggle={() => toggleCheckIn(habit.id, d.key)}
-                    />
-                  ))}
-                </div>
-
-                {/* 删除按钮（hover 时显示） */}
-                <button
-                  onClick={() => removeHabit(habit.id)}
-                  className="flex-shrink-0 transition-opacity cursor-pointer"
-                  style={{
-                    opacity: 0,
-                    color: 'var(--color-text-tertiary)',
-                    background: 'none',
-                    border: 'none',
-                    padding: 2,
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLElement).style.color = 'var(--fig)';
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLElement).style.color = 'var(--color-text-tertiary)';
-                  }}
-                  // group-hover via JS since Tailwind group requires parent context
-                  ref={(el) => {
-                    if (!el) return;
-                    const row = el.closest('.group') as HTMLElement | null;
-                    if (!row) return;
-                    const show = () => { el.style.opacity = '1'; };
-                    const hide = () => { el.style.opacity = '0'; };
-                    row.addEventListener('mouseenter', show);
-                    row.addEventListener('mouseleave', hide);
-                  }}
-                >
-                  <Trash2 size={11} />
-                </button>
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
-      </div>
-
-      {/* ── 空状态 ── */}
-      {habits.length === 0 && !showAdd && (
-        <div
-          className="flex flex-col items-center justify-center"
-          style={{ gap: '10px', paddingTop: '40px', paddingBottom: '40px' }}
+      {/* 底部新增按钮 */}
+      {!showAdd && (
+        <button
+          onClick={() => setShowAdd(true)}
+          className="flex items-center gap-1.5 transition-colors cursor-pointer"
+          style={{
+            alignSelf: 'flex-start', fontSize: '11px', background: 'none', border: 'none', padding: '4px 0',
+            color: 'var(--color-text-tertiary)',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-text-primary)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-text-tertiary)')}
         >
-          <div style={{ fontSize: 28, lineHeight: 1 }}>🌱</div>
-          <span className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
-            {t('habits.empty')}
-          </span>
-          <button
-            onClick={() => setShowAdd(true)}
-            className="rounded-md text-xs font-medium transition-all cursor-pointer"
-            style={{
-              marginTop: 4,
-              padding: '6px 14px',
-              backgroundColor: 'var(--color-fill)',
-              color: 'var(--color-fill-text)',
-              border: 'none',
-            }}
-          >
-            {t('habits.addFirst')}
-          </button>
-        </div>
+          <Plus size={13} />
+          {t('habits.add')}
+        </button>
       )}
     </div>
   );
