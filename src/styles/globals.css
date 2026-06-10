@@ -217,4 +217,14 @@ body {
   --clay-light: rgba(106, 155, 204, 0.12);
   --color-accent:       #6a9bcc;
   --color-accent-hover: #4e7fa8;
-  --col
+  --color-accent-light: rgba(106, 155, 204, 0.12);
+}
+
+[data-accent='fig'] {
+  --clay:       #c46686;
+  --clay-hover: #a84e6c;
+  --clay-light: rgba(196, 102, 134, 0.12);
+  --color-accent:       #c46686;
+  --color-accent-hover: #a84e6c;
+  --color-accent-light: rgba(196, 102, 134, 0.12);
+}
