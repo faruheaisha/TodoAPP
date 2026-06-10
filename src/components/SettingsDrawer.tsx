@@ -688,7 +688,7 @@ export default function SettingsDrawer() {
                   padding: '24px',
                   backgroundColor: 'var(--color-bg-secondary)',
                   border: '0.5px solid var(--color-border)',
-                  boxShadow: '0 16px 48px rgba(0,0,0,0.25)',
+                  boxShadow: 'var(--shadow-lg)',
                   scrollbarWidth: 'thin',
                   scrollbarColor: 'transparent transparent',
                 }}

@@ -5,6 +5,7 @@ import { useSettingsStore } from '../store/settingsStore';
 import { useToolsPanelStore } from '../store/toolsStore';
 import { useFocusStore } from '../store/focusStore';
 import { motion } from 'framer-motion';
+import BrandMark from './BrandMark';
 
 export default function Header() {
   const { t } = useTranslation();
@@ -23,21 +24,15 @@ export default function Header() {
       }}
     >
       {/* Logo */}
-      <div
-        className="rounded-full flex items-center justify-center flex-shrink-0"
-        style={{ width: '28px', height: '28px', backgroundColor: 'var(--clay)' }}
-      >
-        <span className="text-xs font-bold" style={{ color: 'var(--ivory-light)' }}>
-          T
-        </span>
-      </div>
+      <BrandMark size={26} />
 
-      {/* Title */}
+      {/* Title — 收紧字距 + 加重字重，建立排版锚点 */}
       <h1
-        className="text-[16px] font-semibold select-none app-title"
+        className="text-[16px] select-none app-title"
         style={{
           color: 'var(--color-text-primary)',
-          letterSpacing: 'var(--tracking-normal)',
+          letterSpacing: 'var(--tracking-tight)',
+          fontWeight: 650,
         }}
       >
         {t('app.title')}
@@ -55,10 +50,11 @@ export default function Header() {
             <motion.div
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
-              className="absolute right-0 top-full mt-1 rounded-lg border shadow-lg overflow-hidden z-50"
+              className="absolute right-0 top-full mt-1 rounded-lg border overflow-hidden z-50"
               style={{
                 borderColor: 'var(--color-border)',
                 backgroundColor: 'var(--color-bg-secondary)',
+                boxShadow: 'var(--shadow-md)',
               }}
             >
               <button

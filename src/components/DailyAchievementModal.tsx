@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ComponentType, type CSSProperties } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Trophy, CheckCircle2, Timer, Flame } from 'lucide-react';
 import { useSheet } from '../lib/responsive';
 import { useTodoStore } from '../store/todoStore';
 import { useCompletionStore } from '../store/completionStore';
@@ -99,7 +100,7 @@ export function DailyAchievementModal() {
                   : { width: 'min(360px, 90vw)', borderRadius: '16px' }),
                 backgroundColor: 'var(--color-bg-primary)',
                 border: '0.5px solid var(--color-border)',
-                boxShadow: '0 24px 60px rgba(0,0,0,0.22)',
+                boxShadow: 'var(--shadow-lg)',
               }}
             >
               {/* 头部 — coral 渐变 */}
@@ -132,10 +133,10 @@ export function DailyAchievementModal() {
                     width: 56, height: 56, borderRadius: '50%',
                     backgroundColor: 'rgba(255,255,255,0.2)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    marginBottom: '10px', fontSize: '26px', flexShrink: 0,
+                    marginBottom: '10px', flexShrink: 0,
                   }}
                 >
-                  🏆
+                  <Trophy size={26} strokeWidth={1.8} style={{ color: '#fff' }} />
                 </motion.div>
 
                 <span style={{ color: '#fff', fontSize: '11px', fontWeight: 500, letterSpacing: '0.12em', textTransform: 'uppercase', opacity: 0.85 }}>
@@ -154,7 +155,7 @@ export function DailyAchievementModal() {
                     unit="项"
                     label="任务完成"
                     color="var(--clay)"
-                    emoji="✅"
+                    icon={CheckCircle2}
                     delay={0.15}
                   />
                   <StatCard
@@ -162,7 +163,7 @@ export function DailyAchievementModal() {
                     unit="分钟"
                     label="专注时长"
                     color="var(--sky)"
-                    emoji="⏱"
+                    icon={Timer}
                     delay={0.22}
                   />
                   <StatCard
@@ -170,7 +171,7 @@ export function DailyAchievementModal() {
                     unit={`/ ${totalHabits}`}
                     label="习惯打卡"
                     color="var(--olive)"
-                    emoji="🔥"
+                    icon={Flame}
                     delay={0.29}
                   />
                 </div>
@@ -212,7 +213,7 @@ export function DailyAchievementModal() {
                   whileHover={{ opacity: 0.9 }}
                   whileTap={{ scale: 0.97 }}
                 >
-                  收下成就 ✨
+                  收下成就
                 </motion.button>
               </div>
             </motion.div>
@@ -226,13 +227,13 @@ export function DailyAchievementModal() {
 // ── 统计卡片 ──────────────────────────────────────────────────────────
 
 function StatCard({
-  value, unit, label, color, emoji, delay,
+  value, unit, label, color, icon: Icon, delay,
 }: {
   value: number;
   unit: string;
   label: string;
   color: string;
-  emoji: string;
+  icon: ComponentType<{ size?: number; strokeWidth?: number; style?: CSSProperties }>;
   delay: number;
 }) {
   return (
@@ -246,10 +247,10 @@ function StatCard({
         borderRadius: '10px',
         backgroundColor: 'var(--color-bg-secondary)',
         border: '0.5px solid var(--color-border)',
-        gap: '3px',
+        gap: '5px',
       }}
     >
-      <span style={{ fontSize: '16px' }}>{emoji}</span>
+      <Icon size={16} strokeWidth={1.8} style={{ color }} />
       <div className="flex items-baseline" style={{ gap: '2px' }}>
         <span style={{ fontSize: '22px', fontWeight: 700, color, lineHeight: 1, fontFamily: 'var(--font-mono)' }}>
           {value}

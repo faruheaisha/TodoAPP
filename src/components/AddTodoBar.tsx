@@ -6,8 +6,16 @@ import { useTagStore, TAG_PALETTE } from '../store/tagStore';
 import { TagChip } from './TagChip';
 import { parseNLP } from '../lib/nlpDate';
 import { useIsTouch } from '../lib/responsive';
-import { Plus, Calendar, Repeat, Sparkles } from 'lucide-react';
+import { Plus, Calendar, Repeat, Sparkles, Sun, Briefcase, CalendarDays, CalendarRange } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
+
+// 重复类型 → 线性图标映射（替代 store 中的 emoji，保持设计系统统一）
+const RECURRENCE_ICONS: Record<string, typeof Repeat> = {
+  daily: Sun,
+  weekdays: Briefcase,
+  weekly: CalendarDays,
+  monthly: CalendarRange,
+};
 
 export default function AddTodoBar() {
   const { t, i18n } = useTranslation();
@@ -26,6 +34,14 @@ export default function AddTodoBar() {
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const deadlineInputRef = useRef<HTMLInputElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  // EmptyState 的引导按钮触发：聚焦标题输入框
+  useEffect(() => {
+    const handler = () => titleInputRef.current?.focus();
+    window.addEventListener('focus-add-input', handler);
+    return () => window.removeEventListener('focus-add-input', handler);
+  }, []);
 
   // NLP 解析结果
   const [nlpHint, setNlpHint] = useState<string | null>(null);
@@ -128,6 +144,7 @@ export default function AddTodoBar() {
         {/* Input field */}
         <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
           <input
+            ref={titleInputRef}
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -252,23 +269,27 @@ export default function AddTodoBar() {
               : (lang === 'zh' ? '不重复' : 'No repeat')}
           </button>
           {showRecurrencePicker && (
-            <div className="absolute flex flex-col overflow-hidden" style={{ top: '26px', left: 0, zIndex: 100, borderRadius: '7px', border: '0.5px solid var(--color-border)', backgroundColor: 'var(--color-bg-primary)', boxShadow: '0 8px 24px rgba(0,0,0,0.14)', minWidth: '120px' }}>
+            <div className="absolute flex flex-col overflow-hidden" style={{ top: '26px', left: 0, zIndex: 100, borderRadius: '7px', border: '0.5px solid var(--color-border)', backgroundColor: 'var(--color-bg-primary)', boxShadow: 'var(--shadow-md)', minWidth: '120px' }}>
               <button onClick={() => { setRecurrence(''); setShowRecurrencePicker(false); }}
                 className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer"
                 style={{ color: !recurrence ? 'var(--clay)' : 'var(--color-text-secondary)', backgroundColor: 'transparent', border: 'none', textAlign: 'left' }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-bg-tertiary)'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
               >{lang === 'zh' ? '不重复' : 'No repeat'}</button>
-              {RECURRENCE_OPTIONS.map(opt => (
+              {RECURRENCE_OPTIONS.map(opt => {
+                const RecurrenceIcon = RECURRENCE_ICONS[opt.type] ?? Repeat;
+                return (
                 <button key={opt.type} onClick={() => { setRecurrence(opt.type); setShowRecurrencePicker(false); }}
                   className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer"
                   style={{ color: recurrence === opt.type ? 'var(--clay)' : 'var(--color-text-secondary)', backgroundColor: 'transparent', border: 'none', textAlign: 'left' }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-bg-tertiary)'; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
                 >
-                  <span>{opt.icon}</span>{lang === 'zh' ? opt.labelZh : opt.labelEn}
+                  <RecurrenceIcon size={12} strokeWidth={1.8} style={{ flexShrink: 0 }} />
+                  {lang === 'zh' ? opt.labelZh : opt.labelEn}
                 </button>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -296,7 +317,7 @@ export default function AddTodoBar() {
               : (lang === 'zh' ? '添加标签' : 'Add tags')}
           </button>
           {showTagPicker && (
-            <div style={{ position: 'absolute', top: '26px', left: 0, zIndex: 100, borderRadius: '8px', border: '0.5px solid var(--color-border)', backgroundColor: 'var(--color-bg-primary)', boxShadow: '0 8px 24px rgba(0,0,0,0.14)', minWidth: '170px', padding: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ position: 'absolute', top: '26px', left: 0, zIndex: 100, borderRadius: '8px', border: '0.5px solid var(--color-border)', backgroundColor: 'var(--color-bg-primary)', boxShadow: 'var(--shadow-md)', minWidth: '170px', padding: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {tags.length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                   {tags.map(tag => (

@@ -12,7 +12,7 @@ import { TagChip } from './TagChip';
 import { formatDeadline, isUrgent, isOverdue } from '../lib/utils';
 import { useIsTouch } from '../lib/responsive';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronDown, ChevronRight, Plus } from 'lucide-react';
+import { X, ChevronDown, ChevronRight, Plus, Repeat } from 'lucide-react';
 
 interface TodoCardProps {
   todo: Todo;
@@ -75,18 +75,15 @@ export function TodoCard({ todo }: TodoCardProps) {
       <motion.div
         layout
         initial={{ opacity: 0, x: -12 }}
-        animate={flash
-          ? { opacity: 1, x: 0, backgroundColor: ['transparent', 'rgba(217,119,87,0.10)', 'transparent'] }
-          : { opacity: 1, x: 0, backgroundColor: 'transparent' }
-        }
+        animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: 12 }}
         transition={{ duration: 0.55, ease: 'easeOut' }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => { setIsHovered(false); setShowTagPicker(false); }}
-        className="flex items-center"
+        className={`todo-row flex items-center ${flash ? 'todo-flash' : ''}`}
         style={{
           minHeight: 'var(--todo-row-h)',
-          padding: '7px 14px',
+          padding: '7px var(--pad-x)',
           gap: '8px',
           borderTop: '0.5px solid var(--color-separator)',
           cursor: 'default',
@@ -198,15 +195,16 @@ export function TodoCard({ todo }: TodoCardProps) {
         {/* 重复规则 badge */}
         {recurrenceRule && (
           <span
-            className="flex-shrink-0"
+            className="flex-shrink-0 inline-flex items-center"
             title={RECURRENCE_OPTIONS.find(o => o.type === recurrenceRule.type)?.[lang === 'zh' ? 'labelZh' : 'labelEn']}
             style={{
-              fontSize: '9px', padding: '1px 5px', borderRadius: '10px',
+              fontSize: '9px', padding: '1px 6px', borderRadius: '10px', gap: '3px',
               backgroundColor: 'var(--color-bg-tertiary)',
               color: 'var(--color-text-tertiary)',
             }}
           >
-            🔁 {RECURRENCE_OPTIONS.find(o => o.type === recurrenceRule.type)?.[lang === 'zh' ? 'labelZh' : 'labelEn']}
+            <Repeat size={8} strokeWidth={2} />
+            {RECURRENCE_OPTIONS.find(o => o.type === recurrenceRule.type)?.[lang === 'zh' ? 'labelZh' : 'labelEn']}
           </span>
         )}
 
@@ -279,10 +277,10 @@ export function TodoCard({ todo }: TodoCardProps) {
       {showTagPicker && (
         <div
           style={{
-            position: 'absolute', top: '100%', right: '14px', zIndex: 200,
+            position: 'absolute', top: '100%', right: 'var(--pad-x)', zIndex: 200,
             borderRadius: '8px', border: '0.5px solid var(--color-border)',
             backgroundColor: 'var(--color-bg-primary)',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.16)',
+            boxShadow: 'var(--shadow-md)',
             minWidth: '170px', padding: '8px',
             display: 'flex', flexDirection: 'column', gap: '6px',
           }}
@@ -342,7 +340,7 @@ export function TodoCard({ todo }: TodoCardProps) {
             transition={{ duration: 0.2, ease: 'easeInOut' }}
             style={{ overflow: 'hidden' }}
           >
-            <div style={{ padding: '2px 14px 6px 38px', display: 'flex', flexDirection: 'column', gap: '1px' }}>
+            <div style={{ padding: '2px var(--pad-x) 6px 38px', display: 'flex', flexDirection: 'column', gap: '1px' }}>
               {subtasks.map((sub) => (
                 <div
                   key={sub.id}

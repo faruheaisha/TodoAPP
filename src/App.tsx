@@ -326,7 +326,7 @@ function App() {
         <div
           className="flex-shrink-0 flex items-center flex-wrap"
           style={{
-            padding: '5px 14px',
+            padding: '5px var(--pad-x)',
             gap: '5px',
             borderBottom: '0.5px solid var(--color-separator)',
             backgroundColor: 'var(--color-bg-primary)',
@@ -344,7 +344,7 @@ function App() {
               color: activeTag === null ? 'var(--clay)' : 'var(--color-text-tertiary)',
             }}
           >
-            全部
+            {t('app.filterAll')}
           </button>
           {tags.map(tag => (
             <TagChip
