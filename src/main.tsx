@@ -1,13 +1,8 @@
-import React from 'react';
+import React, { StrictMode, Suspense, lazy } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import { StrictMode } from 'react';
 import { ToastProvider } from './components/Toast';
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <ToastProvider>
-      <App />
-    </ToastProvider>
-  </StrictMode>
-);
+// Hash-based routing for multiple Tauri windows
+// #focus-lock → FocusLockScreen (Pomodoro lock screen)
+// #clock      → ClockScreen (time-flow scree

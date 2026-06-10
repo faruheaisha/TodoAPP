@@ -125,7 +125,7 @@ export default function ToolsPanel() {
                   <X size={13} />
                 </button>
               </div>
-              <div className="flex-1 overflow-y-auto" style={{ padding: '28px 32px' }}>
+              <div className="tools-scroll flex-1 overflow-y-auto" style={{ padding: '28px 32px' }}>
                 <ActiveComponent />
               </div>
             </div>

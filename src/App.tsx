@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from './store/settingsStore';
 import { useTodoStore } from './store/todoStore';
@@ -6,6 +6,10 @@ import { useTagStore } from './store/tagStore';
 import { useCompletionStore } from './store/completionStore';
 import { useHabitStore } from './store/habitStore';
 import { calcWeeklyStats, buildReportText, msUntilNext } from './lib/weeklyReport';
+import { useOverlayStore } from './store/overlayStore';
+
+const FocusLockScreen = lazy(() => import('./windows/FocusLockScreen'));
+const ClockScreen = lazy(() => import('./windows/ClockScreen'));
 import { TagChip } from './components/TagChip';
 import { initDB, loadTodos } from './lib/tauri';
 
@@ -33,6 +37,7 @@ function App() {
   const { tags } = useTagStore();
   const completionTimes = useCompletionStore((s) => s.completionTimes);
   const habits = useHabitStore((s) => s.habits);
+  const { focusLock, clock } = useOverlayStore();
   const [filter, setFilter] = useState<FilterType>('all');
   const [activeTag, setActiveTag] = useState<string | null>(null);
 
@@ -295,6 +300,11 @@ function App() {
       <SettingsDrawer />
       <ToolsPanel />
       <DailyAchievementModal />
+      {/* Full-screen overlays */}
+      <Suspense fallback={null}>
+        {focusLock && <FocusLockScreen />}
+        {clock && <ClockScreen />}
+      </Suspense>
     </div>
   );
 }

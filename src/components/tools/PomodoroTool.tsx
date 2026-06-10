@@ -8,6 +8,7 @@ import {
   focusDurationFor,
 } from '../../store/focusStore';
 import { useTodoStore } from '../../store/todoStore';
+import { useOverlayStore } from '../../store/overlayStore';
 import { useToast } from '../Toast';
 
 /**
@@ -59,6 +60,7 @@ export function PomodoroTool() {
   const todos = useTodoStore((s) => s.todos);
   const activeTodos = todos.filter((todo) => !todo.completed);
   const linkedTodo = activeTodos.find((todo) => todo.id === linkedTodoId) ?? null;
+  const { openFocusLock, openClock } = useOverlayStore();
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -89,33 +91,6 @@ export function PomodoroTool() {
     window.addEventListener('focus-session-complete', handleComplete);
     return () => window.removeEventListener('focus-session-complete', handleComplete);
   }, [show, t]);
-
-  // 打开专注/屏保独立窗口（Tauri WebviewWindow）
-  async function openFocusWindow(type: 'focus-lock' | 'clock') {
-    try {
-      const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
-      const label = type === 'focus-lock' ? 'focus-lock' : 'clock-screen';
-      const title = type === 'focus-lock' ? '专注锁屏' : '时间流动';
-      const existing = await WebviewWindow.getByLabel(label);
-      if (existing) {
-        await existing.show();
-        await existing.setFocus();
-        return;
-      }
-      new WebviewWindow(label, {
-        url: `index.html#${type}`,
-        title,
-        fullscreen: true,
-        decorations: false,
-        alwaysOnTop: true,
-        skipTaskbar: type === 'focus-lock',
-        width: 1920,
-        height: 1080,
-      });
-    } catch (e) {
-      console.warn('openFocusWindow failed (non-Tauri env):', e);
-    }
-  }
 
   const total = focusDurationFor(mode, settings);
   // 倒计时消耗式：满格开始 → 空格结束（参考 react-countdown-circle-timer ⭐715 drain 方向）
@@ -327,7 +302,7 @@ export function PomodoroTool() {
       {/* 专注锁屏 / 时间屏保 快捷入口 */}
       <div className="flex items-center" style={{ gap: '8px' }}>
         <button
-          onClick={() => openFocusWindow('focus-lock')}
+          onClick={openFocusLock}
           className="flex items-center flex-1 transition-all cursor-pointer"
           style={{
             gap: '6px',
@@ -346,7 +321,7 @@ export function PomodoroTool() {
           {t('pomodoro.focusLock')}
         </button>
         <button
-          onClick={() => openFocusWindow('clock')}
+          onClick={openClock}
           className="flex items-center flex-1 transition-all cursor-pointer"
           style={{
             gap: '6px',

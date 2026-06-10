@@ -1,19 +1,22 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFocusStore, focusDurationFor } from '../store/focusStore';
-import { useTranslation } from 'react-i18next';
-import '../i18n/index';
+import { useTodoStore } from '../store/todoStore';
+import { useOverlayStore } from '../store/overlayStore';
 
 /**
- * FocusLockScreen — 专注锁屏窗口
+ * FocusLockScreen — 专注锁屏 overlay
  *
- * 设计灵感：Customodoro "Locked-In Mode" —— 一切淡出，只剩倒计时。
- * 全黑背景，大号倒计时圆环，任务名，呼吸光晕，当前时间（角落）。
- * 按 ESC 关闭窗口。
+ * 灵感来源：Customodoro "Locked-In Mode"
+ * 全屏遮罩，黑色背景，仅显示倒计时环 + 任务名。
+ * 一切干扰归零，只剩专注本身。
+ *
+ * 实现方式：position: fixed inset-0 z-[9999]（overlay，非新窗口）
  */
 
-const RING_R = 120;
+const RING_R = 110;
 const RING_CIRC = 2 * Math.PI * RING_R;
+const ACCENT = '#D97757';
 
 function fmt(s: number) {
   const m = Math.floor(s / 60);
@@ -26,12 +29,15 @@ function nowTime() {
 }
 
 export default function FocusLockScreen() {
-  const { t } = useTranslation();
+  const { closeFocusLock } = useOverlayStore();
   const { mode, remainingSeconds, isRunning, settings, linkedTodoId } = useFocusStore();
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [clockStr, setClockStr] = useState(nowTime());
+  const todos = useTodoStore((s) => s.todos);
+  const linkedTodo = todos.find((t) => t.id === linkedTodoId) ?? null;
 
-  // Keep ticking the store from this window too (in case main window is hidden)
+  const [clockStr, setClockStr] = useState(nowTime);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Keep ticking the store while locked
   useEffect(() => {
     if (isRunning) {
       intervalRef.current = setInterval(() => {
@@ -41,190 +47,155 @@ export default function FocusLockScreen() {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [isRunning]);
 
-  // Update corner clock
+  // Corner clock
   useEffect(() => {
     const id = setInterval(() => setClockStr(nowTime()), 1000);
     return () => clearInterval(id);
   }, []);
 
-  // ESC → close window
+  // ESC to close
   useEffect(() => {
-    async function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        const { getCurrentWindow } = await import('@tauri-apps/api/window');
-        getCurrentWindow().close();
-      }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') closeFocusLock();
     }
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, []);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [closeFocusLock]);
 
   const total = focusDurationFor(mode, settings);
   const progress = total > 0 ? (total - remainingSeconds) / total : 0;
-  const dashOffset = RING_CIRC * (1 - progress); // drain: full → empty
+  // Drain: start full, drain to empty
+  const strokeDash = RING_CIRC;
+  const strokeOffset = RING_CIRC * progress;
 
-  // Accent color matching main app (coral default)
-  const ringColor = '#D97757';
+  const modeLabel = mode === 'work' ? '专注中' : mode === 'shortBreak' ? '短休息' : '长休息';
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.4 }}
       style={{
         position: 'fixed',
         inset: 0,
+        zIndex: 9999,
         background: '#000',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         userSelect: 'none',
-        overflow: 'hidden',
       }}
     >
       {/* Corner clock */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 28,
-          right: 36,
-          fontFamily: "'Inter Variable', Inter, monospace",
-          fontSize: '13px',
-          color: 'rgba(255,255,255,0.25)',
-          letterSpacing: '0.08em',
-        }}
-      >
+      <div style={{
+        position: 'absolute', top: 28, right: 36,
+        fontFamily: "'Inter Variable', Inter, monospace",
+        fontSize: 13, color: 'rgba(255,255,255,0.2)',
+        letterSpacing: '0.08em',
+      }}>
         {clockStr}
       </div>
 
       {/* ESC hint */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 28,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          fontFamily: "'Inter Variable', Inter, sans-serif",
-          fontSize: '11px',
-          color: 'rgba(255,255,255,0.18)',
-          letterSpacing: '0.1em',
-        }}
-      >
-        按 ESC 退出锁屏
+      <div style={{
+        position: 'absolute', bottom: 28, left: '50%', transform: 'translateX(-50%)',
+        fontFamily: "'Inter Variable', Inter, sans-serif",
+        fontSize: 11, color: 'rgba(255,255,255,0.15)',
+        letterSpacing: '0.1em', whiteSpace: 'nowrap',
+      }}>
+        按 ESC 退出专注锁屏
       </div>
 
-      {/* Main ring */}
-      <div style={{ position: 'relative', width: 300, height: 300 }}>
-        <svg width={300} height={300} viewBox="0 0 300 300">
-          {/* Outer breathing glow */}
+      {/* Ring */}
+      <div style={{ position: 'relative', width: 280, height: 280 }}>
+        <svg width={280} height={280} viewBox="0 0 280 280">
+          {/* Ambient glow */}
           {isRunning && (
-            <motion.circle
-              cx={150} cy={150} r={RING_R + 20}
-              fill="none"
-              stroke={ringColor}
-              strokeWidth={2}
-              opacity={0}
-              animate={{ opacity: [0, 0.15, 0] }}
-              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+            <motion.circle cx={140} cy={140} r={RING_R + 24}
+              fill="none" stroke={ACCENT} strokeWidth={1.5} opacity={0}
+              animate={{ opacity: [0, 0.12, 0] }}
+              transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
             />
           )}
           {/* Track */}
-          <circle
-            cx={150} cy={150} r={RING_R}
-            fill="none"
-            stroke="rgba(255,255,255,0.07)"
-            strokeWidth={12}
+          <circle cx={140} cy={140} r={RING_R}
+            fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={14}
           />
-          {/* Progress arc */}
+          {/* Progress */}
           <motion.circle
-            cx={150} cy={150} r={RING_R}
+            cx={140} cy={140} r={RING_R}
             fill="none"
-            stroke={ringColor}
-            strokeWidth={12}
+            stroke={ACCENT}
+            strokeWidth={14}
             strokeLinecap="round"
-            strokeDasharray={RING_CIRC}
-            animate={{ strokeDashoffset: dashOffset }}
-            transition={{ duration: 0.5, ease: 'linear' }}
-            transform="rotate(-90 150 150)"
+            strokeDasharray={strokeDash}
+            animate={{ strokeDashoffset: strokeOffset }}
+            transition={{ duration: 0.6, ease: 'linear' }}
+            transform="rotate(-90 140 140)"
           />
         </svg>
 
-        {/* Center content */}
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 6,
-          }}
-        >
+        {/* Center */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', gap: 4,
+        }}>
           <motion.span
             key={remainingSeconds}
-            initial={{ opacity: 0.6, scale: 0.97 }}
+            initial={{ opacity: 0.7, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.15 }}
+            transition={{ duration: 0.12 }}
             style={{
               fontFamily: "'Inter Variable', Inter, monospace",
-              fontSize: '60px',
-              fontWeight: 300,
+              fontSize: 58,
+              fontWeight: 200,
               color: '#fff',
-              letterSpacing: '0.04em',
+              letterSpacing: '0.02em',
               lineHeight: 1,
             }}
           >
             {fmt(remainingSeconds)}
           </motion.span>
-          <span
-            style={{
-              fontFamily: "'Inter Variable', Inter, sans-serif",
-              fontSize: '12px',
-              color: 'rgba(255,255,255,0.4)',
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-            }}
-          >
-            {mode === 'work' ? '专注' : mode === 'shortBreak' ? '短休息' : '长休息'}
+          <span style={{
+            fontFamily: "'Inter Variable', Inter, sans-serif",
+            fontSize: 11,
+            color: 'rgba(255,255,255,0.35)',
+            letterSpacing: '0.14em',
+            textTransform: 'uppercase',
+          }}>
+            {modeLabel}
           </span>
         </div>
       </div>
 
-      {/* Task name (if linked) */}
+      {/* Task name */}
       <AnimatePresence>
-        {linkedTodoId && (
+        {linkedTodo && mode === 'work' && (
           <motion.div
-            initial={{ opacity: 0, y: 8 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.3 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
             style={{
-              marginTop: 28,
-              maxWidth: 320,
+              marginTop: 32,
+              maxWidth: 300,
               textAlign: 'center',
               fontFamily: "'Inter Variable', Inter, sans-serif",
-              fontSize: '14px',
-              color: 'rgba(255,255,255,0.5)',
+              fontSize: 14,
+              fontWeight: 300,
+              color: 'rgba(255,255,255,0.4)',
               letterSpacing: '0.02em',
               lineHeight: 1.5,
             }}
           >
-            <span style={{ color: ringColor, marginRight: 6 }}>●</span>
-            <TodoTitle todoId={linkedTodoId} />
+            <span style={{ color: ACCENT, marginRight: 8, fontSize: 8 }}>●</span>
+            {linkedTodo.title}
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
-}
-
-// Lazy load todo title to avoid import cycle
-function TodoTitle({ todoId }: { todoId: string }) {
-  const [title, setTitle] = useState('');
-  useEffect(() => {
-    import('../store/todoStore').then(({ useTodoStore }) => {
-      const todo = useTodoStore.getState().todos.find(t => t.id === todoId);
-      if (todo) setTitle(todo.title);
-    });
-  }, [todoId]);
-  return <>{title}</>;
 }

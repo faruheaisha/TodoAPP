@@ -147,11 +147,19 @@ body {
   transition: background-color var(--transition-normal), color var(--transition-normal);
 }
 
-/* ── 统一滚动条 ── */
-::-webkit-scrollbar { width: 6px; }
+/* ── 统一滚动条：细 + 仅滚动时浮现 ── */
+::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: transparent; border-radius: 2px; transition: background 0.25s; }
 ::-webkit-scrollbar-thumb:hover { background: var(--color-text-tertiary); }
+.scroll-visible:hover::-webkit-scrollbar-thumb,
+.scroll-visible:focus-within::-webkit-scrollbar-thumb { background: var(--color-border); }
+
+/* tools-panel 内容区专用细滚动条 */
+.tools-scroll::-webkit-scrollbar { width: 3px; }
+.tools-scroll::-webkit-scrollbar-track { background: transparent; }
+.tools-scroll::-webkit-scrollbar-thumb { background: transparent; border-radius: 2px; transition: background 0.2s; }
+.tools-scroll:hover::-webkit-scrollbar-thumb { background: var(--color-border); }
 
 /* PDF 选择器弹窗：细滚动条，仅悬停/滚动时可见 */
 .pdf-picker-scroll::-webkit-scrollbar { width: 3px; }
@@ -209,19 +217,4 @@ body {
   --clay-light: rgba(106, 155, 204, 0.12);
   --color-accent:       #6a9bcc;
   --color-accent-hover: #4e7fa8;
-  --color-accent-light: rgba(106, 155, 204, 0.12);
-}
-
-[data-accent='fig'] {
-  --clay:       #c46686;
-  --clay-hover: #a84f6a;
-  --clay-light: rgba(196, 102, 134, 0.12);
-  --color-accent:       #c46686;
-  --color-accent-hover: #a84f6a;
-  --color-accent-light: rgba(196, 102, 134, 0.12);
-}
-
-/* 深色模式下的 hover 微调 */
-[data-theme='dark'][data-accent='olive']  { --color-accent-hover: #8fa56e; }
-[data-theme='dark'][data-accent='sky']    { --color-accent-hover: #7bb5e0; }
-[data-theme='dark'][data-accent='fig']    { --color-accent-hover: #d87a98; }
+  --col
