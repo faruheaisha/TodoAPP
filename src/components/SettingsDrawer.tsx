@@ -293,16 +293,43 @@ export default function SettingsDrawer() {
           <div className={`fixed inset-0 z-50 flex justify-center pointer-events-none ${sheet.alignClass}`}>
           <motion.div
             {...sheet.motion}
-            className="flex overflow-hidden pointer-events-auto"
+            className={`${sheet.isPhone ? 'flex-col' : ''} flex overflow-hidden pointer-events-auto`}
             style={{
               ...sheet.panelStyle({ width: 'min(760px, 92vw)', height: 'min(560px, 88vh)' }),
               ...(sheet.isPhone ? { height: 'min(85dvh, 640px)' } : null),
               backgroundColor: 'var(--color-bg-secondary)',
               border: '0.5px solid var(--color-border)',
-              boxShadow: '0 16px 48px rgba(0,0,0,0.2)',
+              boxShadow: 'var(--shadow-lg)',
             }}
           >
-            {/* Left nav — 150px per spec */}
+            {sheet.isPhone ? (
+              /* 手机：顶部横向 tab 栏（分组扁平化，横向滚动） */
+              <div className="flex-shrink-0 border-b flex items-center overflow-x-auto" style={{ borderColor: 'var(--color-border)', padding: '8px 12px', gap: '6px' }}>
+                {NAV_ITEMS.map((item) => {
+                  const isActive = activeNav === item.key;
+                  return (
+                    <button
+                      key={item.key}
+                      onClick={() => setActiveNav(item.key)}
+                      className="flex-shrink-0 transition-all cursor-pointer rounded-lg"
+                      style={{
+                        height: '38px',
+                        padding: '0 14px',
+                        fontSize: '13px',
+                        whiteSpace: 'nowrap',
+                        color: isActive ? 'var(--color-fill-text)' : 'var(--color-text-tertiary)',
+                        backgroundColor: isActive ? 'var(--color-fill)' : 'var(--color-bg-tertiary)',
+                        fontWeight: isActive ? 500 : 400,
+                        border: 'none',
+                      }}
+                    >
+                      {t(item.label)}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+            /* 桌面：Left nav — 150px per spec */
             <div className="flex-shrink-0 border-r flex flex-col" style={{ width: '150px', borderColor: 'var(--color-border)' }}>
               <div className="px-4 py-3 border-b flex items-center" style={{ borderColor: 'var(--color-border)' }}>
                 <span className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)', letterSpacing: 'var(--tracking-normal)' }}>
@@ -358,10 +385,11 @@ export default function SettingsDrawer() {
                 <span className="text-[9px]" style={{ color: 'var(--color-text-tertiary)' }}>v0.1.0</span>
               </div>
             </div>
+            )}
 
             {/* Right panel */}
             <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex items-center justify-between border-b flex-shrink-0" style={{ borderColor: 'var(--color-border)', padding: '14px 26px' }}>
+              <div className="flex items-center justify-between border-b flex-shrink-0" style={{ borderColor: 'var(--color-border)', padding: sheet.isPhone ? '12px 16px' : '14px 26px' }}>
                 <span className="text-xs font-medium" style={{ color: 'var(--color-text-primary)' }}>
                   {t(NAV_ITEMS.find((i) => i.key === activeNav)?.label ?? '')}
                 </span>
@@ -370,7 +398,7 @@ export default function SettingsDrawer() {
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto" style={{ padding: '28px 32px' }}>
+              <div className="flex-1 overflow-y-auto" style={{ padding: sheet.isPhone ? '20px 16px' : '28px 32px' }}>
                 {activeNav === 'appearance' && (
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <SettingRow label={t('settings.language')}>

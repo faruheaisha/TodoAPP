@@ -5,6 +5,7 @@ import { useRecurrenceStore, RECURRENCE_OPTIONS, type RecurrenceType } from '../
 import { useTagStore, TAG_PALETTE } from '../store/tagStore';
 import { TagChip } from './TagChip';
 import { parseNLP } from '../lib/nlpDate';
+import { useIsTouch } from '../lib/responsive';
 import { Plus, Calendar, Repeat, Sparkles } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -15,6 +16,7 @@ export default function AddTodoBar() {
   const { setRule } = useRecurrenceStore();
   const { tags, addTag, addTagToTodo } = useTagStore();
 
+  const isTouch = useIsTouch();
   const [title, setTitle] = useState('');
   const [todoType, setTodoType] = useState<'quick' | 'longterm'>('quick');
   const [deadline, setDeadline] = useState('');
@@ -105,7 +107,7 @@ export default function AddTodoBar() {
       style={{
         borderColor: 'var(--color-border)',
         backgroundColor: 'var(--color-bg-primary)',
-        padding: '7px 14px',
+        padding: '7px var(--pad-x)',
       }}
     >
       {/* 主输入行 */}
@@ -201,7 +203,7 @@ export default function AddTodoBar() {
             onClick={() => deadlineInputRef.current?.showPicker?.()}
             className="flex items-center cursor-pointer transition-colors"
             style={{
-              height: '28px', padding: '0 10px', borderRadius: '5px',
+              height: isTouch ? '40px' : '28px', padding: '0 10px', borderRadius: '5px',
               border: '0.5px solid ' + (deadline ? 'var(--clay)' : 'var(--color-border)'),
               backgroundColor: 'var(--color-bg-input)', gap: '7px', userSelect: 'none',
             }}
@@ -238,10 +240,10 @@ export default function AddTodoBar() {
             onClick={() => { setShowRecurrencePicker((v) => !v); setShowTagPicker(false); }}
             className="flex items-center transition-colors cursor-pointer"
             style={{
-              height: '24px', padding: '0 9px', gap: '5px', borderRadius: '5px',
+              height: isTouch ? '36px' : '24px', padding: isTouch ? '0 14px' : '0 9px', gap: '5px', borderRadius: '5px',
               border: '0.5px solid', borderColor: recurrence ? 'var(--clay)' : 'var(--color-border)',
               backgroundColor: recurrence ? 'var(--clay-light)' : 'transparent',
-              fontSize: '10px', color: recurrence ? 'var(--clay)' : 'var(--color-text-tertiary)',
+              fontSize: isTouch ? '12px' : '10px', color: recurrence ? 'var(--clay)' : 'var(--color-text-tertiary)',
             }}
           >
             <Repeat size={10} />
@@ -277,10 +279,10 @@ export default function AddTodoBar() {
             onClick={() => { setShowTagPicker((v) => !v); setShowRecurrencePicker(false); }}
             className="flex items-center transition-colors cursor-pointer"
             style={{
-              height: '24px', padding: '0 9px', gap: '5px', borderRadius: '5px',
+              height: isTouch ? '36px' : '24px', padding: isTouch ? '0 14px' : '0 9px', gap: '5px', borderRadius: '5px',
               border: '0.5px solid', borderColor: selectedTagIds.length ? 'var(--clay)' : 'var(--color-border)',
               backgroundColor: selectedTagIds.length ? 'var(--clay-light)' : 'transparent',
-              fontSize: '10px', color: selectedTagIds.length ? 'var(--clay)' : 'var(--color-text-tertiary)',
+              fontSize: isTouch ? '12px' : '10px', color: selectedTagIds.length ? 'var(--clay)' : 'var(--color-text-tertiary)',
             }}
           >
             <svg width="10" height="10" viewBox="0 0 14 14" fill="none">

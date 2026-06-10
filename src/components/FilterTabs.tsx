@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTodoStore } from '../store/todoStore';
+import { useIsTouch } from '../lib/responsive';
 
 export type FilterType = 'all' | 'active' | 'completed';
 
@@ -12,6 +13,7 @@ interface FilterTabsProps {
 export default function FilterTabs({ activeFilter: externalFilter, onFilterChange }: FilterTabsProps) {
   const { t } = useTranslation();
   const { todos } = useTodoStore();
+  const isTouch = useIsTouch();
 
   const activeCount = todos.filter((t) => !t.completed).length;
   const completedCount = todos.filter((t) => t.completed).length;
@@ -28,10 +30,10 @@ export default function FilterTabs({ activeFilter: externalFilter, onFilterChang
 
   return (
     <div
-      className="flex flex-shrink-0"
+      className="flex flex-shrink-0 items-center"
       style={{
         gap: '4px',
-        padding: '5px 14px',
+        padding: '5px var(--pad-x)',
         height: 'var(--filter-row-h)',
         backgroundColor: 'var(--color-bg-primary)',
       }}
@@ -44,8 +46,8 @@ export default function FilterTabs({ activeFilter: externalFilter, onFilterChang
             onClick={() => setFilter(f.key)}
             className="text-xs font-medium transition-colors cursor-pointer"
             style={{
-              padding: '2px 9px',
-              borderRadius: '4px',
+              padding: isTouch ? '6px 14px' : '2px 9px',
+              borderRadius: isTouch ? '6px' : '4px',
               border: '0.5px solid',
               borderColor: isActive ? 'var(--color-fill)' : 'var(--color-border)',
               color: isActive ? 'var(--color-fill-text)' : 'var(--color-text-tertiary)',
