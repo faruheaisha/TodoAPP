@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { useOverlayStore } from './overlayStore';
 
 export type FocusMode = 'work' | 'shortBreak' | 'longBreak';
 
@@ -142,6 +143,12 @@ export const useFocusStore = create<FocusState>()(
           cycleCount: nextCycle,
           sessionLog: nextSessionLog,
         });
+
+        // 专注阶段结束且不自动开始下一段时，自动关闭专注锁屏
+        if (!settings.autoStartNext) {
+          const overlay = useOverlayStore.getState();
+          if (overlay.focusLock) overlay.closeFocusLock();
+        }
       },
 
       switchMode: (mode) => {

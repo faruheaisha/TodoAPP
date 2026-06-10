@@ -10,6 +10,12 @@ import { useOverlayStore } from './store/overlayStore';
 
 const FocusLockScreen = lazy(() => import('./windows/FocusLockScreen'));
 const ClockScreen = lazy(() => import('./windows/ClockScreen'));
+// 非首屏组件懒加载：减小首屏 bundle，缩短冷启动白屏时间
+const SettingsDrawer = lazy(() => import('./components/SettingsDrawer'));
+const ToolsPanel = lazy(() => import('./components/ToolsPanel'));
+const DailyAchievementModal = lazy(() =>
+  import('./components/DailyAchievementModal').then((m) => ({ default: m.DailyAchievementModal }))
+);
 import { TagChip } from './components/TagChip';
 import { initDB, loadTodos } from './lib/tauri';
 
@@ -21,14 +27,11 @@ import AddTodoBar from './components/AddTodoBar';
 import FilterTabs, { type FilterType } from './components/FilterTabs';
 import TodoSection from './components/TodoSection';
 import EmptyState from './components/EmptyState';
-import SettingsDrawer from './components/SettingsDrawer';
-import ToolsPanel from './components/ToolsPanel';
-import { DailyAchievementModal } from './components/DailyAchievementModal';
 
 function App() {
   const { t, i18n } = useTranslation();
   const {
-    theme, language, accentColor,
+    theme, language, accentColor, hotkey,
     startupDelay, reminderIgnored, lastPromptDate, setLastPromptDate,
     achievementTime, achievementLastDate, setAchievementLastDate,
     weeklyReportEnabled, weeklyReportDay, weeklyReportTime, weeklyReportLastDate, setWeeklyReportLastDate,
@@ -237,6 +240,67 @@ function App() {
     init();
   }, []);
 
+  // 全局快捷键：注册 settings 中的 hotkey，按下时切换主窗口显示/隐藏
+  useEffect(() => {
+    if (!hotkey) return;
+    let active = true;
+    let registeredKey: string | null = null;
+
+    (async () => {
+      try {
+        const { register, unregister, isRegistered } = await import('@tauri-apps/plugin-global-shortcut');
+        if (await isRegistered(hotkey)) await unregister(hotkey);
+        if (!active) return;
+        await register(hotkey, async (event) => {
+          if (event.state !== 'Pressed') return;
+          try {
+            const { getCurrentWindow } = await import('@tauri-apps/api/window');
+            const win = getCurrentWindow();
+            const visible = await win.isVisible();
+            const focused = await win.isFocused();
+            if (visible && focused) {
+              await win.hide();
+            } else {
+              await win.show();
+              await win.setFocus();
+            }
+          } catch (err) {
+            console.warn('Hotkey toggle failed:', err);
+          }
+        });
+        registeredKey = hotkey;
+      } catch (e) {
+        console.warn('Global shortcut registration failed:', e);
+      }
+    })();
+
+    return () => {
+      active = false;
+      if (registeredKey) {
+        import('@tauri-apps/plugin-global-shortcut')
+          .then(({ unregister }) => unregister(registeredKey!))
+          .catch(() => {});
+      }
+    };
+  }, [hotkey]);
+
+  // 无闪启动：窗口初始 visible:false（tauri.conf.json），首帧渲染完成后再显示
+  useEffect(() => {
+    let cancelled = false;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(async () => {
+        if (cancelled) return;
+        try {
+          const { getCurrentWindow } = await import('@tauri-apps/api/window');
+          const win = getCurrentWindow();
+          await win.show();
+          await win.setFocus();
+        } catch { /* 非 Tauri 环境（浏览器调试）忽略 */ }
+      });
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   const hasTodos = todos.length > 0;
 
   return (
@@ -297,11 +361,11 @@ function App() {
           </div>
         )}
       </div>
-      <SettingsDrawer />
-      <ToolsPanel />
-      <DailyAchievementModal />
-      {/* Full-screen overlays */}
       <Suspense fallback={null}>
+        <SettingsDrawer />
+        <ToolsPanel />
+        <DailyAchievementModal />
+        {/* Full-screen overlays */}
         {focusLock && <FocusLockScreen />}
         {clock && <ClockScreen />}
       </Suspense>

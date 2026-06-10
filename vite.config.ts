@@ -20,7 +20,6 @@ export default defineConfig({
       output: {
         manualChunks: {
           react: ['react', 'react-dom'],
-          pdf: ['@react-pdf/renderer'],
         },
       },
     },
