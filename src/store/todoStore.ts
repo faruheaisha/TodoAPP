@@ -6,6 +6,7 @@ import {
   clearReminders,
 } from '../lib/tauri';
 import { useCompletionStore } from './completionStore';
+import { useSubtaskStore } from './subtaskStore';
 
 export type TodoType = 'quick' | 'longterm';
 
@@ -58,6 +59,7 @@ export const useTodoStore = create<TodoStore>()((set, get) => ({
   deleteTodo: async (id) => {
     await deleteTodoInDB(id);
     useCompletionStore.getState().removeCompletionTime(id);
+    useSubtaskStore.getState().deleteAllForTodo(id);
     set((state) => ({
       todos: state.todos.filter((todo) => todo.id !== id),
     }));
@@ -88,10 +90,4 @@ export const useTodoStore = create<TodoStore>()((set, get) => ({
   clearReminderFlags: async () => {
     await clearReminders();
     set((state) => ({
-      todos: state.todos.map((todo) => ({
-        ...todo,
-        reminderSent: false,
-      })),
-    }));
-  },
-}));
+      todos: st

@@ -17,7 +17,9 @@
     "filterAll": "All",
     "filterActive": "Active",
     "filterCompleted": "Completed",
-    "noActiveTasks": "No active tasks"
+    "noActiveTasks": "No active tasks",
+    "addSubtask": "Add subtask",
+    "subtaskPlaceholder": "Add subtask…"
   },
   "settings": {
     "title": "Settings",
@@ -147,7 +149,4 @@
   },
   "insights": {
     "focusTitle": "Focus Time (Last 7 Days)",
-    "habitTitle": "Habit Heatmap (Last 5 Weeks)",
-    "statsTitle": "Quick Stats"
-  }
-}
+    "habit

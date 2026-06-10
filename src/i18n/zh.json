@@ -17,7 +17,9 @@
     "filterAll": "全部",
     "filterActive": "进行中",
     "filterCompleted": "已完成",
-    "noActiveTasks": "无进行中"
+    "noActiveTasks": "无进行中",
+    "addSubtask": "添加子任务",
+    "subtaskPlaceholder": "添加子任务…"
   },
   "settings": {
     "title": "设置",
@@ -147,7 +149,4 @@
   },
   "insights": {
     "focusTitle": "专注时长（近7天）",
-    "habitTitle": "习惯热力图（近5周）",
-    "statsTitle": "数据速览"
-  }
-}
+   
