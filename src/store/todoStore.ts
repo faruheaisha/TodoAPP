@@ -5,6 +5,7 @@ import {
   deleteTodoInDB,
   clearReminders,
 } from '../lib/tauri';
+import { useCompletionStore } from './completionStore';
 
 export type TodoType = 'quick' | 'longterm';
 
@@ -56,6 +57,7 @@ export const useTodoStore = create<TodoStore>()((set, get) => ({
 
   deleteTodo: async (id) => {
     await deleteTodoInDB(id);
+    useCompletionStore.getState().removeCompletionTime(id);
     set((state) => ({
       todos: state.todos.filter((todo) => todo.id !== id),
     }));
@@ -66,6 +68,12 @@ export const useTodoStore = create<TodoStore>()((set, get) => ({
     if (!todo) return;
     const newCompleted = !todo.completed;
     await updateTodoInDB(id, { completed: newCompleted });
+    // 完成时记录时间戳，取消完成时清除
+    if (newCompleted) {
+      useCompletionStore.getState().setCompletionTime(id, new Date().toISOString());
+    } else {
+      useCompletionStore.getState().removeCompletionTime(id);
+    }
     set((state) => ({
       todos: state.todos.map((t) =>
         t.id === id ? { ...t, completed: newCompleted } : t

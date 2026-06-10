@@ -26,6 +26,8 @@
     "lightMode": "Light Mode",
     "darkMode": "Dark Mode",
     "startupDelay": "Startup Prompt Delay",
+    "achievementTime": "Daily Achievement Time",
+    "achievementOff": "Off",
     "minutes": "min",
     "hotkey": "Global Hotkey",
     "hotkeyHint": "Press keys...",

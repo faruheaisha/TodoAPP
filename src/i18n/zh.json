@@ -26,6 +26,8 @@
     "lightMode": "日间模式",
     "darkMode": "夜间模式",
     "startupDelay": "开机弹窗延迟",
+    "achievementTime": "每日成就弹窗时间",
+    "achievementOff": "关闭",
     "minutes": "分钟",
     "hotkey": "全局快捷键",
     "hotkeyHint": "按组合键...",

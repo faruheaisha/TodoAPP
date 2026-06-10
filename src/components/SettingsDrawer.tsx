@@ -166,6 +166,7 @@ export default function SettingsDrawer() {
     startupDelay, setStartupDelay, hotkey, setHotkey,
     downloadPath, setDownloadPath,
     isOpen, setIsOpen,
+    achievementTime, setAchievementTime,
   } = useSettingsStore();
   const { todos, setTodos } = useTodoStore();
   const { show } = useToast();
@@ -392,6 +393,36 @@ export default function SettingsDrawer() {
                         <span className="text-xs font-mono" style={{ color: 'var(--color-text-secondary)' }}>
                           {startupDelay} {t('settings.minutes')}
                         </span>
+                      </div>
+                    </SettingRow>
+                    <SettingRow label={t('settings.achievementTime')}>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="time"
+                          value={achievementTime}
+                          onChange={(e) => setAchievementTime(e.target.value)}
+                          className="text-xs rounded border outline-none transition-colors"
+                          style={{
+                            padding: '4px 8px',
+                            fontFamily: 'var(--font-mono)',
+                            backgroundColor: 'var(--color-bg-tertiary)',
+                            color: 'var(--color-text-secondary)',
+                            borderColor: 'var(--color-border)',
+                            accentColor: 'var(--clay)',
+                          }}
+                          onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--clay)'; }}
+                          onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}
+                        />
+                        {achievementTime && (
+                          <button
+                            onClick={() => setAchievementTime('')}
+                            className="text-[10px] transition-colors cursor-pointer"
+                            style={{ color: 'var(--color-text-tertiary)', background: 'none', border: 'none', padding: 0 }}
+                            title={t('settings.achievementOff')}
+                          >
+                            {t('settings.achievementOff')}
+                          </button>
+                        )}
                       </div>
                     </SettingRow>
                   </div>

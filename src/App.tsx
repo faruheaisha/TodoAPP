@@ -14,12 +14,14 @@ import TodoSection from './components/TodoSection';
 import EmptyState from './components/EmptyState';
 import SettingsDrawer from './components/SettingsDrawer';
 import ToolsPanel from './components/ToolsPanel';
+import { DailyAchievementModal } from './components/DailyAchievementModal';
 
 function App() {
   const { t, i18n } = useTranslation();
   const {
     theme, language,
     startupDelay, reminderIgnored, lastPromptDate, setLastPromptDate,
+    achievementTime, achievementLastDate, setAchievementLastDate,
   } = useSettingsStore();
   const { todos, isLoading, setTodos } = useTodoStore();
   const [filter, setFilter] = useState<FilterType>('all');
@@ -71,6 +73,37 @@ function App() {
     return () => clearTimeout(timer);
   }, [startupDelay, reminderIgnored, lastPromptDate, setLastPromptDate, t]);
 
+  // 每日成就弹窗调度
+  // 规则：
+  //   1. achievementTime 为空 → 关闭
+  //   2. 今天已弹过 (achievementLastDate === today) → 跳过
+  //   3. 当前时间 < 设定时间 → 倒计时到设定时间再弹
+  //   4. 当前时间 >= 设定时间 && 今天未弹 → 立即弹（应用在成就时间后启动的场景）
+  useEffect(() => {
+    if (!achievementTime) return;
+    const todayKey = new Date().toISOString().slice(0, 10);
+    if (achievementLastDate === todayKey) return;
+
+    const [hh, mm] = achievementTime.split(':').map(Number);
+    const now = new Date();
+    const target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hh, mm, 0, 0);
+    const diffMs = target.getTime() - now.getTime();
+
+    const dispatch = () => {
+      window.dispatchEvent(new CustomEvent('show-achievement'));
+      setAchievementLastDate(todayKey);
+    };
+
+    if (diffMs <= 0) {
+      // 已过今日成就时间，立即弹
+      dispatch();
+      return;
+    }
+
+    const timer = setTimeout(dispatch, diffMs);
+    return () => clearTimeout(timer);
+  }, [achievementTime, achievementLastDate, setAchievementLastDate]);
+
   // Load todos on mount
   useEffect(() => {
     async function init() {
@@ -115,6 +148,7 @@ function App() {
       </div>
       <SettingsDrawer />
       <ToolsPanel />
+      <DailyAchievementModal />
     </div>
   );
 }

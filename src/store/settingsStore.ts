@@ -13,6 +13,10 @@ interface SettingsState {
   lastPromptDate: string;
   reminderIgnored: boolean;
   isOpen: boolean; // settings drawer open state
+  /** 每日成就弹窗触发时间，格式 "HH:MM"（24h），空字符串表示关闭 */
+  achievementTime: string;
+  /** 今天已展示成就弹窗的日期，避免重复弹出 */
+  achievementLastDate: string;
 
   setTheme: (theme: Theme) => void;
   setLanguage: (language: Language) => void;
@@ -23,6 +27,8 @@ interface SettingsState {
   setReminderIgnored: (ignored: boolean) => void;
   resetReminderIgnored: () => void;
   setIsOpen: (open: boolean) => void;
+  setAchievementTime: (time: string) => void;
+  setAchievementLastDate: (date: string) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -36,6 +42,8 @@ export const useSettingsStore = create<SettingsState>()(
       lastPromptDate: '',
       reminderIgnored: false,
       isOpen: false,
+      achievementTime: '21:00',
+      achievementLastDate: '',
 
       setTheme: (theme) => set({ theme }),
       setLanguage: (language) => set({ language }),
@@ -46,6 +54,8 @@ export const useSettingsStore = create<SettingsState>()(
       setReminderIgnored: (reminderIgnored) => set({ reminderIgnored }),
       resetReminderIgnored: () => set({ reminderIgnored: false }),
       setIsOpen: (isOpen) => set({ isOpen }),
+      setAchievementTime: (achievementTime) => set({ achievementTime }),
+      setAchievementLastDate: (achievementLastDate) => set({ achievementLastDate }),
     }),
     {
       name: 'todoapp-settings',

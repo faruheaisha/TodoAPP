@@ -1,7 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTodoStore } from '../store/todoStore';
-import { Plus } from 'lucide-react';
+import { Plus, Calendar } from 'lucide-react';
 
 export default function AddTodoBar() {
   const { t } = useTranslation();
@@ -9,6 +9,7 @@ export default function AddTodoBar() {
   const [title, setTitle] = useState('');
   const [todoType, setTodoType] = useState<'quick' | 'longterm'>('quick');
   const [deadline, setDeadline] = useState('');
+  const deadlineInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = useCallback(() => {
     if (!title.trim()) return;
@@ -101,20 +102,65 @@ export default function AddTodoBar() {
         </button>
       </div>
 
-      {/* Deadline picker */}
+      {/* Deadline picker — 整个容器可点击，调用 .showPicker() 唤起系统日历 */}
       {todoType === 'longterm' && (
-        <div className="mt-1.5">
+        <div className="mt-1.5" style={{ position: 'relative' }}>
+          {/* 可见的点击区域 */}
+          <div
+            onClick={() => deadlineInputRef.current?.showPicker?.()}
+            className="flex items-center cursor-pointer transition-colors"
+            style={{
+              height: '28px',
+              padding: '0 10px',
+              borderRadius: '5px',
+              border: '0.5px solid ' + (deadline ? 'var(--clay)' : 'var(--color-border)'),
+              backgroundColor: 'var(--color-bg-input)',
+              gap: '7px',
+              userSelect: 'none',
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.borderColor = deadline ? 'var(--clay)' : 'var(--color-border-hover)';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.borderColor = deadline ? 'var(--clay)' : 'var(--color-border)';
+            }}
+          >
+            <Calendar size={12} style={{ color: deadline ? 'var(--clay)' : 'var(--color-text-tertiary)', flexShrink: 0 }} />
+            <span
+              className="text-xs flex-1"
+              style={{ color: deadline ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)' }}
+            >
+              {deadline
+                ? new Date(deadline).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                : t('app.deadline')}
+            </span>
+            {deadline && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setDeadline(''); }}
+                className="flex items-center justify-center"
+                style={{
+                  width: '14px', height: '14px', borderRadius: '50%',
+                  backgroundColor: 'var(--color-bg-tertiary)',
+                  border: 'none', cursor: 'pointer', flexShrink: 0,
+                  color: 'var(--color-text-tertiary)', fontSize: '10px', lineHeight: 1,
+                }}
+              >
+                ×
+              </button>
+            )}
+          </div>
+          {/* 隐藏的原生 input，仅用于调起系统日历弹窗 */}
           <input
+            ref={deadlineInputRef}
             type="datetime-local"
             value={deadline}
             onChange={(e) => setDeadline(e.target.value)}
-            className="w-full px-2.5 py-1 rounded text-xs border"
             style={{
-              borderColor: 'var(--color-border)',
-              backgroundColor: 'var(--color-bg-input)',
-              color: 'var(--color-text-secondary)',
-              height: '26px',
+              position: 'absolute', top: 0, left: 0,
+              width: 0, height: 0, opacity: 0,
+              pointerEvents: 'none', border: 'none',
             }}
+            tabIndex={-1}
           />
         </div>
       )}
