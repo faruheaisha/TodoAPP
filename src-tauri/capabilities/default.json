@@ -1,7 +1,9 @@
 {
   "identifier": "main-capability",
   "description": "Capability for main window permissions",
-  "windows": ["main"],
+  "windows": [
+    "main"
+  ],
   "permissions": [
     "core:default",
     "core:app:allow-default-window-icon",
@@ -52,6 +54,11 @@
     "global-shortcut:allow-register",
     "global-shortcut:allow-is-registered",
     "global-shortcut:allow-unregister",
-    "window-state:default"
+    "window-state:default",
+    "core:tray:default",
+    "core:tray:allow-set-icon",
+    "core:tray:allow-set-tooltip",
+    "core:tray:allow-set-visible",
+    "core:tray:allow-set-menu"
   ]
 }

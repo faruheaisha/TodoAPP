@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from './store/settingsStore';
 import { useTodoStore } from './store/todoStore';
@@ -150,6 +150,73 @@ function App() {
     return () => clearTimeout(timer);
   }, [weeklyReportEnabled, weeklyReportDay, weeklyReportTime, weeklyReportLastDate,
       completionTimes, habits, i18n.language, setWeeklyReportLastDate]);
+
+
+  // 截止提醒通知 — 每小时扫描一次，每条 todo 每天最多推送一次
+  // 参考 TickTick 的 deadline alert 策略：urgent（24h内）+ overdue（已过期）各推一次
+  const notifiedRef = React.useRef<Map<string, string>>(new Map()); // todoId → lastNotifiedDate
+
+  useEffect(() => {
+    const scan = async () => {
+      const todayKey = new Date().toISOString().slice(0, 10);
+      const now = new Date();
+
+      // 找出需要提醒的 todos
+      const targets = todos.filter(todo => {
+        if (todo.completed || !todo.deadline) return false;
+        const lastNotified = notifiedRef.current.get(todo.id);
+        if (lastNotified === todayKey) return false; // 今天已推送过
+
+        const deadline = new Date(todo.deadline);
+        const diffMs = deadline.getTime() - now.getTime();
+        const diffHours = diffMs / 3600000;
+
+        // overdue 或 24h 内截止
+        return diffMs < 0 || diffHours <= 24;
+      });
+
+      if (targets.length === 0) return;
+
+      try {
+        const { isPermissionGranted, requestPermission, sendNotification } = await import('@tauri-apps/plugin-notification');
+        let granted = await isPermissionGranted();
+        if (!granted) {
+          const perm = await requestPermission();
+          granted = perm === 'granted';
+        }
+        if (!granted) return;
+
+        const lang = i18n.language.startsWith('zh') ? 'zh' : 'en';
+        for (const todo of targets) {
+          const deadline = new Date(todo.deadline!);
+          const diffMs = deadline.getTime() - now.getTime();
+          const isOverdue = diffMs < 0;
+
+          const title = isOverdue
+            ? (lang === 'zh' ? '⚠️ 任务已过期' : '⚠️ Task Overdue')
+            : (lang === 'zh' ? '⏰ 任务即将截止' : '⏰ Task Due Soon');
+
+          const timeStr = deadline.toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US', {
+            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+          });
+
+          const body = lang === 'zh'
+            ? `${todo.title}  ·  ${isOverdue ? '已过期：' : '截止：'}${timeStr}`
+            : `${todo.title}  ·  ${isOverdue ? 'Overdue: ' : 'Due: '}${timeStr}`;
+
+          sendNotification({ title, body });
+          notifiedRef.current.set(todo.id, todayKey);
+        }
+      } catch (e) {
+        console.warn('Deadline reminder skipped:', e);
+      }
+    };
+
+    // 立即扫描一次，然后每小时扫描
+    scan();
+    const interval = setInterval(scan, 3600000);
+    return () => clearInterval(interval);
+  }, [todos, i18n.language]);
 
   // Load todos on mount
   useEffect(() => {

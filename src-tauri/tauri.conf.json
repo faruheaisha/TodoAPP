@@ -27,17 +27,27 @@
     ],
     "security": {
       "csp": null
+    },
+    "trayIcon": {
+      "iconPath": "icons/32x32.png",
+      "iconAsTemplate": false,
+      "title": "TodoApp",
+      "tooltip": "TodoApp"
     }
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
-    
+    "targets": [
+      "nsis"
+    ],
     "windows": {
       "nsis": {
         "installerIcon": "icons/icon.ico",
         "installMode": "perMachine",
-        "languages": ["SimpChinese", "English"]
+        "languages": [
+          "SimpChinese",
+          "English"
+        ]
       },
       "webviewInstallMode": {
         "type": "skip"
