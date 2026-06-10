@@ -138,7 +138,10 @@
     "durationSettings": "Durations",
     "autoStartNext": "Auto-start next session",
     "totalCompleted": "{{count}} focus sessions completed",
-    "sessionDoneToast": "{{mode}} session complete"
+    "sessionDoneToast": "{{mode}} session complete",
+    "focusingOn": "Focusing on",
+    "selectTodo": "Select a task...",
+    "noTodo": "No active tasks"
   },
   "insights": {
     "focusTitle": "Focus Time (Last 7 Days)",

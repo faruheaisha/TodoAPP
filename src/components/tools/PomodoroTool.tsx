@@ -1,12 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { motion } from 'framer-motion';
-import { Play, Pause, RotateCcw, Coffee, BrainCircuit, Moon } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Play, Pause, RotateCcw, Coffee, BrainCircuit, Moon, Link2 } from 'lucide-react';
 import {
   useFocusStore,
   type FocusMode,
   focusDurationFor,
 } from '../../store/focusStore';
+import { useTodoStore } from '../../store/todoStore';
 import { useToast } from '../Toast';
 
 /**
@@ -14,6 +15,9 @@ import { useToast } from '../Toast';
  *
  * 仅负责 UI 与节拍循环（setInterval → focusStore.tick），
  * 所有状态与跨阶段切换逻辑都在 focusStore 中完成，组件保持「纯展示 + 编排」。
+ *
+ * 任务关联交互参考 pomofocus.io（最流行的 Pomodoro Web 应用）的 UX 模式：
+ * 计时前选择要专注的任务，任务名显示在计时环中心，强化专注感知。
  */
 
 const MODE_META: Record<FocusMode, { icon: typeof BrainCircuit; labelKey: string; ring: string }> = {
@@ -41,13 +45,20 @@ export function PomodoroTool() {
     isRunning,
     completedWorkSessions,
     cycleCount,
+    linkedTodoId,
     start,
     pause,
     reset,
     tick,
     switchMode,
     updateSettings,
+    setLinkedTodo,
   } = useFocusStore();
+
+  // 读取未完成的待办列表（pomofocus.io 任务关联模式）
+  const todos = useTodoStore((s) => s.todos);
+  const activeTodos = todos.filter((todo) => !todo.completed);
+  const linkedTodo = activeTodos.find((todo) => todo.id === linkedTodoId) ?? null;
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -64,7 +75,7 @@ export function PomodoroTool() {
     };
   }, [isRunning]);
 
-  // 监听阶段完成事件 — 提示 + 系统通知（与现有截止提醒机制一致的轻量提示模式）
+  // 监听阶段完成事件 — 提示 + 系统通知
   useEffect(() => {
     function handleComplete(e: Event) {
       const detail = (e as CustomEvent).detail as { finishedMode: FocusMode; nextMode: FocusMode };
@@ -150,19 +161,93 @@ export function PomodoroTool() {
               transform="rotate(-90 90 90)"
             />
           </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center select-none" style={{ gap: '4px' }}>
+          {/* 环中心内容 */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center select-none" style={{ gap: '2px' }}>
             <ModeIcon size={16} style={{ color: meta.ring }} />
             <span
               className="text-[32px] font-semibold tabular-nums"
-              style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-mono)', letterSpacing: '0.01em' }}
+              style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-mono)', letterSpacing: '0.01em', lineHeight: 1 }}
             >
               {formatTime(remainingSeconds)}
             </span>
-            <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
+            <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)', lineHeight: 1.2 }}>
               {t(meta.labelKey)}
             </span>
+            {/* 关联任务名（pomofocus.io 模式：任务名显示在计时环中心，强化专注目标感知）*/}
+            <AnimatePresence>
+              {linkedTodo && mode === 'work' && (
+                <motion.span
+                  key={linkedTodo.id}
+                  initial={{ opacity: 0, y: 3 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -3 }}
+                  transition={{ duration: 0.2 }}
+                  style={{
+                    fontSize: '9px',
+                    color: 'var(--clay)',
+                    maxWidth: '110px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    lineHeight: 1.3,
+                    marginTop: '2px',
+                  }}
+                >
+                  {linkedTodo.title}
+                </motion.span>
+              )}
+            </AnimatePresence>
           </div>
         </div>
+
+        {/* 任务关联选择器（仅专注模式显示，参考 pomofocus.io 的 task-focus UX 模式）*/}
+        <AnimatePresence>
+          {mode === 'work' && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.18 }}
+              className="flex items-center overflow-hidden"
+              style={{ gap: '6px', width: '220px' }}
+            >
+              <Link2
+                size={12}
+                style={{ color: linkedTodo ? 'var(--clay)' : 'var(--color-text-tertiary)', flexShrink: 0 }}
+              />
+              <select
+                value={linkedTodoId ?? ''}
+                onChange={(e) => setLinkedTodo(e.target.value || null)}
+                disabled={isRunning}
+                className="flex-1 text-[11px] cursor-pointer"
+                style={{
+                  appearance: 'none',
+                  WebkitAppearance: 'none',
+                  background: 'var(--color-bg-tertiary)',
+                  border: '1px solid ' + (linkedTodo ? 'var(--clay)' : 'var(--color-border)'),
+                  borderRadius: '6px',
+                  color: linkedTodo ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)',
+                  padding: '5px 24px 5px 10px',
+                  outline: 'none',
+                  opacity: isRunning ? 0.6 : 1,
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238C8A87' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 8px center',
+                  transition: 'border-color 0.15s',
+                }}
+              >
+                <option value="">
+                  {activeTodos.length === 0 ? t('pomodoro.noTodo') : t('pomodoro.selectTodo')}
+                </option>
+                {activeTodos.map((todo) => (
+                  <option key={todo.id} value={todo.id}>
+                    {todo.title.length > 28 ? todo.title.slice(0, 28) + '…' : todo.title}
+                  </option>
+                ))}
+              </select>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* 控制按钮 */}
         <div className="flex items-center" style={{ gap: '10px' }}>
@@ -192,7 +277,7 @@ export function PomodoroTool() {
           </ControlButton>
         </div>
 
-        {/* 周期进度点 — 直观展示距离长休息还差几个专注段，未来可在习惯打卡中复用同一可视化语言 */}
+        {/* 周期进度点 */}
         <div className="flex items-center" style={{ gap: '6px' }}>
           {Array.from({ length: settings.longBreakInterval }).map((_, i) => (
             <span
@@ -350,26 +435,5 @@ async function notifySessionDone(body: string) {
     }
   } catch (e) {
     console.warn('Pomodoro notification skipped:', e);
-  }
-}
-    {children}
-    </button>
-  );
-}
-
-// 系统通知 — 失败时静默降级（如未授权），不影响主流程
-async function notifySessionDone(body: string) {
-  try {
-    const { isPermissionGranted, requestPermission, sendNotification } = await import(`@tauri-apps/plugin-notification`);
-    let granted = await isPermissionGranted();
-    if (!granted) {
-      const permission = await requestPermission();
-      granted = permission === `granted`;
-    }
-    if (granted) {
-      sendNotification({ title: `TodoApp`, body });
-    }
-  } catch (e) {
-    console.warn(`Pomodoro notification skipped:`, e);
   }
 }

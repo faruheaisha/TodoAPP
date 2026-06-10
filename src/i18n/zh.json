@@ -138,7 +138,10 @@
     "durationSettings": "时长设置",
     "autoStartNext": "自动开始下一段",
     "totalCompleted": "累计完成 {{count}} 个专注段",
-    "sessionDoneToast": "{{mode}}阶段已完成"
+    "sessionDoneToast": "{{mode}}阶段已完成",
+    "focusingOn": "专注于",
+    "selectTodo": "选择专注任务...",
+    "noTodo": "暂无待办"
   },
   "insights": {
     "focusTitle": "专注时长（近7天）",
