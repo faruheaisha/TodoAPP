@@ -5,6 +5,7 @@ import { useTodoStore } from '../store/todoStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, FolderOpen, Save, Upload, FileText, FileJson, FileSpreadsheet } from 'lucide-react';
 import { todosToCSV, saveFileWithDialog } from '../lib/csv-export';
+import { useSheet } from '../lib/responsive';
 import { useToast } from './Toast';
 
 type NavSection = 'appearance' | 'shortcut' | 'path' | 'export' | 'import' | 'about';
@@ -173,6 +174,7 @@ export default function SettingsDrawer() {
   } = useSettingsStore();
   const { todos, setTodos } = useTodoStore();
   const { show } = useToast();
+  const sheet = useSheet();
 
   const [activeNav, setActiveNav] = React.useState<NavSection>('appearance');
   const [recording, setRecording] = React.useState(false);
@@ -287,19 +289,14 @@ export default function SettingsDrawer() {
             style={{ backgroundColor: 'rgba(0,0,0,0.35)' }}
             onClick={() => setIsOpen(false)}
           />
-          {/* Centering layer — flex 居中而非 transform: translate(-50%,-50%)，
-              避免与 Framer Motion 自身管理的 scale transform 互相覆盖导致偏移 */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+          {/* 定位层：桌面居中、手机贴底 sheet（flex 居中避免与 scale transform 冲突）*/}
+          <div className={`fixed inset-0 z-50 flex justify-center pointer-events-none ${sheet.alignClass}`}>
           <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.96 }}
-            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+            {...sheet.motion}
             className="flex overflow-hidden pointer-events-auto"
             style={{
-              width: 'min(760px, 92vw)',
-              height: 'min(560px, 88vh)',
-              borderRadius: 'var(--radius-lg)',
+              ...sheet.panelStyle({ width: 'min(760px, 92vw)', height: 'min(560px, 88vh)' }),
+              ...(sheet.isPhone ? { height: 'min(85dvh, 640px)' } : null),
               backgroundColor: 'var(--color-bg-secondary)',
               border: '0.5px solid var(--color-border)',
               boxShadow: '0 16px 48px rgba(0,0,0,0.2)',

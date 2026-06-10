@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSheet } from '../lib/responsive';
 import { useTodoStore } from '../store/todoStore';
 import { useCompletionStore } from '../store/completionStore';
 import { useFocusStore } from '../store/focusStore';
@@ -37,6 +38,7 @@ function getTodayKey(): string {
 
 export function DailyAchievementModal() {
   const [visible, setVisible] = useState(false);
+  const sheet = useSheet();
 
   const todos = useTodoStore((s) => s.todos);
   const completionTimes = useCompletionStore((s) => s.completionTimes);
@@ -87,16 +89,14 @@ export function DailyAchievementModal() {
           />
 
           {/* 弹窗主体 */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+          <div className={`fixed inset-0 z-50 flex justify-center pointer-events-none ${sheet.alignClass}`}>
             <motion.div
-              initial={{ opacity: 0, scale: 0.88, y: 16 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.92, y: 8 }}
-              transition={{ type: 'spring', damping: 26, stiffness: 320 }}
+              {...sheet.motion}
               className="pointer-events-auto overflow-hidden"
               style={{
-                width: 'min(360px, 90vw)',
-                borderRadius: '16px',
+                ...(sheet.isPhone
+                  ? { width: '100%', borderRadius: '20px 20px 0 0', paddingBottom: 'var(--safe-bottom)' }
+                  : { width: 'min(360px, 90vw)', borderRadius: '16px' }),
                 backgroundColor: 'var(--color-bg-primary)',
                 border: '0.5px solid var(--color-border)',
                 boxShadow: '0 24px 60px rgba(0,0,0,0.22)',

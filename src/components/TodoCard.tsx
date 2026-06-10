@@ -10,6 +10,7 @@ import { useRecurrenceStore, RECURRENCE_OPTIONS } from '../store/recurrenceStore
 import { useTagStore, TAG_PALETTE, type Tag } from '../store/tagStore';
 import { TagChip } from './TagChip';
 import { formatDeadline, isUrgent, isOverdue } from '../lib/utils';
+import { useIsTouch } from '../lib/responsive';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 
@@ -26,7 +27,10 @@ export function TodoCard({ todo }: TodoCardProps) {
   const { tags, todoTags, addTag, addTagToTodo, removeTagFromTodo, getTodoTags } = useTagStore();
   const todoTagList: Tag[] = getTodoTags(todo.id);
 
+  const isTouch = useIsTouch();
   const [isHovered, setIsHovered] = useState(false);
+  // 触屏无 hover 概念：操作区常驻显示，保证删除/标签/子任务可达
+  const showActions = isHovered || isTouch;
   const [flash, setFlash] = useState(false);
   const [subtasksOpen, setSubtasksOpen] = useState(false);
   const [addingSubtask, setAddingSubtask] = useState(false);
@@ -206,9 +210,9 @@ export function TodoCard({ todo }: TodoCardProps) {
           </span>
         )}
 
-        {/* Hover 操作区 */}
+        {/* 操作区 — 桌面 hover 显现，触屏常驻 */}
         <AnimatePresence>
-          {isHovered && (
+          {showActions && (
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               transition={{ duration: 0.1 }}
@@ -220,7 +224,7 @@ export function TodoCard({ todo }: TodoCardProps) {
                 onClick={() => setShowTagPicker(v => !v)}
                 className="flex items-center justify-center transition-colors cursor-pointer"
                 style={{
-                  width: '18px', height: '18px', borderRadius: '4px',
+                  width: isTouch ? '34px' : '18px', height: isTouch ? '34px' : '18px', borderRadius: '6px',
                   color: showTagPicker ? 'var(--clay)' : 'var(--color-text-tertiary)',
                   border: 'none', backgroundColor: 'transparent',
                 }}
@@ -244,7 +248,7 @@ export function TodoCard({ todo }: TodoCardProps) {
                 }}
                 className="flex items-center justify-center transition-colors cursor-pointer"
                 style={{
-                  width: '18px', height: '18px', borderRadius: '4px',
+                  width: isTouch ? '34px' : '18px', height: isTouch ? '34px' : '18px', borderRadius: '6px',
                   color: 'var(--color-text-tertiary)', border: 'none', backgroundColor: 'transparent',
                 }}
                 title={t('app.addSubtask')}
@@ -258,7 +262,7 @@ export function TodoCard({ todo }: TodoCardProps) {
                 onClick={() => deleteTodo(todo.id).catch(console.error)}
                 className="flex items-center justify-center transition-colors cursor-pointer"
                 style={{
-                  width: '18px', height: '18px', borderRadius: '4px',
+                  width: isTouch ? '34px' : '18px', height: isTouch ? '34px' : '18px', borderRadius: '6px',
                   color: 'var(--color-text-tertiary)', border: 'none', backgroundColor: 'transparent',
                 }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--clay)'; }}
@@ -372,9 +376,9 @@ export function TodoCard({ todo }: TodoCardProps) {
                   </span>
                   <button
                     onClick={() => deleteSubtask(todo.id, sub.id)}
-                    className="flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    className={`flex items-center justify-center transition-opacity cursor-pointer ${isTouch ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                     style={{
-                      width: '14px', height: '14px', borderRadius: '3px',
+                      width: isTouch ? '28px' : '14px', height: isTouch ? '28px' : '14px', borderRadius: '4px',
                       color: 'var(--color-text-tertiary)', border: 'none', backgroundColor: 'transparent',
                     }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--clay)'; }}
