@@ -370,7 +370,7 @@ export default function SettingsDrawer() {
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto" style={{ padding: '22px 26px' }}>
+              <div className="flex-1 overflow-y-auto" style={{ padding: '28px 32px' }}>
                 {activeNav === 'appearance' && (
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <SettingRow label={t('settings.language')}>

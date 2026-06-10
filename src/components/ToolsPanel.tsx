@@ -63,8 +63,8 @@ export default function ToolsPanel() {
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
             className="flex overflow-hidden pointer-events-auto"
             style={{
-              width: 'min(700px, 92vw)',
-              maxHeight: '86vh',
+              width: 'min(760px, 92vw)',
+              height: 'min(560px, 88vh)',
               borderRadius: 'var(--radius-lg)',
               backgroundColor: 'var(--color-bg-secondary)',
               border: '0.5px solid var(--color-border)',
@@ -113,7 +113,7 @@ export default function ToolsPanel() {
 
             {/* Right content */}
             <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0" style={{ borderColor: 'var(--color-border)' }}>
+              <div className="flex items-center justify-between border-b flex-shrink-0" style={{ borderColor: 'var(--color-border)', padding: '14px 26px' }}>
                 <span className="text-xs font-medium" style={{ color: 'var(--color-text-primary)' }}>
                   {t(active.labelKey)}
                 </span>
@@ -125,7 +125,7 @@ export default function ToolsPanel() {
                   <X size={13} />
                 </button>
               </div>
-              <div className="flex-1 overflow-y-auto" style={{ padding: '22px 24px' }}>
+              <div className="flex-1 overflow-y-auto" style={{ padding: '28px 32px' }}>
                 <ActiveComponent />
               </div>
             </div>
@@ -133,6 +133,4 @@ export default function ToolsPanel() {
           </div>
         </>
       )}
-    </AnimatePresence>
-  );
-}
+    </Ani
