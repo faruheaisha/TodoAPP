@@ -187,3 +187,41 @@ body {
 @media (max-height: 280px) {
   .app-title { display: none; }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   Accent 颜色主题扩展 (#48) — 4 色可选
+   仅覆盖 clay 三个变量；其余 token 不变
+   ═══════════════════════════════════════════════════════════ */
+
+/* 默认 coral — 已在 :root 定义，此处不需要重复 */
+[data-accent='olive'] {
+  --clay:       #788c5d;
+  --clay-hover: #5f7248;
+  --clay-light: rgba(120, 140, 93, 0.12);
+  --color-accent:       #788c5d;
+  --color-accent-hover: #5f7248;
+  --color-accent-light: rgba(120, 140, 93, 0.12);
+}
+
+[data-accent='sky'] {
+  --clay:       #6a9bcc;
+  --clay-hover: #4e7fa8;
+  --clay-light: rgba(106, 155, 204, 0.12);
+  --color-accent:       #6a9bcc;
+  --color-accent-hover: #4e7fa8;
+  --color-accent-light: rgba(106, 155, 204, 0.12);
+}
+
+[data-accent='fig'] {
+  --clay:       #c46686;
+  --clay-hover: #a84f6a;
+  --clay-light: rgba(196, 102, 134, 0.12);
+  --color-accent:       #c46686;
+  --color-accent-hover: #a84f6a;
+  --color-accent-light: rgba(196, 102, 134, 0.12);
+}
+
+/* 深色模式下的 hover 微调 */
+[data-theme='dark'][data-accent='olive']  { --color-accent-hover: #8fa56e; }
+[data-theme='dark'][data-accent='sky']    { --color-accent-hover: #7bb5e0; }
+[data-theme='dark'][data-accent='fig']    { --color-accent-hover: #d87a98; }

@@ -21,7 +21,7 @@ import { DailyAchievementModal } from './components/DailyAchievementModal';
 function App() {
   const { t, i18n } = useTranslation();
   const {
-    theme, language,
+    theme, language, accentColor,
     startupDelay, reminderIgnored, lastPromptDate, setLastPromptDate,
     achievementTime, achievementLastDate, setAchievementLastDate,
   } = useSettingsStore();
@@ -34,6 +34,15 @@ function App() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
+
+  // Apply accent color
+  useEffect(() => {
+    if (accentColor && accentColor !== 'coral') {
+      document.documentElement.setAttribute('data-accent', accentColor);
+    } else {
+      document.documentElement.removeAttribute('data-accent');
+    }
+  }, [accentColor]);
 
   // Apply language
   useEffect(() => {

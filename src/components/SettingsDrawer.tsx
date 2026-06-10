@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useSettingsStore } from '../store/settingsStore';
+import { useSettingsStore, type AccentColor } from '../store/settingsStore';
 import { useTodoStore } from '../store/todoStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, FolderOpen, Save, Upload, FileText, FileJson, FileSpreadsheet } from 'lucide-react';
@@ -163,6 +163,7 @@ export default function SettingsDrawer() {
   const { t } = useTranslation();
   const {
     theme, setTheme, language, setLanguage,
+    accentColor, setAccentColor,
     startupDelay, setStartupDelay, hotkey, setHotkey,
     downloadPath, setDownloadPath,
     isOpen, setIsOpen,
@@ -384,6 +385,30 @@ export default function SettingsDrawer() {
                         <ToggleBtn active={theme === 'light'} onClick={() => setTheme('light')} label={t('settings.lightMode')} />
                         <ToggleBtn active={theme === 'dark'} onClick={() => setTheme('dark')} label={t('settings.darkMode')} />
                       </ToggleGroup>
+                    </SettingRow>
+                    <SettingRow label={lang === 'zh' ? '主题色' : 'Accent Color'}>
+                      <div className="flex items-center" style={{ gap: '8px' }}>
+                        {([
+                          { key: 'coral', color: '#d97757', label: lang === 'zh' ? '珊瑚橙' : 'Coral' },
+                          { key: 'olive', color: '#788c5d', label: lang === 'zh' ? '橄榄绿' : 'Olive' },
+                          { key: 'sky',   color: '#6a9bcc', label: lang === 'zh' ? '天空蓝' : 'Sky'   },
+                          { key: 'fig',   color: '#c46686', label: lang === 'zh' ? '玫瑰紫' : 'Fig'   },
+                        ] as { key: AccentColor; color: string; label: string }[]).map(({ key, color, label }) => (
+                          <button
+                            key={key}
+                            title={label}
+                            onClick={() => setAccentColor(key)}
+                            style={{
+                              width: '22px', height: '22px', borderRadius: '50%',
+                              backgroundColor: color, border: 'none', cursor: 'pointer',
+                              outline: (accentColor ?? 'coral') === key ? `2.5px solid ${color}` : '2.5px solid transparent',
+                              outlineOffset: '2px',
+                              boxShadow: (accentColor ?? 'coral') === key ? `0 0 0 1px rgba(0,0,0,0.12)` : 'none',
+                              transition: 'outline 0.15s, box-shadow 0.15s',
+                            }}
+                          />
+                        ))}
+                      </div>
                     </SettingRow>
                     <SettingRow label={t('settings.startupDelay')}>
                       <div className="flex items-center gap-2">
