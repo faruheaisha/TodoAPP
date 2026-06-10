@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTodoStore, type Todo } from '../store/todoStore';
 import { useCompletionStore } from '../store/completionStore';
+import { useTagStore } from '../store/tagStore';
 import { sortTodos } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TodoCard } from './TodoCard';
@@ -19,15 +20,23 @@ const MAX_VISIBLE_PER_GROUP = 10;
 
 interface TodoSectionProps {
   filter?: 'all' | 'active' | 'completed';
+  tagFilter?: string | null;
 }
 
-export default function TodoSection({ filter = 'all' }: TodoSectionProps) {
+export default function TodoSection({ filter = 'all', tagFilter = null }: TodoSectionProps) {
   const { t } = useTranslation();
   const { todos } = useTodoStore();
   const completionTimes = useCompletionStore((s) => s.completionTimes);
+  const todoTags = useTagStore((s) => s.todoTags);
 
-  const activeTodos = todos.filter((td) => !td.completed);
-  const completedTodos = todos.filter((td) => td.completed);
+  // 按标签过滤
+  const filterByTag = (list: Todo[]) => {
+    if (!tagFilter) return list;
+    return list.filter(td => (todoTags[td.id] ?? []).includes(tagFilter));
+  };
+
+  const activeTodos = filterByTag(todos.filter((td) => !td.completed));
+  const completedTodos = filterByTag(todos.filter((td) => td.completed));
 
   // 按 filter 决定显示什么
   const showActive = filter === 'all' || filter === 'active';
@@ -114,35 +123,28 @@ export default function TodoSection({ filter = 'all' }: TodoSectionProps) {
 // ── 按天分组 ──────────────────────────────────────────────────────────
 
 interface DayGroupData {
-  dateKey: string;       // 'YYYY-MM-DD'
-  label: string;         // '今天' / '昨天' / '6月8日'
+  dateKey: string;
+  label: string;
   isToday: boolean;
   todos: Todo[];
 }
 
 function groupByDay(todos: Todo[], completionTimes: Record<string, string>): DayGroupData[] {
   const map: Record<string, Todo[]> = {};
-
   for (const todo of todos) {
     const ts = completionTimes[todo.id] ?? todo.createdAt;
-    const day = ts.slice(0, 10); // 'YYYY-MM-DD'
+    const day = ts.slice(0, 10);
     if (!map[day]) map[day] = [];
     map[day].push(todo);
   }
-
   const today = new Date().toISOString().slice(0, 10);
   const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-
   return Object.keys(map)
     .sort()
     .reverse()
     .map((dateKey) => ({
       dateKey,
-      label: dateKey === today
-        ? '今天'
-        : dateKey === yesterday
-        ? '昨天'
-        : formatDayLabel(dateKey),
+      label: dateKey === today ? '今天' : dateKey === yesterday ? '昨天' : formatDayLabel(dateKey),
       isToday: dateKey === today,
       todos: map[dateKey],
     }));
@@ -158,22 +160,17 @@ function formatDayLabel(dateKey: string): string {
 function DayGroup({ group }: { group: DayGroupData }) {
   const [expanded, setExpanded] = useState(group.isToday);
   const [showAll, setShowAll] = useState(false);
-
   const visible = showAll ? group.todos : group.todos.slice(0, MAX_VISIBLE_PER_GROUP);
   const hiddenCount = group.todos.length - MAX_VISIBLE_PER_GROUP;
 
   return (
     <div>
-      {/* 组标题 */}
       <button
         onClick={() => setExpanded((v) => !v)}
         className="w-full flex items-center cursor-pointer transition-colors"
         style={{
-          height: '26px',
-          padding: '0 14px',
-          gap: '5px',
-          backgroundColor: 'var(--color-section-bg)',
-          border: 'none',
+          height: '26px', padding: '0 14px', gap: '5px',
+          backgroundColor: 'var(--color-section-bg)', border: 'none',
           borderTop: '0.5px solid var(--color-separator)',
         }}
         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-bg-tertiary)'; }}
@@ -191,7 +188,6 @@ function DayGroup({ group }: { group: DayGroupData }) {
         </span>
       </button>
 
-      {/* 组内容 */}
       <AnimatePresence initial={false}>
         {expanded && (
           <motion.div
@@ -201,18 +197,13 @@ function DayGroup({ group }: { group: DayGroupData }) {
             transition={{ duration: 0.18, ease: 'easeInOut' }}
             style={{ overflow: 'hidden' }}
           >
-            {visible.map((todo) => (
-              <TodoCard key={todo.id} todo={todo} />
-            ))}
-            {/* 查看更多 */}
+            {visible.map((todo) => <TodoCard key={todo.id} todo={todo} />)}
             {!showAll && hiddenCount > 0 && (
               <button
                 onClick={() => setShowAll(true)}
                 className="w-full text-center text-[11px] py-1.5 transition-colors cursor-pointer"
                 style={{
-                  color: 'var(--clay)',
-                  backgroundColor: 'transparent',
-                  border: 'none',
+                  color: 'var(--clay)', backgroundColor: 'transparent', border: 'none',
                   borderTop: '0.5px solid var(--color-separator)',
                 }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.7'; }}
@@ -234,12 +225,7 @@ function SectionHeader({ color, label, count, suffix }: { color: string; label: 
   return (
     <div
       className="flex items-center flex-shrink-0"
-      style={{
-        height: 'var(--section-header-h)',
-        padding: '5px 14px 3px',
-        gap: '5px',
-        backgroundColor: 'var(--color-section-bg)',
-      }}
+      style={{ height: 'var(--section-header-h)', padding: '5px 14px 3px', gap: '5px', backgroundColor: 'var(--color-section-bg)' }}
     >
       <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: color, flexShrink: 0 }} />
       <h2 className="text-[10px] font-medium uppercase tracking-wider select-none" style={{ color: 'var(--color-text-secondary)', letterSpacing: '.03em' }}>

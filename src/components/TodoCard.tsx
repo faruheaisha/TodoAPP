@@ -1,17 +1,14 @@
 /**
  * TodoCard — 单条 Todo 卡片
- *
- * v2 新增：子任务 Checklist（Things 3 风格内联展开）
- *  - 参考 Todoist 的子任务进度圆形 badge + 展开列表
- *  - 参考 Things 3 的 Checklist：轻量、行内、无层级
- *
- * v3 新增：重复规则 badge（#45 Recurrence）
+ * v4: 标签系统 (#46) + 重复 badge (#45) + 子任务 (#44)
  */
 import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTodoStore, type Todo } from '../store/todoStore';
 import { useSubtaskStore } from '../store/subtaskStore';
 import { useRecurrenceStore, RECURRENCE_OPTIONS } from '../store/recurrenceStore';
+import { useTagStore, TAG_PALETTE, type Tag } from '../store/tagStore';
+import { TagChip } from './TagChip';
 import { formatDeadline, isUrgent, isOverdue } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronDown, ChevronRight, Plus } from 'lucide-react';
@@ -26,12 +23,16 @@ export function TodoCard({ todo }: TodoCardProps) {
   const { toggleComplete, deleteTodo } = useTodoStore();
   const { addSubtask, toggleSubtask, deleteSubtask, getSubtasks } = useSubtaskStore();
   const recurrenceRule = useRecurrenceStore((s) => s.rules[todo.id] ?? null);
+  const { tags, todoTags, addTag, addTagToTodo, removeTagFromTodo, getTodoTags } = useTagStore();
+  const todoTagList: Tag[] = getTodoTags(todo.id);
 
   const [isHovered, setIsHovered] = useState(false);
   const [flash, setFlash] = useState(false);
   const [subtasksOpen, setSubtasksOpen] = useState(false);
   const [addingSubtask, setAddingSubtask] = useState(false);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+  const [showTagPicker, setShowTagPicker] = useState(false);
+  const [newTagName, setNewTagName] = useState('');
   const subtaskInputRef = useRef<HTMLInputElement>(null);
 
   const subtasks = getSubtasks(todo.id);
@@ -65,7 +66,7 @@ export function TodoCard({ todo }: TodoCardProps) {
   const hasAlert = urgent || overdue;
 
   return (
-    <div>
+    <div style={{ position: 'relative' }}>
       {/* 主行 */}
       <motion.div
         layout
@@ -77,7 +78,7 @@ export function TodoCard({ todo }: TodoCardProps) {
         exit={{ opacity: 0, x: 12 }}
         transition={{ duration: 0.55, ease: 'easeOut' }}
         onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
+        onMouseLeave={() => { setIsHovered(false); setShowTagPicker(false); }}
         className="flex items-center"
         style={{
           minHeight: 'var(--todo-row-h)',
@@ -117,7 +118,7 @@ export function TodoCard({ todo }: TodoCardProps) {
           </AnimatePresence>
         </motion.button>
 
-        {/* 子任务折叠按钮（仅有子任务时显示） */}
+        {/* 子任务折叠按钮 */}
         {hasSubtasks && (
           <button
             onClick={() => setSubtasksOpen((v) => !v)}
@@ -171,6 +172,11 @@ export function TodoCard({ todo }: TodoCardProps) {
           </button>
         )}
 
+        {/* 标签 chips */}
+        {todoTagList.map(tag => (
+          <TagChip key={tag.id} tag={tag} size="xs" />
+        ))}
+
         {/* Deadline badge */}
         {todo.deadline && (
           <span
@@ -200,7 +206,7 @@ export function TodoCard({ todo }: TodoCardProps) {
           </span>
         )}
 
-        {/* Hover 操作区：添加子任务 + 删除 */}
+        {/* Hover 操作区 */}
         <AnimatePresence>
           {isHovered && (
             <motion.div
@@ -209,6 +215,26 @@ export function TodoCard({ todo }: TodoCardProps) {
               className="flex items-center flex-shrink-0"
               style={{ gap: '2px' }}
             >
+              {/* 标签 */}
+              <button
+                onClick={() => setShowTagPicker(v => !v)}
+                className="flex items-center justify-center transition-colors cursor-pointer"
+                style={{
+                  width: '18px', height: '18px', borderRadius: '4px',
+                  color: showTagPicker ? 'var(--clay)' : 'var(--color-text-tertiary)',
+                  border: 'none', backgroundColor: 'transparent',
+                }}
+                title={lang === 'zh' ? '添加标签' : 'Add tag'}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--clay)'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = showTagPicker ? 'var(--clay)' : 'var(--color-text-tertiary)'; }}
+              >
+                <svg width="11" height="11" viewBox="0 0 14 14" fill="none">
+                  <rect x="1" y="1" width="5" height="5" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
+                  <rect x="8" y="1" width="5" height="5" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
+                  <rect x="1" y="8" width="5" height="5" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
+                  <rect x="8" y="8" width="5" height="5" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
+                </svg>
+              </button>
               {/* 添加子任务 */}
               <button
                 onClick={() => {
@@ -245,6 +271,63 @@ export function TodoCard({ todo }: TodoCardProps) {
         </AnimatePresence>
       </motion.div>
 
+      {/* 标签选择器弹出层（在主行外，避免影响布局）*/}
+      {showTagPicker && (
+        <div
+          style={{
+            position: 'absolute', top: '100%', right: '14px', zIndex: 200,
+            borderRadius: '8px', border: '0.5px solid var(--color-border)',
+            backgroundColor: 'var(--color-bg-primary)',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.16)',
+            minWidth: '170px', padding: '8px',
+            display: 'flex', flexDirection: 'column', gap: '6px',
+          }}
+          onClick={e => e.stopPropagation()}
+          onMouseEnter={() => setIsHovered(true)}
+        >
+          {/* 已有标签 — 点击切换 */}
+          {tags.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+              {tags.map(tag => {
+                const assigned = (todoTags[todo.id] ?? []).includes(tag.id);
+                return (
+                  <TagChip
+                    key={tag.id}
+                    tag={tag}
+                    size="sm"
+                    active={assigned}
+                    onClick={() => assigned ? removeTagFromTodo(todo.id, tag.id) : addTagToTodo(todo.id, tag.id)}
+                  />
+                );
+              })}
+            </div>
+          )}
+          {/* 新建标签输入 */}
+          <input
+            autoFocus={tags.length === 0}
+            type="text"
+            value={newTagName}
+            onChange={e => setNewTagName(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && newTagName.trim()) {
+                const color = TAG_PALETTE[tags.length % TAG_PALETTE.length];
+                const tag = addTag(newTagName.trim(), color);
+                addTagToTodo(todo.id, tag.id);
+                setNewTagName('');
+              }
+              if (e.key === 'Escape') setShowTagPicker(false);
+            }}
+            placeholder={lang === 'zh' ? '新建标签 Enter 确认…' : 'New tag, Enter to add…'}
+            style={{
+              fontSize: '10px', padding: '4px 8px',
+              background: 'var(--color-bg-tertiary)',
+              border: '0.5px solid var(--color-border)', borderRadius: '5px',
+              color: 'var(--color-text-primary)', outline: 'none', width: '100%',
+            }}
+          />
+        </div>
+      )}
+
       {/* 子任务面板 */}
       <AnimatePresence>
         {subtasksOpen && (
@@ -262,7 +345,6 @@ export function TodoCard({ todo }: TodoCardProps) {
                   className="flex items-center group"
                   style={{ gap: '7px', minHeight: '24px', padding: '2px 0' }}
                 >
-                  {/* 方形 checkbox */}
                   <button
                     onClick={() => toggleSubtask(todo.id, sub.id)}
                     className="flex items-center justify-center flex-shrink-0 transition-colors cursor-pointer"
@@ -279,7 +361,6 @@ export function TodoCard({ todo }: TodoCardProps) {
                       </svg>
                     )}
                   </button>
-                  {/* 子任务标题 */}
                   <span
                     className="text-xs flex-1"
                     style={{
@@ -289,7 +370,6 @@ export function TodoCard({ todo }: TodoCardProps) {
                   >
                     {sub.title}
                   </span>
-                  {/* hover 删除 */}
                   <button
                     onClick={() => deleteSubtask(todo.id, sub.id)}
                     className="flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
@@ -304,8 +384,6 @@ export function TodoCard({ todo }: TodoCardProps) {
                   </button>
                 </div>
               ))}
-
-              {/* 新增子任务输入框 */}
               {addingSubtask && (
                 <div className="flex items-center" style={{ gap: '7px', minHeight: '24px', padding: '2px 0' }}>
                   <div style={{ width: '13px', height: '13px', borderRadius: '3px', border: '1.5px dashed var(--color-border)', flexShrink: 0 }} />

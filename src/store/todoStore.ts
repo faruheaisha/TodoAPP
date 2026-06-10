@@ -8,6 +8,7 @@ import {
 import { useCompletionStore } from './completionStore';
 import { useSubtaskStore } from './subtaskStore';
 import { useRecurrenceStore, getNextDeadline } from './recurrenceStore';
+import { useTagStore } from './tagStore';
 
 export type TodoType = 'quick' | 'longterm';
 
@@ -62,6 +63,7 @@ export const useTodoStore = create<TodoStore>()((set, get) => ({
     useCompletionStore.getState().removeCompletionTime(id);
     useSubtaskStore.getState().deleteAllForTodo(id);
     useRecurrenceStore.getState().removeRule(id);
+    useTagStore.getState().removeAllForTodo(id);
     set((state) => ({
       todos: state.todos.filter((todo) => todo.id !== id),
     }));

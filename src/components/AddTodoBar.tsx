@@ -2,6 +2,8 @@ import { useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTodoStore } from '../store/todoStore';
 import { useRecurrenceStore, RECURRENCE_OPTIONS, type RecurrenceType } from '../store/recurrenceStore';
+import { useTagStore, TAG_PALETTE } from '../store/tagStore';
+import { TagChip } from './TagChip';
 import { Plus, Calendar, Repeat } from 'lucide-react';
 
 export default function AddTodoBar() {
@@ -9,34 +11,47 @@ export default function AddTodoBar() {
   const lang = i18n.language.startsWith('zh') ? 'zh' : 'en';
   const { addTodo } = useTodoStore();
   const { setRule } = useRecurrenceStore();
+  const { tags, addTag, addTagToTodo } = useTagStore();
   const [title, setTitle] = useState('');
   const [todoType, setTodoType] = useState<'quick' | 'longterm'>('quick');
   const [deadline, setDeadline] = useState('');
   const [recurrence, setRecurrence] = useState<RecurrenceType | ''>('');
   const [showRecurrencePicker, setShowRecurrencePicker] = useState(false);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [showTagPicker, setShowTagPicker] = useState(false);
+  const [newTagName, setNewTagName] = useState('');
   const deadlineInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = useCallback(async () => {
     if (!title.trim()) return;
     const effectiveDeadline = todoType === 'longterm' && deadline ? deadline : null;
     await addTodo(title.trim(), todoType, effectiveDeadline).catch(console.error);
-    // 新建后找到最后一条（就是刚加入的），绑定重复规则
-    if (recurrence) {
-      const { useTodoStore: store } = await import('../store/todoStore');
-      const todos = store.getState().todos;
-      const latest = [...todos].sort((a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      )[0];
-      if (latest) setRule(latest.id, { type: recurrence });
+    // 找最新创建的 todo 绑定规则/标签
+    const { useTodoStore: store } = await import('../store/todoStore');
+    const todos = store.getState().todos;
+    const latest = [...todos].sort((a, b) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )[0];
+    if (latest) {
+      if (recurrence) setRule(latest.id, { type: recurrence });
+      selectedTagIds.forEach(tid => addTagToTodo(latest.id, tid));
     }
     setTitle('');
     setDeadline('');
     setRecurrence('');
+    setSelectedTagIds([]);
     setShowRecurrencePicker(false);
-  }, [title, todoType, deadline, recurrence, addTodo, setRule]);
+    setShowTagPicker(false);
+  }, [title, todoType, deadline, recurrence, selectedTagIds, addTodo, setRule, addTagToTodo]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') handleSubmit();
+  };
+
+  const toggleTag = (tagId: string) => {
+    setSelectedTagIds(prev =>
+      prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]
+    );
   };
 
   return (
@@ -58,17 +73,11 @@ export default function AddTodoBar() {
             borderRadius: '5px 0 0 5px',
           }}
         >
-          <TypeBtn
-            active={todoType === 'quick'}
-            onClick={() => setTodoType('quick')}
-          >
+          <TypeBtn active={todoType === 'quick'} onClick={() => setTodoType('quick')}>
             <span className="type-btn-short" style={{ display: 'none' }}>{'⚡'}</span>
             <span className="type-btn-long">{t('app.quick')}</span>
           </TypeBtn>
-          <TypeBtn
-            active={todoType === 'longterm'}
-            onClick={() => setTodoType('longterm')}
-          >
+          <TypeBtn active={todoType === 'longterm'} onClick={() => setTodoType('longterm')}>
             <span className="type-btn-short" style={{ display: 'none' }}>{'🗓'}</span>
             <span className="type-btn-long">{t('app.longterm')}</span>
           </TypeBtn>
@@ -125,26 +134,15 @@ export default function AddTodoBar() {
             onClick={() => deadlineInputRef.current?.showPicker?.()}
             className="flex items-center cursor-pointer transition-colors"
             style={{
-              height: '28px',
-              padding: '0 10px',
-              borderRadius: '5px',
+              height: '28px', padding: '0 10px', borderRadius: '5px',
               border: '0.5px solid ' + (deadline ? 'var(--clay)' : 'var(--color-border)'),
-              backgroundColor: 'var(--color-bg-input)',
-              gap: '7px',
-              userSelect: 'none',
+              backgroundColor: 'var(--color-bg-input)', gap: '7px', userSelect: 'none',
             }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.borderColor = deadline ? 'var(--clay)' : 'var(--color-border-hover)';
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.borderColor = deadline ? 'var(--clay)' : 'var(--color-border)';
-            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = deadline ? 'var(--clay)' : 'var(--color-border-hover)'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = deadline ? 'var(--clay)' : 'var(--color-border)'; }}
           >
             <Calendar size={12} style={{ color: deadline ? 'var(--clay)' : 'var(--color-text-tertiary)', flexShrink: 0 }} />
-            <span
-              className="text-xs flex-1"
-              style={{ color: deadline ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)' }}
-            >
+            <span className="text-xs flex-1" style={{ color: deadline ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)' }}>
               {deadline
                 ? new Date(deadline).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
                 : t('app.deadline')}
@@ -159,80 +157,156 @@ export default function AddTodoBar() {
                   border: 'none', cursor: 'pointer', flexShrink: 0,
                   color: 'var(--color-text-tertiary)', fontSize: '10px', lineHeight: 1,
                 }}
-              >
-                ×
-              </button>
+              >×</button>
             )}
           </div>
           <input
-            ref={deadlineInputRef}
-            type="datetime-local"
-            value={deadline}
+            ref={deadlineInputRef} type="datetime-local" value={deadline}
             onChange={(e) => setDeadline(e.target.value)}
-            style={{
-              position: 'absolute', top: 0, left: 0,
-              width: 0, height: 0, opacity: 0,
-              pointerEvents: 'none', border: 'none',
-            }}
+            style={{ position: 'absolute', top: 0, left: 0, width: 0, height: 0, opacity: 0, pointerEvents: 'none', border: 'none' }}
             tabIndex={-1}
           />
         </div>
       )}
 
-      {/* 重复规则选择器 */}
-      <div className="mt-1.5 flex items-center" style={{ gap: '6px', position: 'relative' }}>
-        <button
-          onClick={() => setShowRecurrencePicker((v) => !v)}
-          className="flex items-center transition-colors cursor-pointer"
-          style={{
-            height: '24px', padding: '0 9px', gap: '5px',
-            borderRadius: '5px', border: '0.5px solid',
-            borderColor: recurrence ? 'var(--clay)' : 'var(--color-border)',
-            backgroundColor: recurrence ? 'var(--clay-light)' : 'transparent',
-            fontSize: '10px', color: recurrence ? 'var(--clay)' : 'var(--color-text-tertiary)',
-          }}
-        >
-          <Repeat size={10} />
-          {recurrence
-            ? (RECURRENCE_OPTIONS.find(o => o.type === recurrence)?.[lang === 'zh' ? 'labelZh' : 'labelEn'] ?? recurrence)
-            : (lang === 'zh' ? '不重复' : 'No repeat')}
-        </button>
-
-        {showRecurrencePicker && (
-          <div
-            className="absolute flex flex-col overflow-hidden"
+      {/* 底部工具栏：重复规则 + 标签 */}
+      <div className="mt-1.5 flex items-center flex-wrap" style={{ gap: '6px', position: 'relative' }}>
+        {/* 重复规则 */}
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => { setShowRecurrencePicker((v) => !v); setShowTagPicker(false); }}
+            className="flex items-center transition-colors cursor-pointer"
             style={{
-              top: '26px', left: 0, zIndex: 100,
-              borderRadius: '7px', border: '0.5px solid var(--color-border)',
-              backgroundColor: 'var(--color-bg-primary)',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.14)',
-              minWidth: '120px',
+              height: '24px', padding: '0 9px', gap: '5px', borderRadius: '5px',
+              border: '0.5px solid', borderColor: recurrence ? 'var(--clay)' : 'var(--color-border)',
+              backgroundColor: recurrence ? 'var(--clay-light)' : 'transparent',
+              fontSize: '10px', color: recurrence ? 'var(--clay)' : 'var(--color-text-tertiary)',
             }}
           >
-            <button
-              onClick={() => { setRecurrence(''); setShowRecurrencePicker(false); }}
-              className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer transition-colors"
-              style={{ color: !recurrence ? 'var(--clay)' : 'var(--color-text-secondary)', backgroundColor: 'transparent', border: 'none', textAlign: 'left' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-bg-tertiary)'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
+            <Repeat size={10} />
+            {recurrence
+              ? (RECURRENCE_OPTIONS.find(o => o.type === recurrence)?.[lang === 'zh' ? 'labelZh' : 'labelEn'] ?? recurrence)
+              : (lang === 'zh' ? '不重复' : 'No repeat')}
+          </button>
+          {showRecurrencePicker && (
+            <div
+              className="absolute flex flex-col overflow-hidden"
+              style={{
+                top: '26px', left: 0, zIndex: 100, borderRadius: '7px',
+                border: '0.5px solid var(--color-border)', backgroundColor: 'var(--color-bg-primary)',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.14)', minWidth: '120px',
+              }}
             >
-              {lang === 'zh' ? '不重复' : 'No repeat'}
-            </button>
-            {RECURRENCE_OPTIONS.map(opt => (
               <button
-                key={opt.type}
-                onClick={() => { setRecurrence(opt.type); setShowRecurrencePicker(false); }}
+                onClick={() => { setRecurrence(''); setShowRecurrencePicker(false); }}
                 className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer transition-colors"
-                style={{ color: recurrence === opt.type ? 'var(--clay)' : 'var(--color-text-secondary)', backgroundColor: 'transparent', border: 'none', textAlign: 'left' }}
+                style={{ color: !recurrence ? 'var(--clay)' : 'var(--color-text-secondary)', backgroundColor: 'transparent', border: 'none', textAlign: 'left' }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-bg-tertiary)'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
-              >
-                <span>{opt.icon}</span>
-                {lang === 'zh' ? opt.labelZh : opt.labelEn}
-              </button>
-            ))}
-          </div>
-        )}
+              >{lang === 'zh' ? '不重复' : 'No repeat'}</button>
+              {RECURRENCE_OPTIONS.map(opt => (
+                <button
+                  key={opt.type}
+                  onClick={() => { setRecurrence(opt.type); setShowRecurrencePicker(false); }}
+                  className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer transition-colors"
+                  style={{ color: recurrence === opt.type ? 'var(--clay)' : 'var(--color-text-secondary)', backgroundColor: 'transparent', border: 'none', textAlign: 'left' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-bg-tertiary)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
+                >
+                  <span>{opt.icon}</span>
+                  {lang === 'zh' ? opt.labelZh : opt.labelEn}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 标签选择器 */}
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => { setShowTagPicker((v) => !v); setShowRecurrencePicker(false); }}
+            className="flex items-center transition-colors cursor-pointer"
+            style={{
+              height: '24px', padding: '0 9px', gap: '5px', borderRadius: '5px',
+              border: '0.5px solid', borderColor: selectedTagIds.length ? 'var(--clay)' : 'var(--color-border)',
+              backgroundColor: selectedTagIds.length ? 'var(--clay-light)' : 'transparent',
+              fontSize: '10px', color: selectedTagIds.length ? 'var(--clay)' : 'var(--color-text-tertiary)',
+            }}
+          >
+            <svg width="10" height="10" viewBox="0 0 14 14" fill="none">
+              <rect x="1" y="1" width="5" height="5" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
+              <rect x="8" y="1" width="5" height="5" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
+              <rect x="1" y="8" width="5" height="5" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
+              <rect x="8" y="8" width="5" height="5" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
+            </svg>
+            {selectedTagIds.length > 0
+              ? (lang === 'zh' ? `${selectedTagIds.length} 个标签` : `${selectedTagIds.length} tag${selectedTagIds.length > 1 ? 's' : ''}`)
+              : (lang === 'zh' ? '添加标签' : 'Add tags')}
+          </button>
+
+          {showTagPicker && (
+            <div
+              style={{
+                position: 'absolute', top: '26px', left: 0, zIndex: 100,
+                borderRadius: '8px', border: '0.5px solid var(--color-border)',
+                backgroundColor: 'var(--color-bg-primary)',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.14)',
+                minWidth: '170px', padding: '8px',
+                display: 'flex', flexDirection: 'column', gap: '6px',
+              }}
+            >
+              {tags.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                  {tags.map(tag => (
+                    <TagChip
+                      key={tag.id}
+                      tag={tag}
+                      size="sm"
+                      active={selectedTagIds.includes(tag.id)}
+                      onClick={() => toggleTag(tag.id)}
+                    />
+                  ))}
+                </div>
+              )}
+              <input
+                autoFocus={tags.length === 0}
+                type="text"
+                value={newTagName}
+                onChange={e => setNewTagName(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && newTagName.trim()) {
+                    const color = TAG_PALETTE[tags.length % TAG_PALETTE.length];
+                    const tag = addTag(newTagName.trim(), color);
+                    setSelectedTagIds(prev => [...prev, tag.id]);
+                    setNewTagName('');
+                  }
+                  if (e.key === 'Escape') setShowTagPicker(false);
+                }}
+                placeholder={lang === 'zh' ? '新建标签 Enter 确认…' : 'New tag, Enter…'}
+                style={{
+                  fontSize: '10px', padding: '4px 8px',
+                  background: 'var(--color-bg-tertiary)',
+                  border: '0.5px solid var(--color-border)', borderRadius: '5px',
+                  color: 'var(--color-text-primary)', outline: 'none', width: '100%',
+                }}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* 已选标签预览 chips */}
+        {selectedTagIds.map(tid => {
+          const tag = tags.find(t => t.id === tid);
+          if (!tag) return null;
+          return (
+            <TagChip
+              key={tid}
+              tag={tag}
+              size="xs"
+              onRemove={() => setSelectedTagIds(prev => prev.filter(id => id !== tid))}
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -244,16 +318,12 @@ function TypeBtn({ active, onClick, children }: { active: boolean; onClick: () =
       onClick={onClick}
       className="font-medium transition-colors"
       style={{
-        padding: '5px 9px',
-        fontSize: '11px',
-        border: 'none',
+        padding: '5px 9px', fontSize: '11px', border: 'none',
         borderRight: '0.5px solid var(--color-border)',
         color: active ? 'var(--color-fill-text)' : 'var(--color-text-tertiary)',
         backgroundColor: active ? 'var(--color-fill)' : 'transparent',
         cursor: 'pointer',
       }}
-    >
-      {children}
-    </button>
+    >{children}</button>
   );
 }
