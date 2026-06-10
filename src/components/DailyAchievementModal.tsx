@@ -107,7 +107,7 @@ export function DailyAchievementModal() {
                 className="flex flex-col items-center"
                 style={{
                   padding: '28px 24px 20px',
-                  background: 'linear-gradient(145deg, var(--clay) 0%, #c96540 100%)',
+                  background: 'linear-gradient(145deg, var(--clay) 0%, var(--clay-hover) 100%)',
                   position: 'relative',
                 }}
               >
