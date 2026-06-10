@@ -27,6 +27,12 @@
     "theme": "主题",
     "lightMode": "日间模式",
     "darkMode": "夜间模式",
+    "systemMode": "跟随系统",
+    "themeMode": {
+      "light": "日间模式",
+      "dark": "夜间模式",
+      "system": "跟随系统日夜"
+    },
     "startupDelay": "开机弹窗延迟",
     "achievementTime": "每日成就弹窗时间",
     "achievementOff": "关闭",

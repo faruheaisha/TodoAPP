@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Settings, Moon, Sun, Timer } from 'lucide-react';
+import { Settings, Moon, Sun, Monitor, Timer } from 'lucide-react';
 import { useSettingsStore } from '../store/settingsStore';
 import { useToolsPanelStore } from '../store/toolsStore';
 import { useFocusStore } from '../store/focusStore';
@@ -13,10 +13,10 @@ export default function Header() {
 
   return (
     <header
-      className="flex items-center border-b flex-shrink-0"
+      className="safe-pad-top flex items-center border-b flex-shrink-0"
       style={{
-        height: 'var(--header-h)',
-        padding: '8px 14px',
+        height: 'calc(var(--header-h) + var(--safe-top))',
+        padding: '8px var(--pad-x)',
         borderColor: 'var(--color-border)',
         backgroundColor: 'var(--color-bg-primary)',
         gap: '8px',
@@ -86,13 +86,13 @@ export default function Header() {
         {/* Tools 入口 */}
         <ToolsButton />
 
-        {/* Theme Toggle */}
+        {/* Theme Toggle — 三态循环：浅色 → 深色 → 跟随系统 */}
         <IconButton
-          onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-          title={theme === 'light' ? '切换到深色模式' : 'Switch to light mode'}
-          color="var(--color-text-secondary)"
+          onClick={() => setTheme(theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light')}
+          title={t(`settings.themeMode.${theme}`)}
+          color={theme === 'system' ? 'var(--clay)' : 'var(--color-text-secondary)'}
         >
-          {theme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
+          {theme === 'light' ? <Sun size={14} /> : theme === 'dark' ? <Moon size={14} /> : <Monitor size={14} />}
         </IconButton>
 
         {/* Settings */}

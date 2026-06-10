@@ -7,6 +7,7 @@ import { useCompletionStore } from './store/completionStore';
 import { useHabitStore } from './store/habitStore';
 import { calcWeeklyStats, buildReportText, msUntilNext } from './lib/weeklyReport';
 import { useOverlayStore } from './store/overlayStore';
+import { usePrefersDark } from './lib/responsive';
 
 const FocusLockScreen = lazy(() => import('./windows/FocusLockScreen'));
 const ClockScreen = lazy(() => import('./windows/ClockScreen'));
@@ -44,10 +45,16 @@ function App() {
   const [filter, setFilter] = useState<FilterType>('all');
   const [activeTag, setActiveTag] = useState<string | null>(null);
 
-  // Apply theme
+  // 主题解析：theme='system' 时跟随系统/手机日夜模式实时切换
+  const prefersDark = usePrefersDark();
+  const resolvedTheme = theme === 'system' ? (prefersDark ? 'dark' : 'light') : theme;
+
+  // Apply theme + 同步移动端浏览器外壳 theme-color
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
+    document.documentElement.setAttribute('data-theme', resolvedTheme);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', resolvedTheme === 'dark' ? '#1a1a18' : '#faf9f5');
+  }, [resolvedTheme]);
 
   // Apply accent color
   useEffect(() => {
@@ -304,7 +311,7 @@ function App() {
   const hasTodos = todos.length > 0;
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden" style={{
+    <div className="app-shell flex flex-col overflow-hidden" style={{
       backgroundColor: 'var(--color-bg-primary)',
       color: 'var(--color-text-primary)',
     }}>

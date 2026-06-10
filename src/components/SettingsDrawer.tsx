@@ -386,6 +386,7 @@ export default function SettingsDrawer() {
                       <ToggleGroup>
                         <ToggleBtn active={theme === 'light'} onClick={() => setTheme('light')} label={t('settings.lightMode')} />
                         <ToggleBtn active={theme === 'dark'} onClick={() => setTheme('dark')} label={t('settings.darkMode')} />
+                        <ToggleBtn active={theme === 'system'} onClick={() => setTheme('system')} label={t('settings.systemMode')} />
                       </ToggleGroup>
                     </SettingRow>
                     <SettingRow label={lang === 'zh' ? '主题色' : 'Accent Color'}>

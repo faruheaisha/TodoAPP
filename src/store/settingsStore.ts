@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type Theme = 'light' | 'dark';
+export type Theme = 'light' | 'dark' | 'system';
 export type AccentColor = 'coral' | 'olive' | 'sky' | 'fig';
 export type Language = 'zh' | 'en';
 
@@ -45,7 +45,7 @@ interface SettingsState {
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
-      theme: 'light',
+      theme: 'system',
       language: 'zh',
       startupDelay: 5,
       hotkey: 'CmdOrCtrl+Shift+T',
@@ -80,7 +80,9 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'todoapp-settings',
-      version: 1,
+      version: 2,
+      // v1→v2：theme 新增 'system' 模式（跟随系统日夜）；旧值 light/dark 保持有效
+      migrate: (persisted) => persisted as SettingsState,
     }
   )
 );
