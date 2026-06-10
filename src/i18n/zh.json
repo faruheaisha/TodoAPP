@@ -145,7 +145,11 @@
     "sessionDoneToast": "{{mode}}阶段已完成",
     "focusingOn": "专注于",
     "selectTodo": "选择专注任务...",
-    "noTodo": "暂无待办"
+    "noTodo": "暂无待办",
+    "focusLock": "专注锁屏",
+    "focusLockTitle": "开启全屏专注锁屏，屏蔽干扰",
+    "clockScreen": "时间流动",
+    "clockScreenTitle": "打开全屏时钟屏保，用于学习"
   },
   "insights": {
     "focusTitle": "专注时长（近7天）",

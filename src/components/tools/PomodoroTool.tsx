@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, RotateCcw, Coffee, BrainCircuit, Moon, Link2 } from 'lucide-react';
+import { Play, Pause, RotateCcw, Coffee, BrainCircuit, Moon, Link2, Lock, Clock } from 'lucide-react';
 import {
   useFocusStore,
   type FocusMode,
@@ -89,6 +89,33 @@ export function PomodoroTool() {
     window.addEventListener('focus-session-complete', handleComplete);
     return () => window.removeEventListener('focus-session-complete', handleComplete);
   }, [show, t]);
+
+  // 打开专注/屏保独立窗口（Tauri WebviewWindow）
+  async function openFocusWindow(type: 'focus-lock' | 'clock') {
+    try {
+      const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+      const label = type === 'focus-lock' ? 'focus-lock' : 'clock-screen';
+      const title = type === 'focus-lock' ? '专注锁屏' : '时间流动';
+      const existing = await WebviewWindow.getByLabel(label);
+      if (existing) {
+        await existing.show();
+        await existing.setFocus();
+        return;
+      }
+      new WebviewWindow(label, {
+        url: `index.html#${type}`,
+        title,
+        fullscreen: true,
+        decorations: false,
+        alwaysOnTop: true,
+        skipTaskbar: type === 'focus-lock',
+        width: 1920,
+        height: 1080,
+      });
+    } catch (e) {
+      console.warn('openFocusWindow failed (non-Tauri env):', e);
+    }
+  }
 
   const total = focusDurationFor(mode, settings);
   // 倒计时消耗式：满格开始 → 空格结束（参考 react-countdown-circle-timer ⭐715 drain 方向）
@@ -295,6 +322,48 @@ export function PomodoroTool() {
             {t('pomodoro.totalCompleted', { count: completedWorkSessions })}
           </span>
         </div>
+      </div>
+
+      {/* 专注锁屏 / 时间屏保 快捷入口 */}
+      <div className="flex items-center" style={{ gap: '8px' }}>
+        <button
+          onClick={() => openFocusWindow('focus-lock')}
+          className="flex items-center flex-1 transition-all cursor-pointer"
+          style={{
+            gap: '6px',
+            padding: '8px 12px',
+            borderRadius: '8px',
+            border: '1px solid var(--color-border)',
+            backgroundColor: 'transparent',
+            color: 'var(--color-text-secondary)',
+            fontSize: '11px',
+            fontWeight: 500,
+            justifyContent: 'center',
+          }}
+          title={t('pomodoro.focusLockTitle')}
+        >
+          <Lock size={12} />
+          {t('pomodoro.focusLock')}
+        </button>
+        <button
+          onClick={() => openFocusWindow('clock')}
+          className="flex items-center flex-1 transition-all cursor-pointer"
+          style={{
+            gap: '6px',
+            padding: '8px 12px',
+            borderRadius: '8px',
+            border: '1px solid var(--color-border)',
+            backgroundColor: 'transparent',
+            color: 'var(--color-text-secondary)',
+            fontSize: '11px',
+            fontWeight: 500,
+            justifyContent: 'center',
+          }}
+          title={t('pomodoro.clockScreenTitle')}
+        >
+          <Clock size={12} />
+          {t('pomodoro.clockScreen')}
+        </button>
       </div>
 
       {/* 时长设置 */}

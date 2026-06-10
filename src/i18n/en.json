@@ -145,7 +145,11 @@
     "sessionDoneToast": "{{mode}} session complete",
     "focusingOn": "Focusing on",
     "selectTodo": "Select a task...",
-    "noTodo": "No active tasks"
+    "noTodo": "No active tasks",
+    "focusLock": "Focus Lock",
+    "focusLockTitle": "Open fullscreen focus lock screen",
+    "clockScreen": "Clock Screen",
+    "clockScreenTitle": "Open fullscreen clock screensaver"
   },
   "insights": {
     "focusTitle": "Focus Time (Last 7 Days)",
