@@ -1,10 +1,12 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTodoStore } from '../store/todoStore';
 import { useRecurrenceStore, RECURRENCE_OPTIONS, type RecurrenceType } from '../store/recurrenceStore';
 import { useTagStore, TAG_PALETTE } from '../store/tagStore';
 import { TagChip } from './TagChip';
-import { Plus, Calendar, Repeat } from 'lucide-react';
+import { parseNLP } from '../lib/nlpDate';
+import { Plus, Calendar, Repeat, Sparkles } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 
 export default function AddTodoBar() {
   const { t, i18n } = useTranslation();
@@ -12,6 +14,7 @@ export default function AddTodoBar() {
   const { addTodo } = useTodoStore();
   const { setRule } = useRecurrenceStore();
   const { tags, addTag, addTagToTodo } = useTagStore();
+
   const [title, setTitle] = useState('');
   const [todoType, setTodoType] = useState<'quick' | 'longterm'>('quick');
   const [deadline, setDeadline] = useState('');
@@ -22,11 +25,45 @@ export default function AddTodoBar() {
   const [newTagName, setNewTagName] = useState('');
   const deadlineInputRef = useRef<HTMLInputElement>(null);
 
+  // NLP 解析结果
+  const [nlpHint, setNlpHint] = useState<string | null>(null);
+  const [nlpDeadline, setNlpDeadline] = useState<string | null>(null);
+
+  // 实时 NLP 解析
+  useEffect(() => {
+    if (!title.trim()) { setNlpHint(null); setNlpDeadline(null); return; }
+    const result = parseNLP(title);
+    if (result.deadline && result.deadline !== deadline) {
+      setNlpHint(result.hint);
+      setNlpDeadline(result.deadline);
+    } else {
+      setNlpHint(null);
+      setNlpDeadline(null);
+    }
+  }, [title]);
+
+  // 接受 NLP 建议
+  const acceptNLP = () => {
+    if (!nlpDeadline) return;
+    const result = parseNLP(title);
+    setTitle(result.title);
+    setDeadline(nlpDeadline);
+    setTodoType('longterm');
+    setNlpHint(null);
+    setNlpDeadline(null);
+  };
+
   const handleSubmit = useCallback(async () => {
     if (!title.trim()) return;
-    const effectiveDeadline = todoType === 'longterm' && deadline ? deadline : null;
-    await addTodo(title.trim(), todoType, effectiveDeadline).catch(console.error);
-    // 找最新创建的 todo 绑定规则/标签
+    // 若有 NLP 结果且用户未手动拒绝，自动应用
+    let finalTitle = title.trim();
+    let finalDeadline = todoType === 'longterm' && deadline ? deadline : null;
+    if (nlpDeadline && !deadline) {
+      const result = parseNLP(title);
+      finalTitle = result.title;
+      finalDeadline = nlpDeadline;
+    }
+    await addTodo(finalTitle, finalDeadline ? 'longterm' : todoType, finalDeadline).catch(console.error);
     const { useTodoStore: store } = await import('../store/todoStore');
     const todos = store.getState().todos;
     const latest = [...todos].sort((a, b) =>
@@ -42,10 +79,18 @@ export default function AddTodoBar() {
     setSelectedTagIds([]);
     setShowRecurrencePicker(false);
     setShowTagPicker(false);
-  }, [title, todoType, deadline, recurrence, selectedTagIds, addTodo, setRule, addTagToTodo]);
+    setNlpHint(null);
+    setNlpDeadline(null);
+  }, [title, todoType, deadline, recurrence, selectedTagIds, nlpDeadline, addTodo, setRule, addTagToTodo]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') handleSubmit();
+    if (e.key === 'Enter') {
+      if (nlpDeadline && !deadline) acceptNLP();
+      handleSubmit();
+    }
+    if (e.key === 'Escape') {
+      setNlpHint(null); setNlpDeadline(null);
+    }
   };
 
   const toggleTag = (tagId: string) => {
@@ -63,41 +108,35 @@ export default function AddTodoBar() {
         padding: '7px 14px',
       }}
     >
+      {/* 主输入行 */}
       <div className="flex items-stretch" style={{ gap: 0, height: 'var(--input-row-h)' }}>
         {/* Type selector */}
         <div
           className="flex items-stretch overflow-hidden flex-shrink-0"
-          style={{
-            border: '0.5px solid var(--color-border)',
-            borderRight: 'none',
-            borderRadius: '5px 0 0 5px',
-          }}
+          style={{ border: '0.5px solid var(--color-border)', borderRight: 'none', borderRadius: '5px 0 0 5px' }}
         >
           <TypeBtn active={todoType === 'quick'} onClick={() => setTodoType('quick')}>
-            <span className="type-btn-short" style={{ display: 'none' }}>{'⚡'}</span>
             <span className="type-btn-long">{t('app.quick')}</span>
           </TypeBtn>
           <TypeBtn active={todoType === 'longterm'} onClick={() => setTodoType('longterm')}>
-            <span className="type-btn-short" style={{ display: 'none' }}>{'🗓'}</span>
             <span className="type-btn-long">{t('app.longterm')}</span>
           </TypeBtn>
         </div>
 
         {/* Input field */}
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={t('app.addPlaceholder') + ' ' + t('app.enterConfirm')}
+            placeholder={lang === 'zh' ? '输入任务… 支持「明天下午3点」等自然语言' : 'Add task… try "tomorrow at 3pm"'}
             className="w-full h-full text-sm outline-none transition-colors"
             style={{
               backgroundColor: 'var(--color-bg-input)',
               color: 'var(--color-text-secondary)',
               border: '0.5px solid var(--color-border)',
-              borderRight: 'none',
-              borderLeft: 'none',
+              borderRight: 'none', borderLeft: 'none',
               padding: '5px 9px',
             }}
             onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-hover)'; }}
@@ -110,14 +149,8 @@ export default function AddTodoBar() {
           onClick={handleSubmit}
           className="flex items-center justify-center font-medium transition-colors flex-shrink-0"
           style={{
-            padding: '5px 12px',
-            backgroundColor: 'var(--color-fill)',
-            color: 'var(--color-fill-text)',
-            border: 'none',
-            borderRadius: '0 5px 5px 0',
-            cursor: 'pointer',
-            fontSize: '11px',
-            gap: '4px',
+            padding: '5px 12px', backgroundColor: 'var(--color-fill)', color: 'var(--color-fill-text)',
+            border: 'none', borderRadius: '0 5px 5px 0', cursor: 'pointer', fontSize: '11px', gap: '4px',
           }}
           onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--clay)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--color-fill)'; }}
@@ -126,6 +159,40 @@ export default function AddTodoBar() {
           <span className="add-btn-text">{t('app.addButton')}</span>
         </button>
       </div>
+
+      {/* NLP 解析提示条 */}
+      <AnimatePresence>
+        {nlpHint && nlpDeadline && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.15 }}
+            className="flex items-center"
+            style={{ gap: '6px', marginTop: '4px', overflow: 'hidden' }}
+          >
+            <Sparkles size={10} style={{ color: 'var(--clay)', flexShrink: 0 }} />
+            <span style={{ fontSize: '10px', color: 'var(--color-text-tertiary)' }}>
+              {lang === 'zh' ? '识别到截止时间：' : 'Detected deadline: '}
+            </span>
+            <button
+              onClick={acceptNLP}
+              style={{
+                fontSize: '10px', padding: '1px 8px', borderRadius: '10px',
+                backgroundColor: 'var(--clay-light)', color: 'var(--clay)',
+                border: '0.5px solid var(--clay)', cursor: 'pointer', fontWeight: 600,
+              }}
+            >{nlpHint}</button>
+            <span style={{ fontSize: '10px', color: 'var(--color-text-tertiary)' }}>
+              {lang === 'zh' ? '← 点击应用，Enter 直接确认' : '← click to apply, Enter to confirm'}
+            </span>
+            <button
+              onClick={() => { setNlpHint(null); setNlpDeadline(null); }}
+              style={{ marginLeft: 'auto', fontSize: '11px', background: 'none', border: 'none', color: 'var(--color-text-tertiary)', cursor: 'pointer', lineHeight: 1 }}
+            >×</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Deadline picker */}
       {todoType === 'longterm' && (
@@ -151,17 +218,11 @@ export default function AddTodoBar() {
               <button
                 onClick={(e) => { e.stopPropagation(); setDeadline(''); }}
                 className="flex items-center justify-center"
-                style={{
-                  width: '14px', height: '14px', borderRadius: '50%',
-                  backgroundColor: 'var(--color-bg-tertiary)',
-                  border: 'none', cursor: 'pointer', flexShrink: 0,
-                  color: 'var(--color-text-tertiary)', fontSize: '10px', lineHeight: 1,
-                }}
+                style={{ width: '14px', height: '14px', borderRadius: '50%', backgroundColor: 'var(--color-bg-tertiary)', border: 'none', cursor: 'pointer', flexShrink: 0, color: 'var(--color-text-tertiary)', fontSize: '10px', lineHeight: 1 }}
               >×</button>
             )}
           </div>
-          <input
-            ref={deadlineInputRef} type="datetime-local" value={deadline}
+          <input ref={deadlineInputRef} type="datetime-local" value={deadline}
             onChange={(e) => setDeadline(e.target.value)}
             style={{ position: 'absolute', top: 0, left: 0, width: 0, height: 0, opacity: 0, pointerEvents: 'none', border: 'none' }}
             tabIndex={-1}
@@ -189,32 +250,21 @@ export default function AddTodoBar() {
               : (lang === 'zh' ? '不重复' : 'No repeat')}
           </button>
           {showRecurrencePicker && (
-            <div
-              className="absolute flex flex-col overflow-hidden"
-              style={{
-                top: '26px', left: 0, zIndex: 100, borderRadius: '7px',
-                border: '0.5px solid var(--color-border)', backgroundColor: 'var(--color-bg-primary)',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.14)', minWidth: '120px',
-              }}
-            >
-              <button
-                onClick={() => { setRecurrence(''); setShowRecurrencePicker(false); }}
-                className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer transition-colors"
+            <div className="absolute flex flex-col overflow-hidden" style={{ top: '26px', left: 0, zIndex: 100, borderRadius: '7px', border: '0.5px solid var(--color-border)', backgroundColor: 'var(--color-bg-primary)', boxShadow: '0 8px 24px rgba(0,0,0,0.14)', minWidth: '120px' }}>
+              <button onClick={() => { setRecurrence(''); setShowRecurrencePicker(false); }}
+                className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer"
                 style={{ color: !recurrence ? 'var(--clay)' : 'var(--color-text-secondary)', backgroundColor: 'transparent', border: 'none', textAlign: 'left' }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-bg-tertiary)'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
               >{lang === 'zh' ? '不重复' : 'No repeat'}</button>
               {RECURRENCE_OPTIONS.map(opt => (
-                <button
-                  key={opt.type}
-                  onClick={() => { setRecurrence(opt.type); setShowRecurrencePicker(false); }}
-                  className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer transition-colors"
+                <button key={opt.type} onClick={() => { setRecurrence(opt.type); setShowRecurrencePicker(false); }}
+                  className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer"
                   style={{ color: recurrence === opt.type ? 'var(--clay)' : 'var(--color-text-secondary)', backgroundColor: 'transparent', border: 'none', textAlign: 'left' }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-bg-tertiary)'; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
                 >
-                  <span>{opt.icon}</span>
-                  {lang === 'zh' ? opt.labelZh : opt.labelEn}
+                  <span>{opt.icon}</span>{lang === 'zh' ? opt.labelZh : opt.labelEn}
                 </button>
               ))}
             </div>
@@ -243,35 +293,16 @@ export default function AddTodoBar() {
               ? (lang === 'zh' ? `${selectedTagIds.length} 个标签` : `${selectedTagIds.length} tag${selectedTagIds.length > 1 ? 's' : ''}`)
               : (lang === 'zh' ? '添加标签' : 'Add tags')}
           </button>
-
           {showTagPicker && (
-            <div
-              style={{
-                position: 'absolute', top: '26px', left: 0, zIndex: 100,
-                borderRadius: '8px', border: '0.5px solid var(--color-border)',
-                backgroundColor: 'var(--color-bg-primary)',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.14)',
-                minWidth: '170px', padding: '8px',
-                display: 'flex', flexDirection: 'column', gap: '6px',
-              }}
-            >
+            <div style={{ position: 'absolute', top: '26px', left: 0, zIndex: 100, borderRadius: '8px', border: '0.5px solid var(--color-border)', backgroundColor: 'var(--color-bg-primary)', boxShadow: '0 8px 24px rgba(0,0,0,0.14)', minWidth: '170px', padding: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {tags.length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                   {tags.map(tag => (
-                    <TagChip
-                      key={tag.id}
-                      tag={tag}
-                      size="sm"
-                      active={selectedTagIds.includes(tag.id)}
-                      onClick={() => toggleTag(tag.id)}
-                    />
+                    <TagChip key={tag.id} tag={tag} size="sm" active={selectedTagIds.includes(tag.id)} onClick={() => toggleTag(tag.id)} />
                   ))}
                 </div>
               )}
-              <input
-                autoFocus={tags.length === 0}
-                type="text"
-                value={newTagName}
+              <input autoFocus={tags.length === 0} type="text" value={newTagName}
                 onChange={e => setNewTagName(e.target.value)}
                 onKeyDown={e => {
                   if (e.key === 'Enter' && newTagName.trim()) {
@@ -283,29 +314,17 @@ export default function AddTodoBar() {
                   if (e.key === 'Escape') setShowTagPicker(false);
                 }}
                 placeholder={lang === 'zh' ? '新建标签 Enter 确认…' : 'New tag, Enter…'}
-                style={{
-                  fontSize: '10px', padding: '4px 8px',
-                  background: 'var(--color-bg-tertiary)',
-                  border: '0.5px solid var(--color-border)', borderRadius: '5px',
-                  color: 'var(--color-text-primary)', outline: 'none', width: '100%',
-                }}
+                style={{ fontSize: '10px', padding: '4px 8px', background: 'var(--color-bg-tertiary)', border: '0.5px solid var(--color-border)', borderRadius: '5px', color: 'var(--color-text-primary)', outline: 'none', width: '100%' }}
               />
             </div>
           )}
         </div>
 
-        {/* 已选标签预览 chips */}
+        {/* 已选标签预览 */}
         {selectedTagIds.map(tid => {
           const tag = tags.find(t => t.id === tid);
           if (!tag) return null;
-          return (
-            <TagChip
-              key={tid}
-              tag={tag}
-              size="xs"
-              onRemove={() => setSelectedTagIds(prev => prev.filter(id => id !== tid))}
-            />
-          );
+          return <TagChip key={tid} tag={tag} size="xs" onRemove={() => setSelectedTagIds(prev => prev.filter(id => id !== tid))} />;
         })}
       </div>
     </div>
@@ -314,16 +333,8 @@ export default function AddTodoBar() {
 
 function TypeBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button
-      onClick={onClick}
-      className="font-medium transition-colors"
-      style={{
-        padding: '5px 9px', fontSize: '11px', border: 'none',
-        borderRight: '0.5px solid var(--color-border)',
-        color: active ? 'var(--color-fill-text)' : 'var(--color-text-tertiary)',
-        backgroundColor: active ? 'var(--color-fill)' : 'transparent',
-        cursor: 'pointer',
-      }}
+    <button onClick={onClick} className="font-medium transition-colors"
+      style={{ padding: '5px 9px', fontSize: '11px', border: 'none', borderRight: '0.5px solid var(--color-border)', color: active ? 'var(--color-fill-text)' : 'var(--color-text-tertiary)', backgroundColor: active ? 'var(--color-fill)' : 'transparent', cursor: 'pointer' }}
     >{children}</button>
   );
 }
