@@ -64,12 +64,13 @@ export function PomodoroTool() {
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // 节拍循环 — 每秒调用一次 store.tick()，由 store 决定阶段切换
+  // 节拍循环 — 250ms 高频采样，传入真实时间戳，消除 setInterval 漂移
+  // 参考：react-countdown-circle-timer 的 requestAnimationFrame 驱动方案
   useEffect(() => {
     if (isRunning) {
       intervalRef.current = setInterval(() => {
-        useFocusStore.getState().tick();
-      }, 1000);
+        useFocusStore.getState().tick(Date.now());
+      }, 250);
     }
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);

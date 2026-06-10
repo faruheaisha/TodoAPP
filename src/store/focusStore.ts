@@ -1,29 +1,20 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-/**
- * focusStore — 番茄钟 / 专注计时状态
- *
- * 设计说明：本 store 仅服务于「工具面板」体系下的第一个工具（番茄钟）。
- * 后续工具（如日历、习惯打卡）应各自拥有独立 store，并通过
- * ToolsPanel 的注册表机制接入界面，不应耦合进本文件。
- */
-
 export type FocusMode = 'work' | 'shortBreak' | 'longBreak';
 
-/** 单次专注会话记录（用于数据洞察面板） */
 export interface SessionLogEntry {
-  date: string;    // 'YYYY-MM-DD'
-  minutes: number; // 实际专注分钟数
+  date: string;
+  minutes: number;
 }
 
 export interface FocusSettings {
   workMinutes: number;
   shortBreakMinutes: number;
   longBreakMinutes: number;
-  longBreakInterval: number; // 每完成 N 个专注段后进入长休息
-  autoStartNext: boolean; // 是否自动开始下一段
-  soundEnabled: boolean; // 完成时是否提示音/系统通知
+  longBreakInterval: number;
+  autoStartNext: boolean;
+  soundEnabled: boolean;
 }
 
 const DEFAULT_SETTINGS: FocusSettings = {
@@ -37,33 +28,30 @@ const DEFAULT_SETTINGS: FocusSettings = {
 
 function durationFor(mode: FocusMode, settings: FocusSettings): number {
   switch (mode) {
-    case 'work':
-      return settings.workMinutes * 60;
-    case 'shortBreak':
-      return settings.shortBreakMinutes * 60;
-    case 'longBreak':
-      return settings.longBreakMinutes * 60;
+    case 'work': return settings.workMinutes * 60;
+    case 'shortBreak': return settings.shortBreakMinutes * 60;
+    case 'longBreak': return settings.longBreakMinutes * 60;
   }
 }
 
 interface FocusState {
   settings: FocusSettings;
-
   mode: FocusMode;
   remainingSeconds: number;
   isRunning: boolean;
-
-  completedWorkSessions: number; // 历史累计完成的专注段（持久化）
+  /** 精确倒计时：记录当前段应结束的时间戳（ms），消除 setInterval 漂移 */
+  endTimestamp: number | null;
+  completedWorkSessions: number;
   cycleCount: number;
   linkedTodoId: string | null;
-  /** 每次完成 work session 追加一条，最多保留 90 天数据 */
   sessionLog: SessionLogEntry[];
 
   updateSettings: (updates: Partial<FocusSettings>) => void;
   start: () => void;
   pause: () => void;
   reset: () => void;
-  tick: () => void;
+  /** 由外部 rAF/interval 调用，传入当前时间戳以实现真实时间驱动 */
+  tick: (now?: number) => void;
   switchMode: (mode: FocusMode) => void;
   setLinkedTodo: (id: string | null) => void;
 }
@@ -72,11 +60,10 @@ export const useFocusStore = create<FocusState>()(
   persist(
     (set, get) => ({
       settings: DEFAULT_SETTINGS,
-
       mode: 'work',
       remainingSeconds: DEFAULT_SETTINGS.workMinutes * 60,
       isRunning: false,
-
+      endTimestamp: null,
       completedWorkSessions: 0,
       cycleCount: 0,
       linkedTodoId: null,
@@ -86,80 +73,87 @@ export const useFocusStore = create<FocusState>()(
         const settings = { ...get().settings, ...updates };
         set((state) => ({
           settings,
-          // 仅在未运行时才同步刷新当前模式的剩余时长，避免打断进行中的计时
           remainingSeconds: state.isRunning ? state.remainingSeconds : durationFor(state.mode, settings),
         }));
       },
 
-      start: () => set({ isRunning: true }),
-      pause: () => set({ isRunning: false }),
+      start: () => {
+        const { remainingSeconds } = get();
+        set({ isRunning: true, endTimestamp: Date.now() + remainingSeconds * 1000 });
+      },
+
+      pause: () => {
+        // Save accurate remaining time before clearing endTimestamp
+        const { endTimestamp } = get();
+        const remaining = endTimestamp
+          ? Math.max(0, Math.ceil((endTimestamp - Date.now()) / 1000))
+          : get().remainingSeconds;
+        set({ isRunning: false, endTimestamp: null, remainingSeconds: remaining });
+      },
 
       reset: () => {
         const { mode, settings } = get();
-        set({ isRunning: false, remainingSeconds: durationFor(mode, settings) });
+        set({ isRunning: false, endTimestamp: null, remainingSeconds: durationFor(mode, settings) });
       },
 
-      tick: () => {
-        const { remainingSeconds, isRunning } = get();
-        if (!isRunning) return;
+      tick: (now = Date.now()) => {
+        const { isRunning, endTimestamp } = get();
+        if (!isRunning || endTimestamp === null) return;
 
-        if (remainingSeconds <= 1) {
-          // 当前阶段完成 — 计算下一阶段
-          const { mode, settings, completedWorkSessions, cycleCount, linkedTodoId } = get();
-          let nextMode: FocusMode = 'work';
-          let nextCompleted = completedWorkSessions;
-          let nextCycle = cycleCount;
+        const remaining = Math.max(0, Math.ceil((endTimestamp - now) / 1000));
 
-          // 追加每日会话日志（仅 work 阶段）
-          let nextSessionLog = get().sessionLog;
-          if (mode === 'work') {
-            nextCompleted = completedWorkSessions + 1;
-            nextCycle = cycleCount + 1;
-            nextMode = nextCycle >= settings.longBreakInterval ? 'longBreak' : 'shortBreak';
-            if (nextMode === 'longBreak') nextCycle = 0;
+        // Update display
+        set({ remainingSeconds: remaining });
 
-            const todayKey = new Date().toISOString().slice(0, 10);
-            const entry: SessionLogEntry = { date: todayKey, minutes: settings.workMinutes };
-            // 保留最近 90 天（约 360 条记录上限）
-            const cutoff = new Date();
-            cutoff.setDate(cutoff.getDate() - 90);
-            const cutoffKey = cutoff.toISOString().slice(0, 10);
-            nextSessionLog = [...nextSessionLog.filter(e => e.date >= cutoffKey), entry];
-          } else {
-            nextMode = 'work';
-          }
+        if (remaining > 0) return;
 
-          window.dispatchEvent(
-            new CustomEvent('focus-session-complete', {
-              detail: { finishedMode: mode, nextMode, linkedTodoId },
-            })
-          );
+        // Phase complete
+        const { mode, settings, completedWorkSessions, cycleCount, linkedTodoId } = get();
+        let nextMode: FocusMode = 'work';
+        let nextCompleted = completedWorkSessions;
+        let nextCycle = cycleCount;
+        let nextSessionLog = get().sessionLog;
 
-          set({
-            mode: nextMode,
-            remainingSeconds: durationFor(nextMode, settings),
-            isRunning: settings.autoStartNext,
-            completedWorkSessions: nextCompleted,
-            cycleCount: nextCycle,
-            sessionLog: nextSessionLog,
-          });
-        } else {
-          set({ remainingSeconds: remainingSeconds - 1 });
+        if (mode === 'work') {
+          nextCompleted = completedWorkSessions + 1;
+          nextCycle = cycleCount + 1;
+          nextMode = nextCycle >= settings.longBreakInterval ? 'longBreak' : 'shortBreak';
+          if (nextMode === 'longBreak') nextCycle = 0;
+
+          const todayKey = new Date().toISOString().slice(0, 10);
+          const cutoff = new Date();
+          cutoff.setDate(cutoff.getDate() - 90);
+          const cutoffKey = cutoff.toISOString().slice(0, 10);
+          nextSessionLog = [...nextSessionLog.filter(e => e.date >= cutoffKey),
+            { date: todayKey, minutes: settings.workMinutes }];
         }
+
+        window.dispatchEvent(new CustomEvent('focus-session-complete', {
+          detail: { finishedMode: mode, nextMode, linkedTodoId },
+        }));
+
+        const nextDuration = durationFor(nextMode, settings);
+        set({
+          mode: nextMode,
+          remainingSeconds: nextDuration,
+          endTimestamp: settings.autoStartNext ? Date.now() + nextDuration * 1000 : null,
+          isRunning: settings.autoStartNext,
+          completedWorkSessions: nextCompleted,
+          cycleCount: nextCycle,
+          sessionLog: nextSessionLog,
+        });
       },
 
       switchMode: (mode) => {
         const { settings } = get();
-        set({ mode, isRunning: false, remainingSeconds: durationFor(mode, settings) });
+        set({ mode, isRunning: false, endTimestamp: null, remainingSeconds: durationFor(mode, settings) });
       },
 
       setLinkedTodo: (id) => set({ linkedTodoId: id }),
     }),
     {
       name: 'todoapp-focus',
-      version: 1,
-      // 运行态（isRunning/remainingSeconds）不必跨会话持久化为"运行中"，
-      // 但保留剩余时间便于用户误关时找回进度；isRunning 重启后归位为暂停。
+      version: 2,
       partialize: (state) => ({
         settings: state.settings,
         mode: state.mode,
@@ -168,10 +162,11 @@ export const useFocusStore = create<FocusState>()(
         cycleCount: state.cycleCount,
         sessionLog: state.sessionLog,
       }),
-      merge: (persisted, current) =>        ({
+      merge: (persisted, current) => ({
         ...current,
         ...(persisted as object),
         isRunning: false,
+        endTimestamp: null,
       }),
     }
   )
