@@ -45,7 +45,7 @@ export default function TodoSection({ filter = 'all' }: TodoSectionProps) {
     <div>
       {/* 临时待办 */}
       <AnimatePresence>
-        {showActive && (filter !== 'completed') && (
+        {showActive && (
           <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
             <SectionHeader
               color="var(--color-text-tertiary)"
@@ -64,7 +64,7 @@ export default function TodoSection({ filter = 'all' }: TodoSectionProps) {
 
       {/* 长时待办 */}
       <AnimatePresence>
-        {showActive && (filter !== 'completed') && (
+        {showActive && (
           <motion.section
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -93,7 +93,7 @@ export default function TodoSection({ filter = 'all' }: TodoSectionProps) {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            style={{ marginTop: showActive && filter !== 'completed' ? '10px' : 0 }}
+            style={{ marginTop: showActive ? '10px' : 0 }}
           >
             <SectionHeader
               color="var(--color-text-tertiary)"

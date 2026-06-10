@@ -3,7 +3,7 @@
  *
  * 参考项目：
  *  - Loop Habit Tracker (GitHub ⭐9.9k, iSoron/uhabits)：
- *    每习惯独立提醒时间、30天完成率评分、宽容连续算法
+ *    每习惯独立提醒时间、30天完成率评分、宽容连续算法、弹性频率模式
  *  - Habitica (GitHub ⭐13.9k)：
  *    里程碑勋章体系、打卡奖励反馈
  */
@@ -24,18 +24,15 @@ export interface Habit {
   name: string;
   color: HabitColor;
   createdAt: string;
-  checkIns: string[];          // 'YYYY-MM-DD'
+  checkIns: string[];
   reminderEnabled: boolean;
-  reminderTime: string;        // 'HH:MM'，空字符串表示未设置
-  note: string;                // 习惯备注/动机文字
-  milestonesShown: number[];   // 已展示庆祝的里程碑天数（避免重复弹出）
-  /** 打卡模式：每日 or 弹性（每周 N 次） — 参考 Loop Habit Tracker Frequency */
+  reminderTime: string;
+  note: string;
+  milestonesShown: number[];
   frequency: 'daily' | 'flexible';
-  /** 弹性模式下每周目标次数（1-6），frequency==='daily' 时忽略 */
   weeklyTarget: number;
 }
 
-// ─── 里程碑配置（Loop / Habitica 参考）────────────────────────────────────────
 export interface Milestone {
   days: number;
   label: string;
@@ -51,7 +48,6 @@ export const MILESTONES: Milestone[] = [
   { days: 365, label: '365天传奇', labelEn: '365-Day Legend',   icon: '🏆' },
 ];
 
-/** 当前连续打卡天数（Loop 宽容算法：今日未打卡不立即清零昨日连续） */
 export function calcStreak(checkIns: Set<string>): number {
   const today = new Date();
   const todayKey = toDateKey(today);
@@ -66,24 +62,6 @@ export function calcStreak(checkIns: Set<string>): number {
   return streak;
 }
 
-/**
- * 计算本自然周（周一起）的打卡次数
- * 参考 Loop Habit Tracker Frequency 计算逻辑
- */
-export function calcWeeklyProgress(checkIns: string[]): number {
-  const today = new Date();
-  const dow = today.getDay(); // 0=Sun
-  const mondayOffset = dow === 0 ? 6 : dow - 1;
-  let done = 0;
-  for (let i = 0; i <= 6; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - mondayOffset + i);
-    if (checkIns.includes(toDateKey(d))) done++;
-  }
-  return done;
-}
-
-/** 30天完成率（Loop 参考：habit score） */
 export function calcCompletionRate(checkIns: string[], days = 30): number {
   const today = new Date();
   let count = 0;
@@ -95,13 +73,23 @@ export function calcCompletionRate(checkIns: string[], days = 30): number {
   return Math.round((count / days) * 100);
 }
 
-/** 获取当前连续对应的最高里程碑 */
+export function calcWeeklyProgress(checkIns: string[]): number {
+  const today = new Date();
+  const dow = today.getDay();
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - ((dow + 6) % 7));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const mondayKey = toDateKey(monday);
+  const sundayKey = toDateKey(sunday);
+  return checkIns.filter(d => d >= mondayKey && d <= sundayKey).length;
+}
+
 export function getCurrentMilestone(streak: number): Milestone | null {
   const ms = [...MILESTONES].reverse().find(m => streak >= m.days);
   return ms ?? null;
 }
 
-/** 获取刚达成但未展示的里程碑（用于庆祝弹出） */
 export function getNewMilestone(streak: number, shown: number[]): Milestone | null {
   return MILESTONES.find(m => streak >= m.days && !shown.includes(m.days)) ?? null;
 }
@@ -110,10 +98,6 @@ export function toDateKey(d: Date): string {
   return d.toISOString().split('T')[0];
 }
 
-/**
- * 智能识别习惯名称中的时间关键词，返回建议提醒时间
- * 参考 Habitica 的场景分类，扩展为中文关键词匹配
- */
 export function suggestReminderTime(name: string): string | null {
   const n = name.toLowerCase();
   if (/早起|早上|早晨|起床|晨练|晨跑/.test(n)) return '07:00';
@@ -126,7 +110,6 @@ export function suggestReminderTime(name: string): string | null {
   return null;
 }
 
-// ─── Store ────────────────────────────────────────────────────────────────────
 interface HabitState {
   habits: Habit[];
   addHabit: (name: string, color: HabitColor, reminderTime?: string, note?: string, frequency?: 'daily' | 'flexible', weeklyTarget?: number) => void;
@@ -157,4 +140,40 @@ export const useHabitStore = create<HabitState>()(
               milestonesShown: [],
               frequency,
               weeklyTarget,
-      
+            },
+          ],
+        })),
+
+      removeHabit: (id) =>
+        set((s) => ({ habits: s.habits.filter((h) => h.id !== id) })),
+
+      updateHabit: (id, updates) =>
+        set((s) => ({
+          habits: s.habits.map((h) => h.id !== id ? h : { ...h, ...updates }),
+        })),
+
+      toggleCheckIn: (id, date) =>
+        set((s) => ({
+          habits: s.habits.map((h) =>
+            h.id !== id ? h : {
+              ...h,
+              checkIns: h.checkIns.includes(date)
+                ? h.checkIns.filter((d) => d !== date)
+                : [...h.checkIns, date],
+            }
+          ),
+        })),
+
+      markMilestoneShown: (id, days) =>
+        set((s) => ({
+          habits: s.habits.map((h) =>
+            h.id !== id ? h : {
+              ...h,
+              milestonesShown: [...h.milestonesShown, days],
+            }
+          ),
+        })),
+    }),
+    { name: 'habit-store' }
+  )
+);

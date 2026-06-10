@@ -149,4 +149,7 @@
   },
   "insights": {
     "focusTitle": "Focus Time (Last 7 Days)",
-    "habit
+    "habitTitle": "Habit Heatmap (Last 5 Weeks)",
+    "statsTitle": "Quick Stats"
+  }
+}

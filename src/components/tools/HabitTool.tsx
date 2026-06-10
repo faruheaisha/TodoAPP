@@ -512,4 +512,160 @@ export function HabitTool() {
       <AnimatePresence>
         {showAdd && (
           <motion.div
-            initia
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.15 }}
+            style={{
+              padding: '12px', borderRadius: '10px', border: '0.5px solid var(--color-border)',
+              background: 'var(--color-bg-tertiary)', display: 'flex', flexDirection: 'column', gap: '10px',
+            }}
+          >
+            {/* 习惯名称 */}
+            <input
+              autoFocus
+              value={newName}
+              onChange={e => handleNameChange(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setShowAdd(false); }}
+              placeholder={t('habits.namePlaceholder')}
+              style={{
+                fontSize: '12px', background: 'var(--color-bg-secondary)',
+                border: '0.5px solid var(--color-border)', borderRadius: '6px',
+                padding: '6px 10px', color: 'var(--color-text-primary)', outline: 'none', width: '100%',
+              }}
+            />
+
+            {/* 智能时间建议 */}
+            {timeSuggestion && newReminder === timeSuggestion && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', color: 'var(--color-text-tertiary)' }}>
+                <Bell size={10} style={{ color: 'var(--color-accent)' }} />
+                <span style={{ color: 'var(--color-accent)' }}>
+                  {lang === 'zh' ? `智能建议：${timeSuggestion}` : `Suggested: ${timeSuggestion}`}
+                </span>
+              </div>
+            )}
+
+            {/* 频率选择（#43 弹性模式）*/}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
+                {lang === 'zh' ? '频率' : 'Frequency'}
+              </span>
+              {(['daily', 'flexible'] as const).map(f => (
+                <button
+                  key={f}
+                  onClick={() => setNewFrequency(f)}
+                  style={{
+                    fontSize: '10px', padding: '2px 9px', borderRadius: '10px', border: 'none', cursor: 'pointer',
+                    background: newFrequency === f ? 'var(--color-fill)' : 'var(--color-bg-secondary)',
+                    color: newFrequency === f ? 'var(--color-fill-text)' : 'var(--color-text-tertiary)',
+                  }}
+                >
+                  {f === 'daily' ? (lang === 'zh' ? '每天' : 'Daily') : (lang === 'zh' ? '弹性' : 'Flexible')}
+                </button>
+              ))}
+              {newFrequency === 'flexible' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <input
+                    type="number"
+                    min={1} max={7}
+                    value={newWeeklyTarget}
+                    onChange={e => setNewWeeklyTarget(Math.min(7, Math.max(1, Number(e.target.value))))}
+                    style={{
+                      width: '36px', fontSize: '11px', textAlign: 'center',
+                      background: 'var(--color-bg-secondary)', border: '0.5px solid var(--color-border)',
+                      borderRadius: '4px', padding: '2px 4px', color: 'var(--color-text-primary)',
+                    }}
+                  />
+                  <span style={{ fontSize: '10px', color: 'var(--color-text-tertiary)' }}>
+                    {lang === 'zh' ? '次/周' : 'x/week'}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* 颜色 + 提醒 */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              {/* 颜色选择 */}
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {(Object.keys(HABIT_COLORS) as HabitColor[]).map(c => (
+                  <button
+                    key={c}
+                    onClick={() => setNewColor(c)}
+                    style={{
+                      width: '18px', height: '18px', borderRadius: '50%', border: 'none', cursor: 'pointer',
+                      background: HABIT_COLORS[c],
+                      outline: newColor === c ? `2px solid ${HABIT_COLORS[c]}` : 'none',
+                      outlineOffset: '2px',
+                    }}
+                  />
+                ))}
+              </div>
+
+              {/* 提醒开关 + 时间 */}
+              <label style={{ fontSize: '11px', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={newReminder !== ''}
+                  onChange={e => setNewReminder(e.target.checked ? (timeSuggestion || '08:00') : '')}
+                  style={{ accentColor: 'var(--color-accent)' }}
+                />
+                {lang === 'zh' ? '提醒' : 'Remind'}
+              </label>
+              {newReminder !== '' && (
+                <input
+                  type="time"
+                  value={newReminder}
+                  onChange={e => setNewReminder(e.target.value)}
+                  style={{
+                    fontSize: '11px', background: 'var(--color-bg-secondary)',
+                    border: '0.5px solid var(--color-border)', borderRadius: '4px',
+                    padding: '2px 6px', color: 'var(--color-text-primary)', colorScheme: 'dark',
+                  }}
+                />
+              )}
+            </div>
+
+            {/* 确认/取消 */}
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowAdd(false)}
+                style={{ fontSize: '11px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-tertiary)', padding: '4px 10px' }}
+              >
+                {lang === 'zh' ? '取消' : 'Cancel'}
+              </button>
+              <button
+                onClick={handleAdd}
+                disabled={!newName.trim()}
+                style={{
+                  fontSize: '11px', padding: '4px 14px', borderRadius: '6px', border: 'none',
+                  cursor: newName.trim() ? 'pointer' : 'not-allowed',
+                  background: newName.trim() ? 'var(--color-fill)' : 'var(--color-border)',
+                  color: newName.trim() ? 'var(--color-fill-text)' : 'var(--color-text-tertiary)',
+                }}
+              >
+                {t('habits.confirm')}
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 底部新增按钮 */}
+      {!showAdd && (
+        <button
+          onClick={() => setShowAdd(true)}
+          className="flex items-center gap-1.5 transition-colors cursor-pointer"
+          style={{
+            alignSelf: 'flex-start', fontSize: '11px', background: 'none', border: 'none', padding: '4px 0',
+            color: 'var(--color-text-tertiary)',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-text-primary)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-text-tertiary)')}
+        >
+          <Plus size={13} />
+          {t('habits.add')}
+        </button>
+      )}
+    </div>
+  );
+}

@@ -7,6 +7,7 @@ import {
 } from '../lib/tauri';
 import { useCompletionStore } from './completionStore';
 import { useSubtaskStore } from './subtaskStore';
+import { useRecurrenceStore, getNextDeadline } from './recurrenceStore';
 
 export type TodoType = 'quick' | 'longterm';
 
@@ -60,6 +61,7 @@ export const useTodoStore = create<TodoStore>()((set, get) => ({
     await deleteTodoInDB(id);
     useCompletionStore.getState().removeCompletionTime(id);
     useSubtaskStore.getState().deleteAllForTodo(id);
+    useRecurrenceStore.getState().removeRule(id);
     set((state) => ({
       todos: state.todos.filter((todo) => todo.id !== id),
     }));
@@ -73,6 +75,21 @@ export const useTodoStore = create<TodoStore>()((set, get) => ({
     // 完成时记录时间戳，取消完成时清除
     if (newCompleted) {
       useCompletionStore.getState().setCompletionTime(id, new Date().toISOString());
+      // 「完成即重生」：若有重复规则，自动创建下一条（Things 3 / Todoist 模式）
+      const rule = useRecurrenceStore.getState().getRule(id);
+      if (rule) {
+        const nextDeadline = getNextDeadline(rule.type, todo.deadline);
+        const created = await createTodoInDB(todo.title, todo.todoType, nextDeadline);
+        if (created) {
+          useRecurrenceStore.getState().setRule(created.id, rule);
+          set((state) => ({
+            todos: [...state.todos.map((t) =>
+              t.id === id ? { ...t, completed: newCompleted } : t
+            ), created],
+          }));
+          return;
+        }
+      }
     } else {
       useCompletionStore.getState().removeCompletionTime(id);
     }
@@ -90,4 +107,10 @@ export const useTodoStore = create<TodoStore>()((set, get) => ({
   clearReminderFlags: async () => {
     await clearReminders();
     set((state) => ({
-      todos: st
+      todos: state.todos.map((todo) => ({
+        ...todo,
+        reminderSent: false,
+      })),
+    }));
+  },
+}));

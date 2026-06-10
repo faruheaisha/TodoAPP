@@ -1,23 +1,39 @@
 import { useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTodoStore } from '../store/todoStore';
-import { Plus, Calendar } from 'lucide-react';
+import { useRecurrenceStore, RECURRENCE_OPTIONS, type RecurrenceType } from '../store/recurrenceStore';
+import { Plus, Calendar, Repeat } from 'lucide-react';
 
 export default function AddTodoBar() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language.startsWith('zh') ? 'zh' : 'en';
   const { addTodo } = useTodoStore();
+  const { setRule } = useRecurrenceStore();
   const [title, setTitle] = useState('');
   const [todoType, setTodoType] = useState<'quick' | 'longterm'>('quick');
   const [deadline, setDeadline] = useState('');
+  const [recurrence, setRecurrence] = useState<RecurrenceType | ''>('');
+  const [showRecurrencePicker, setShowRecurrencePicker] = useState(false);
   const deadlineInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     if (!title.trim()) return;
-    addTodo(title.trim(), todoType, todoType === 'longterm' && deadline ? deadline : null)
-      .catch(console.error);
+    const effectiveDeadline = todoType === 'longterm' && deadline ? deadline : null;
+    await addTodo(title.trim(), todoType, effectiveDeadline).catch(console.error);
+    // 新建后找到最后一条（就是刚加入的），绑定重复规则
+    if (recurrence) {
+      const { useTodoStore: store } = await import('../store/todoStore');
+      const todos = store.getState().todos;
+      const latest = [...todos].sort((a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )[0];
+      if (latest) setRule(latest.id, { type: recurrence });
+    }
     setTitle('');
     setDeadline('');
-  }, [title, todoType, deadline, addTodo]);
+    setRecurrence('');
+    setShowRecurrencePicker(false);
+  }, [title, todoType, deadline, recurrence, addTodo, setRule]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') handleSubmit();
@@ -102,10 +118,9 @@ export default function AddTodoBar() {
         </button>
       </div>
 
-      {/* Deadline picker — 整个容器可点击，调用 .showPicker() 唤起系统日历 */}
+      {/* Deadline picker */}
       {todoType === 'longterm' && (
         <div className="mt-1.5" style={{ position: 'relative' }}>
-          {/* 可见的点击区域 */}
           <div
             onClick={() => deadlineInputRef.current?.showPicker?.()}
             className="flex items-center cursor-pointer transition-colors"
@@ -149,7 +164,6 @@ export default function AddTodoBar() {
               </button>
             )}
           </div>
-          {/* 隐藏的原生 input，仅用于调起系统日历弹窗 */}
           <input
             ref={deadlineInputRef}
             type="datetime-local"
@@ -164,6 +178,62 @@ export default function AddTodoBar() {
           />
         </div>
       )}
+
+      {/* 重复规则选择器 */}
+      <div className="mt-1.5 flex items-center" style={{ gap: '6px', position: 'relative' }}>
+        <button
+          onClick={() => setShowRecurrencePicker((v) => !v)}
+          className="flex items-center transition-colors cursor-pointer"
+          style={{
+            height: '24px', padding: '0 9px', gap: '5px',
+            borderRadius: '5px', border: '0.5px solid',
+            borderColor: recurrence ? 'var(--clay)' : 'var(--color-border)',
+            backgroundColor: recurrence ? 'var(--clay-light)' : 'transparent',
+            fontSize: '10px', color: recurrence ? 'var(--clay)' : 'var(--color-text-tertiary)',
+          }}
+        >
+          <Repeat size={10} />
+          {recurrence
+            ? (RECURRENCE_OPTIONS.find(o => o.type === recurrence)?.[lang === 'zh' ? 'labelZh' : 'labelEn'] ?? recurrence)
+            : (lang === 'zh' ? '不重复' : 'No repeat')}
+        </button>
+
+        {showRecurrencePicker && (
+          <div
+            className="absolute flex flex-col overflow-hidden"
+            style={{
+              top: '26px', left: 0, zIndex: 100,
+              borderRadius: '7px', border: '0.5px solid var(--color-border)',
+              backgroundColor: 'var(--color-bg-primary)',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.14)',
+              minWidth: '120px',
+            }}
+          >
+            <button
+              onClick={() => { setRecurrence(''); setShowRecurrencePicker(false); }}
+              className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer transition-colors"
+              style={{ color: !recurrence ? 'var(--clay)' : 'var(--color-text-secondary)', backgroundColor: 'transparent', border: 'none', textAlign: 'left' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-bg-tertiary)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
+            >
+              {lang === 'zh' ? '不重复' : 'No repeat'}
+            </button>
+            {RECURRENCE_OPTIONS.map(opt => (
+              <button
+                key={opt.type}
+                onClick={() => { setRecurrence(opt.type); setShowRecurrencePicker(false); }}
+                className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer transition-colors"
+                style={{ color: recurrence === opt.type ? 'var(--clay)' : 'var(--color-text-secondary)', backgroundColor: 'transparent', border: 'none', textAlign: 'left' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-bg-tertiary)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
+              >
+                <span>{opt.icon}</span>
+                {lang === 'zh' ? opt.labelZh : opt.labelEn}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

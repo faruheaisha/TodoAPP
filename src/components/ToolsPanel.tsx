@@ -133,4 +133,6 @@ export default function ToolsPanel() {
           </div>
         </>
       )}
-    </Ani
+    </AnimatePresence>
+  );
+}
