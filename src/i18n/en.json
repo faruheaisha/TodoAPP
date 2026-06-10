@@ -149,7 +149,8 @@
     "focusLock": "Focus Lock",
     "focusLockTitle": "Open fullscreen focus lock screen",
     "clockScreen": "Clock Screen",
-    "clockScreenTitle": "Open fullscreen clock screensaver"
+    "clockScreenTitle": "Open fullscreen clock screensaver",
+    "focusLockDisabled": "Start the timer first to enter focus lock"
   },
   "insights": {
     "focusTitle": "Focus Time (Last 7 Days)",

@@ -301,21 +301,25 @@ export function PomodoroTool() {
 
       {/* 专注锁屏 / 时间屏保 快捷入口 */}
       <div className="flex items-center" style={{ gap: '8px' }}>
+        {/* 专注锁屏：仅番茄钟运行中才可用 */}
         <button
-          onClick={openFocusLock}
-          className="flex items-center flex-1 transition-all cursor-pointer"
+          onClick={isRunning ? openFocusLock : undefined}
+          disabled={!isRunning}
+          className="flex items-center flex-1 transition-all"
           style={{
             gap: '6px',
             padding: '8px 12px',
             borderRadius: '8px',
             border: '1px solid var(--color-border)',
             backgroundColor: 'transparent',
-            color: 'var(--color-text-secondary)',
+            color: isRunning ? 'var(--color-text-secondary)' : 'var(--color-text-tertiary)',
             fontSize: '11px',
             fontWeight: 500,
             justifyContent: 'center',
+            cursor: isRunning ? 'pointer' : 'not-allowed',
+            opacity: isRunning ? 1 : 0.45,
           }}
-          title={t('pomodoro.focusLockTitle')}
+          title={isRunning ? t('pomodoro.focusLockTitle') : t('pomodoro.focusLockDisabled')}
         >
           <Lock size={12} />
           {t('pomodoro.focusLock')}

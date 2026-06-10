@@ -149,7 +149,8 @@
     "focusLock": "专注锁屏",
     "focusLockTitle": "开启全屏专注锁屏，屏蔽干扰",
     "clockScreen": "时间流动",
-    "clockScreenTitle": "打开全屏时钟屏保，用于学习"
+    "clockScreenTitle": "打开全屏时钟屏保，用于学习",
+    "focusLockDisabled": "请先启动番茄钟再进入专注锁屏"
   },
   "insights": {
     "focusTitle": "专注时长（近7天）",
