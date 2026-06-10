@@ -33,7 +33,7 @@ function formatTime(totalSeconds: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-const RING_RADIUS = 72;
+const RING_RADIUS = 86;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
 export function PomodoroTool() {
@@ -128,12 +128,12 @@ export function PomodoroTool() {
 
       {/* 计时圆环 */}
       <div className="flex flex-col items-center" style={{ gap: '14px' }}>
-        <div className="relative" style={{ width: 180, height: 180 }}>
-          <svg width={180} height={180} viewBox="0 0 180 180">
-            {/* 运行时呼吸光晕（Keyframes opacity 循环，参考 Forest app 的 pulse 效果）*/}
+        <div className="relative" style={{ width: 212, height: 212 }}>
+          <svg width={212} height={212} viewBox="0 0 212 212">
+            {/* 运行时呼吸光晕 */}
             {isRunning && (
               <motion.circle
-                cx={90} cy={90} r={RING_RADIUS + 8}
+                cx={106} cy={106} r={RING_RADIUS + 10}
                 fill="none"
                 stroke={meta.ring}
                 strokeWidth={4}
@@ -143,33 +143,33 @@ export function PomodoroTool() {
               />
             )}
             <circle
-              cx={90}
-              cy={90}
+              cx={106}
+              cy={106}
               r={RING_RADIUS}
               fill="none"
               stroke="var(--color-bg-tertiary)"
-              strokeWidth={10}
+              strokeWidth={11}
             />
             <motion.circle
-              cx={90}
-              cy={90}
+              cx={106}
+              cy={106}
               r={RING_RADIUS}
               fill="none"
               stroke={meta.ring}
-              strokeWidth={10}
+              strokeWidth={11}
               strokeLinecap="round"
               strokeDasharray={RING_CIRCUMFERENCE}
               animate={{ strokeDashoffset: dashOffset }}
               transition={{ duration: 0.4, ease: 'linear' }}
-              transform="rotate(-90 90 90)"
+              transform="rotate(-90 106 106)"
             />
           </svg>
           {/* 环中心内容 */}
           <div className="absolute inset-0 flex flex-col items-center justify-center select-none" style={{ gap: '2px' }}>
-            <ModeIcon size={16} style={{ color: meta.ring }} />
+            <ModeIcon size={15} style={{ color: meta.ring }} />
             <span
-              className="text-[32px] font-semibold tabular-nums"
-              style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-mono)', letterSpacing: '0.01em', lineHeight: 1 }}
+              className="tabular-nums"
+              style={{ fontSize: 42, fontWeight: 300, color: 'var(--color-text-primary)', fontFamily: 'var(--font-mono)', letterSpacing: '-0.01em', lineHeight: 1 }}
             >
               {formatTime(remainingSeconds)}
             </span>

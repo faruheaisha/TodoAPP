@@ -39,13 +39,15 @@ async function setWindowFullscreen(full: boolean) {
   } catch { /* dev */ }
 }
 
-// 多层文字阴影 — 营造立体纵深感
+// 多层文字阴影 — 黑底白字专用：顶部亮边 + 多层下投影，营造强立体感
+// 关键：0 -2px 高亮让字顶部有"受光感"，下方多层暗影加深纵深
 const SHADOW = [
-  '0 1px 0 rgba(255,255,255,0.04)',
-  '0 2px 3px rgba(0,0,0,0.75)',
-  '0 6px 16px rgba(0,0,0,0.65)',
-  '0 14px 40px rgba(0,0,0,0.45)',
-  '0 0 80px rgba(217,119,87,0.06)',
+  '0 -2px 0 rgba(255,255,255,0.22)',   // top highlight — 受光边
+  '0  1px 0 rgba(255,255,255,0.06)',   // bottom micro edge
+  '0  3px 6px rgba(0,0,0,0.90)',       // close drop shadow
+  '0  8px 20px rgba(0,0,0,0.75)',      // mid shadow
+  '0 20px 52px rgba(0,0,0,0.55)',      // far ambient shadow
+  '0  0  90px rgba(217,119,87,0.10)',  // warm coral ambient glow
 ].join(', ');
 
 const SZ = 200; // font-size px
@@ -73,7 +75,7 @@ function Digit({ val }: { val: string }) {
             fontFamily: "'Inter Variable', Inter, monospace",
             fontSize: SZ,
             fontWeight: 300,
-            color: '#F7F3EE',
+            color: '#EDE8DC',
             letterSpacing: '-0.04em',
             lineHeight: 1,
             textShadow: SHADOW,
@@ -92,11 +94,11 @@ function Colon() {
       fontFamily: "'Inter Variable', Inter, monospace",
       fontSize: SZ * 0.65,
       fontWeight: 100,
-      color: 'rgba(255,255,255,0.14)',
+      color: 'rgba(255,255,255,0.50)',
       lineHeight: 1,
       margin: `0 ${SZ * 0.02}px`,
       userSelect: 'none',
-      textShadow: '0 4px 12px rgba(0,0,0,0.8)',
+      textShadow: '0 -1px 0 rgba(255,255,255,0.18), 0 4px 12px rgba(0,0,0,0.85)',
       alignSelf: 'center',
       paddingBottom: SZ * 0.04,
     }}>:</span>
@@ -177,11 +179,11 @@ export default function ClockScreen() {
           position: 'absolute', top: 32, right: 40,
           fontFamily: "'Inter Variable', Inter, sans-serif",
           fontSize: 12, letterSpacing: '0.14em',
-          color: badgeHover ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.18)',
+          color: badgeHover ? 'rgba(255,255,255,0.80)' : 'rgba(255,255,255,0.38)',
           cursor: 'pointer',
           padding: '5px 10px',
           borderRadius: 6,
-          border: `1px solid ${badgeHover ? 'rgba(255,255,255,0.15)' : 'transparent'}`,
+          border: `1px solid ${badgeHover ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.08)'}`,
           transition: 'color 0.2s, border-color 0.2s',
           userSelect: 'none',
         }}
@@ -194,7 +196,7 @@ export default function ClockScreen() {
         <div style={{
           position: 'absolute', top: 38, right: 116,
           fontFamily: "'Inter Variable', Inter, sans-serif",
-          fontSize: 10, color: 'rgba(255,255,255,0.3)',
+          fontSize: 10, color: 'rgba(255,255,255,0.55)',
           letterSpacing: '0.08em', whiteSpace: 'nowrap',
         }}>
           滚轮 / 点击切换
@@ -220,12 +222,12 @@ export default function ClockScreen() {
             style={{
               fontFamily: "'Inter Variable', Inter, sans-serif",
               fontSize: 26, fontWeight: 300,
-              color: 'rgba(255,255,255,0.28)',
+              color: 'rgba(255,255,255,0.62)',
               marginLeft: 24,
               alignSelf: 'flex-end',
               paddingBottom: SZ * 0.13,
               letterSpacing: '0.08em',
-              textShadow: '0 2px 10px rgba(0,0,0,0.9)',
+              textShadow: '0 -1px 0 rgba(255,255,255,0.20), 0 2px 10px rgba(0,0,0,0.9)',
             }}
           >
             {parts.ampm}
@@ -238,8 +240,9 @@ export default function ClockScreen() {
         marginTop: 20,
         fontFamily: "'Inter Variable', Inter, sans-serif",
         fontSize: 16, fontWeight: 300,
-        color: 'rgba(255,255,255,0.14)',
+        color: 'rgba(255,255,255,0.55)',
         letterSpacing: '0.26em',
+        textShadow: '0 1px 4px rgba(0,0,0,0.8)',
       }}>
         {dateStr}
       </div>
@@ -256,7 +259,7 @@ export default function ClockScreen() {
               position: 'absolute', bottom: 32,
               left: '50%', transform: 'translateX(-50%)',
               fontFamily: "'Inter Variable', Inter, sans-serif",
-              fontSize: 11, color: 'rgba(255,255,255,0.15)',
+              fontSize: 11, color: 'rgba(255,255,255,0.45)',
               letterSpacing: '0.1em', whiteSpace: 'nowrap',
             }}
           >
