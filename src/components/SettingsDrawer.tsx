@@ -168,6 +168,8 @@ export default function SettingsDrawer() {
     downloadPath, setDownloadPath,
     isOpen, setIsOpen,
     achievementTime, setAchievementTime,
+    weeklyReportEnabled, weeklyReportDay, weeklyReportTime,
+    setWeeklyReportEnabled, setWeeklyReportDay, setWeeklyReportTime,
   } = useSettingsStore();
   const { todos, setTodos } = useTodoStore();
   const { show } = useToast();
@@ -448,6 +450,47 @@ export default function SettingsDrawer() {
                             {t('settings.achievementOff')}
                           </button>
                         )}
+                      </div>
+                    </SettingRow>
+                    <SettingRow label={lang === 'zh' ? '每周报告' : 'Weekly Report'}>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          onClick={() => setWeeklyReportEnabled(!weeklyReportEnabled)}
+                          className="transition-colors cursor-pointer"
+                          style={{
+                            fontSize: '10px', padding: '2px 8px', borderRadius: '10px',
+                            border: '0.5px solid', fontWeight: 500,
+                            borderColor: weeklyReportEnabled ? 'var(--clay)' : 'var(--color-border)',
+                            backgroundColor: weeklyReportEnabled ? 'var(--clay-light)' : 'transparent',
+                            color: weeklyReportEnabled ? 'var(--clay)' : 'var(--color-text-tertiary)',
+                          }}
+                        >{weeklyReportEnabled ? (lang === 'zh' ? '已开启' : 'On') : (lang === 'zh' ? '已关闭' : 'Off')}</button>
+                        {weeklyReportEnabled && (<>
+                          <select
+                            value={weeklyReportDay}
+                            onChange={(e) => setWeeklyReportDay(Number(e.target.value))}
+                            className="text-xs rounded border outline-none cursor-pointer"
+                            style={{ padding: '3px 6px', backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)', borderColor: 'var(--color-border)', accentColor: 'var(--clay)' }}
+                            onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--clay)'; }}
+                            onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}
+                          >
+                            {(lang === 'zh'
+                              ? ['周日','周一','周二','周三','周四','周五','周六']
+                              : ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+                            ).map((d, i) => (
+                              <option key={i} value={i}>{d}</option>
+                            ))}
+                          </select>
+                          <input
+                            type="time"
+                            value={weeklyReportTime}
+                            onChange={(e) => setWeeklyReportTime(e.target.value)}
+                            className="text-xs rounded border outline-none transition-colors"
+                            style={{ padding: '3px 6px', fontFamily: 'var(--font-mono)', backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)', borderColor: 'var(--color-border)', accentColor: 'var(--clay)' }}
+                            onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--clay)'; }}
+                            onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}
+                          />
+                        </>)}
                       </div>
                     </SettingRow>
                   </div>

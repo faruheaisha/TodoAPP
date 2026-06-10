@@ -3,6 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from './store/settingsStore';
 import { useTodoStore } from './store/todoStore';
 import { useTagStore } from './store/tagStore';
+import { useCompletionStore } from './store/completionStore';
+import { useHabitStore } from './store/habitStore';
+import { calcWeeklyStats, buildReportText, msUntilNext } from './lib/weeklyReport';
 import { TagChip } from './components/TagChip';
 import { initDB, loadTodos } from './lib/tauri';
 
@@ -24,9 +27,12 @@ function App() {
     theme, language, accentColor,
     startupDelay, reminderIgnored, lastPromptDate, setLastPromptDate,
     achievementTime, achievementLastDate, setAchievementLastDate,
+    weeklyReportEnabled, weeklyReportDay, weeklyReportTime, weeklyReportLastDate, setWeeklyReportLastDate,
   } = useSettingsStore();
   const { todos, isLoading, setTodos } = useTodoStore();
   const { tags } = useTagStore();
+  const completionTimes = useCompletionStore((s) => s.completionTimes);
+  const habits = useHabitStore((s) => s.habits);
   const [filter, setFilter] = useState<FilterType>('all');
   const [activeTag, setActiveTag] = useState<string | null>(null);
 
@@ -101,6 +107,49 @@ function App() {
     const timer = setTimeout(dispatch, diffMs);
     return () => clearTimeout(timer);
   }, [achievementTime, achievementLastDate, setAchievementLastDate]);
+
+
+  // 每周成就报告通知
+  useEffect(() => {
+    if (!weeklyReportEnabled) return;
+
+    // 计算本周报告周期键（当周的 ISO 周，格式 YYYY-WNN）
+    const getWeekKey = () => {
+      const now = new Date();
+      const jan1 = new Date(now.getFullYear(), 0, 1);
+      const week = Math.ceil(((now.getTime() - jan1.getTime()) / 86400000 + jan1.getDay() + 1) / 7);
+      return `${now.getFullYear()}-W${String(week).padStart(2, '0')}`;
+    };
+
+    const weekKey = getWeekKey();
+    // 本周已发过则跳过
+    if (weeklyReportLastDate === weekKey) return;
+
+    const delayMs = msUntilNext(weeklyReportDay, weeklyReportTime);
+    const timer = setTimeout(async () => {
+      try {
+        const { isPermissionGranted, requestPermission, sendNotification } = await import('@tauri-apps/plugin-notification');
+        let granted = await isPermissionGranted();
+        if (!granted) {
+          const perm = await requestPermission();
+          granted = perm === 'granted';
+        }
+        if (granted) {
+          const lang = i18n.language.startsWith('zh') ? 'zh' : 'en';
+          const stats = calcWeeklyStats(completionTimes, habits);
+          const { title, body } = buildReportText(stats, lang);
+          sendNotification({ title, body });
+        }
+      } catch (e) {
+        console.warn('Weekly report notification skipped:', e);
+      } finally {
+        setWeeklyReportLastDate(getWeekKey());
+      }
+    }, delayMs);
+
+    return () => clearTimeout(timer);
+  }, [weeklyReportEnabled, weeklyReportDay, weeklyReportTime, weeklyReportLastDate,
+      completionTimes, habits, i18n.language, setWeeklyReportLastDate]);
 
   // Load todos on mount
   useEffect(() => {

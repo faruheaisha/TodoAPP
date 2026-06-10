@@ -19,6 +19,10 @@ interface SettingsState {
   achievementTime: string;
   /** 今天已展示成就弹窗的日期，避免重复弹出 */
   achievementLastDate: string;
+  weeklyReportEnabled: boolean;
+  weeklyReportDay: number;   // 0=Sun…6=Sat, default 1=Mon
+  weeklyReportTime: string;  // 'HH:MM'
+  weeklyReportLastDate: string;
 
   setTheme: (theme: Theme) => void;
   setLanguage: (language: Language) => void;
@@ -32,6 +36,10 @@ interface SettingsState {
   setIsOpen: (open: boolean) => void;
   setAchievementTime: (time: string) => void;
   setAchievementLastDate: (date: string) => void;
+  setWeeklyReportEnabled: (v: boolean) => void;
+  setWeeklyReportDay: (day: number) => void;
+  setWeeklyReportTime: (time: string) => void;
+  setWeeklyReportLastDate: (date: string) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -48,6 +56,10 @@ export const useSettingsStore = create<SettingsState>()(
       isOpen: false,
       achievementTime: '21:00',
       achievementLastDate: '',
+      weeklyReportEnabled: true,
+      weeklyReportDay: 1,
+      weeklyReportTime: '09:00',
+      weeklyReportLastDate: '',
 
       setTheme: (theme) => set({ theme }),
       setLanguage: (language) => set({ language }),
@@ -61,6 +73,10 @@ export const useSettingsStore = create<SettingsState>()(
       setIsOpen: (isOpen) => set({ isOpen }),
       setAchievementTime: (achievementTime) => set({ achievementTime }),
       setAchievementLastDate: (achievementLastDate) => set({ achievementLastDate }),
+      setWeeklyReportEnabled: (weeklyReportEnabled) => set({ weeklyReportEnabled }),
+      setWeeklyReportDay: (weeklyReportDay) => set({ weeklyReportDay }),
+      setWeeklyReportTime: (weeklyReportTime) => set({ weeklyReportTime }),
+      setWeeklyReportLastDate: (weeklyReportLastDate) => set({ weeklyReportLastDate }),
     }),
     {
       name: 'todoapp-settings',
