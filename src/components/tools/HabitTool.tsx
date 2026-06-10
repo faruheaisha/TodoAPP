@@ -18,7 +18,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, X, Flame, Bell, BellOff, CheckCircle2, Trophy, ChevronDown, ChevronUp } from 'lucide-react';
 import {
   useHabitStore, HABIT_COLORS, toDateKey, calcStreak, calcCompletionRate,
-  getCurrentMilestone, getNewMilestone, suggestReminderTime, MILESTONES,
+  calcWeeklyProgress, getCurrentMilestone, getNewMilestone, suggestReminderTime, MILESTONES,
   type HabitColor, type Habit,
 } from '../../store/habitStore';
 
@@ -78,6 +78,50 @@ function CompletionBar({ rate, color }: { rate: number; color: string }) {
   );
 }
 
+// ─── 弹性模式：本周进度药丸 ────────────────────────────────────────────────────
+/**
+ * 参考 Loop Habit Tracker Frequency 模式的视觉反馈：
+ *  - 绿色（完成）：done >= target
+ *  - 琥珀色（进行中）：0 < done < target
+ *  - 默认灰色（未开始）：done === 0
+ */
+function WeeklyPill({ done, target, color, lang }: { done: number; target: number; color: string; lang: string }) {
+  const isDone  = done >= target;
+  const isPartial = done > 0 && !isDone;
+  const pillColor = isDone ? color : isPartial ? '#f59e0b' : 'var(--color-text-tertiary)';
+  const bgAlpha  = isDone ? '22' : isPartial ? '18' : '0d';
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', minWidth: '48px' }}>
+      <div
+        title={lang === 'zh' ? `本周已完成 ${done}/${target} 次` : `This week: ${done}/${target}`}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: '3px',
+          padding: '2px 7px', borderRadius: '20px', fontSize: '10px', fontWeight: 600,
+          color: pillColor,
+          backgroundColor: pillColor + bgAlpha,
+          border: `0.5px solid ${pillColor}44`,
+          whiteSpace: 'nowrap',
+          fontVariantNumeric: 'tabular-nums',
+          transition: 'all 0.2s',
+        }}
+      >
+        {isDone && <span style={{ fontSize: '9px' }}>✓</span>}
+        {done}/{target}
+        <span style={{ fontWeight: 400, opacity: 0.8 }}>{lang === 'zh' ? '周' : 'wk'}</span>
+      </div>
+      {/* 进度条 */}
+      <div style={{ width: '100%', height: '2px', borderRadius: '1px', background: 'var(--color-border)', overflow: 'hidden' }}>
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: `${Math.min(100, (done / target) * 100)}%` }}
+          transition={{ duration: 0.5, ease: 'easeOut' }}
+          style={{ height: '100%', borderRadius: '1px', background: pillColor }}
+        />
+      </div>
+    </div>
+  );
+}
+
 // ─── 主组件 ───────────────────────────────────────────────────────────────────
 export function HabitTool() {
   const { t, i18n } = useTranslation();
@@ -94,6 +138,8 @@ export function HabitTool() {
   const [newReminder, setNewReminder] = useState('');
   const [newNote, setNewNote] = useState('');
   const [timeSuggestion, setTimeSuggestion] = useState<string | null>(null);
+  const [newFrequency, setNewFrequency] = useState<'daily' | 'flexible'>('daily');
+  const [newWeeklyTarget, setNewWeeklyTarget] = useState(3);
 
   // 编辑状态
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -167,9 +213,11 @@ export function HabitTool() {
   // ── 新增确认 ─────────────────────────────────────────────────────────────────
   const handleAdd = () => {
     if (!newName.trim()) return;
-    addHabit(newName.trim(), newColor, newReminder, newNote);
+    addHabit(newName.trim(), newColor, newReminder, newNote, newFrequency, newWeeklyTarget);
     setNewName(''); setNewColor('clay'); setNewReminder('');
-    setNewNote(''); setTimeSuggestion(null); setShowAdd(false);
+    setNewNote(''); setTimeSuggestion(null);
+    setNewFrequency('daily'); setNewWeeklyTarget(3);
+    setShowAdd(false);
   };
 
   // ── 编辑保存 ─────────────────────────────────────────────────────────────────
@@ -218,6 +266,9 @@ export function HabitTool() {
           const ms     = getCurrentMilestone(streak);
           const color  = HABIT_COLORS[habit.color];
           const isExpanded = expandedId === habit.id;
+
+          const isFlexible = habit.frequency === 'flexible';
+          const weeklyDone = isFlexible ? calcWeeklyProgress(habit.checkIns) : 0;
 
           return (
             <motion.div
@@ -309,14 +360,18 @@ export function HabitTool() {
                 {/* 完成率 */}
                 <CompletionBar rate={rate} color={color} />
 
-                {/* 连续 + 勋章 */}
-                <div style={{ width: '56px', display: 'flex', alignItems: 'center', gap: '3px', justifyContent: 'flex-end' }}>
-                  {streak > 0 && <Flame size={11} style={{ color: '#f59e0b', flexShrink: 0 }} />}
-                  <span style={{ fontSize: '11px', color: streak > 0 ? '#f59e0b' : 'var(--color-text-tertiary)', fontVariantNumeric: 'tabular-nums' }}>
-                    {streak > 0 ? `${streak}${lang === 'zh' ? '天' : 'd'}` : '—'}
-                  </span>
-                  {ms && <span title={lang === 'zh' ? ms.label : ms.labelEn} style={{ fontSize: '13px', cursor: 'default' }}>{ms.icon}</span>}
-                </div>
+                {/* 每日：连续+勋章 | 弹性：本周进度药丸 */}
+                {isFlexible ? (
+                  <WeeklyPill done={weeklyDone} target={habit.weeklyTarget} color={color} lang={lang} />
+                ) : (
+                  <div style={{ width: '56px', display: 'flex', alignItems: 'center', gap: '3px', justifyContent: 'flex-end' }}>
+                    {streak > 0 && <Flame size={11} style={{ color: '#f59e0b', flexShrink: 0 }} />}
+                    <span style={{ fontSize: '11px', color: streak > 0 ? '#f59e0b' : 'var(--color-text-tertiary)', fontVariantNumeric: 'tabular-nums' }}>
+                      {streak > 0 ? `${streak}${lang === 'zh' ? '天' : 'd'}` : '—'}
+                    </span>
+                    {ms && <span title={lang === 'zh' ? ms.label : ms.labelEn} style={{ fontSize: '13px', cursor: 'default' }}>{ms.icon}</span>}
+                  </div>
+                )}
 
                 {/* 展开/删除 */}
                 <div style={{ display: 'flex', gap: '2px', opacity: hoveredId === habit.id ? 1 : 0, transition: 'opacity 0.15s' }}>
@@ -350,6 +405,46 @@ export function HabitTool() {
                       background: 'var(--color-bg-tertiary)', border: '0.5px solid var(--color-border)',
                       display: 'flex', flexDirection: 'column', gap: '8px',
                     }}>
+                      {/* 频率设置 */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', flexShrink: 0 }}>
+                          {lang === 'zh' ? '模式' : 'Mode'}
+                        </span>
+                        <div className="flex overflow-hidden rounded border flex-shrink-0" style={{ borderColor: 'var(--color-border)' }}>
+                          {(['daily', 'flexible'] as const).map(f => (
+                            <button
+                              key={f}
+                              onClick={() => updateHabit(habit.id, { frequency: f })}
+                              style={{
+                                padding: '2px 10px', fontSize: '10px', border: 'none', cursor: 'pointer',
+                                fontWeight: habit.frequency === f ? 500 : 400,
+                                background: habit.frequency === f ? color : 'transparent',
+                                color: habit.frequency === f ? '#fff' : 'var(--color-text-tertiary)',
+                                transition: 'all 0.15s',
+                              }}
+                            >
+                              {f === 'daily' ? (lang === 'zh' ? '每日' : 'Daily') : (lang === 'zh' ? '弹性' : 'Flexible')}
+                            </button>
+                          ))}
+                        </div>
+                        {habit.frequency === 'flexible' && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--color-text-secondary)' }}>
+                            {lang === 'zh' ? '每周' : 'Per week'}
+                            <input
+                              type="number" min={1} max={6}
+                              value={habit.weeklyTarget}
+                              onChange={e => updateHabit(habit.id, { weeklyTarget: Math.max(1, Math.min(6, Number(e.target.value))) })}
+                              style={{
+                                width: '36px', fontSize: '11px', textAlign: 'center',
+                                background: 'var(--color-bg-secondary)', border: '0.5px solid var(--color-border)',
+                                borderRadius: '4px', padding: '2px 4px', color: 'var(--color-text-primary)', outline: 'none',
+                              }}
+                            />
+                            {lang === 'zh' ? '次' : 'times'}
+                          </div>
+                        )}
+                      </div>
+
                       {/* 提醒设置 */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <label style={{ fontSize: '11px', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
@@ -417,122 +512,4 @@ export function HabitTool() {
       <AnimatePresence>
         {showAdd && (
           <motion.div
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.15 }}
-            style={{
-              padding: '12px', borderRadius: '10px', border: '0.5px solid var(--color-border)',
-              background: 'var(--color-bg-tertiary)', display: 'flex', flexDirection: 'column', gap: '10px',
-            }}
-          >
-            {/* 习惯名称 */}
-            <input
-              autoFocus
-              value={newName}
-              onChange={e => handleNameChange(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setShowAdd(false); }}
-              placeholder={t('habits.namePlaceholder')}
-              style={{
-                fontSize: '12px', background: 'var(--color-bg-secondary)',
-                border: '0.5px solid var(--color-border)', borderRadius: '6px',
-                padding: '6px 10px', color: 'var(--color-text-primary)', outline: 'none', width: '100%',
-              }}
-            />
-
-            {/* 智能时间建议 */}
-            {timeSuggestion && newReminder === timeSuggestion && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', color: 'var(--color-text-tertiary)' }}>
-                <Bell size={10} style={{ color: 'var(--color-accent)' }} />
-                <span style={{ color: 'var(--color-accent)' }}>
-                  {lang === 'zh' ? `智能建议：${timeSuggestion}` : `Suggested: ${timeSuggestion}`}
-                </span>
-              </div>
-            )}
-
-            {/* 颜色 + 提醒 */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-              {/* 颜色选择 */}
-              <div style={{ display: 'flex', gap: '6px' }}>
-                {(Object.keys(HABIT_COLORS) as HabitColor[]).map(c => (
-                  <button
-                    key={c}
-                    onClick={() => setNewColor(c)}
-                    style={{
-                      width: '18px', height: '18px', borderRadius: '50%', border: 'none', cursor: 'pointer',
-                      background: HABIT_COLORS[c],
-                      outline: newColor === c ? `2px solid ${HABIT_COLORS[c]}` : 'none',
-                      outlineOffset: '2px',
-                    }}
-                  />
-                ))}
-              </div>
-
-              {/* 提醒开关 + 时间 */}
-              <label style={{ fontSize: '11px', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={newReminder !== ''}
-                  onChange={e => setNewReminder(e.target.checked ? (timeSuggestion || '08:00') : '')}
-                  style={{ accentColor: 'var(--color-accent)' }}
-                />
-                {lang === 'zh' ? '提醒' : 'Remind'}
-              </label>
-              {newReminder !== '' && (
-                <input
-                  type="time"
-                  value={newReminder}
-                  onChange={e => setNewReminder(e.target.value)}
-                  style={{
-                    fontSize: '11px', background: 'var(--color-bg-secondary)',
-                    border: '0.5px solid var(--color-border)', borderRadius: '4px',
-                    padding: '2px 6px', color: 'var(--color-text-primary)', colorScheme: 'dark',
-                  }}
-                />
-              )}
-            </div>
-
-            {/* 确认/取消 */}
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => setShowAdd(false)}
-                style={{ fontSize: '11px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-tertiary)', padding: '4px 10px' }}
-              >
-                {lang === 'zh' ? '取消' : 'Cancel'}
-              </button>
-              <button
-                onClick={handleAdd}
-                disabled={!newName.trim()}
-                style={{
-                  fontSize: '11px', padding: '4px 14px', borderRadius: '6px', border: 'none',
-                  cursor: newName.trim() ? 'pointer' : 'not-allowed',
-                  background: newName.trim() ? 'var(--color-fill)' : 'var(--color-border)',
-                  color: newName.trim() ? 'var(--color-fill-text)' : 'var(--color-text-tertiary)',
-                }}
-              >
-                {t('habits.confirm')}
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* 底部新增按钮 */}
-      {!showAdd && (
-        <button
-          onClick={() => setShowAdd(true)}
-          className="flex items-center gap-1.5 transition-colors cursor-pointer"
-          style={{
-            alignSelf: 'flex-start', fontSize: '11px', background: 'none', border: 'none', padding: '4px 0',
-            color: 'var(--color-text-tertiary)',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-text-primary)')}
-          onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-text-tertiary)')}
-        >
-          <Plus size={13} />
-          {t('habits.add')}
-        </button>
-      )}
-    </div>
-  );
-}
+            initia

@@ -29,6 +29,10 @@ export interface Habit {
   reminderTime: string;        // 'HH:MM'，空字符串表示未设置
   note: string;                // 习惯备注/动机文字
   milestonesShown: number[];   // 已展示庆祝的里程碑天数（避免重复弹出）
+  /** 打卡模式：每日 or 弹性（每周 N 次） — 参考 Loop Habit Tracker Frequency */
+  frequency: 'daily' | 'flexible';
+  /** 弹性模式下每周目标次数（1-6），frequency==='daily' 时忽略 */
+  weeklyTarget: number;
 }
 
 // ─── 里程碑配置（Loop / Habitica 参考）────────────────────────────────────────
@@ -60,6 +64,23 @@ export function calcStreak(checkIns: Set<string>): number {
     else break;
   }
   return streak;
+}
+
+/**
+ * 计算本自然周（周一起）的打卡次数
+ * 参考 Loop Habit Tracker Frequency 计算逻辑
+ */
+export function calcWeeklyProgress(checkIns: string[]): number {
+  const today = new Date();
+  const dow = today.getDay(); // 0=Sun
+  const mondayOffset = dow === 0 ? 6 : dow - 1;
+  let done = 0;
+  for (let i = 0; i <= 6; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - mondayOffset + i);
+    if (checkIns.includes(toDateKey(d))) done++;
+  }
+  return done;
 }
 
 /** 30天完成率（Loop 参考：habit score） */
@@ -108,9 +129,9 @@ export function suggestReminderTime(name: string): string | null {
 // ─── Store ────────────────────────────────────────────────────────────────────
 interface HabitState {
   habits: Habit[];
-  addHabit: (name: string, color: HabitColor, reminderTime?: string, note?: string) => void;
+  addHabit: (name: string, color: HabitColor, reminderTime?: string, note?: string, frequency?: 'daily' | 'flexible', weeklyTarget?: number) => void;
   removeHabit: (id: string) => void;
-  updateHabit: (id: string, updates: Partial<Pick<Habit, 'name' | 'color' | 'reminderEnabled' | 'reminderTime' | 'note'>>) => void;
+  updateHabit: (id: string, updates: Partial<Pick<Habit, 'name' | 'color' | 'reminderEnabled' | 'reminderTime' | 'note' | 'frequency' | 'weeklyTarget'>>) => void;
   toggleCheckIn: (id: string, date: string) => void;
   markMilestoneShown: (id: string, days: number) => void;
 }
@@ -120,7 +141,7 @@ export const useHabitStore = create<HabitState>()(
     (set) => ({
       habits: [],
 
-      addHabit: (name, color, reminderTime = '', note = '') =>
+      addHabit: (name, color, reminderTime = '', note = '', frequency = 'daily', weeklyTarget = 3) =>
         set((s) => ({
           habits: [
             ...s.habits,
@@ -134,40 +155,6 @@ export const useHabitStore = create<HabitState>()(
               reminderTime,
               note,
               milestonesShown: [],
-            },
-          ],
-        })),
-
-      removeHabit: (id) =>
-        set((s) => ({ habits: s.habits.filter((h) => h.id !== id) })),
-
-      updateHabit: (id, updates) =>
-        set((s) => ({
-          habits: s.habits.map((h) => h.id !== id ? h : { ...h, ...updates }),
-        })),
-
-      toggleCheckIn: (id, date) =>
-        set((s) => ({
-          habits: s.habits.map((h) =>
-            h.id !== id ? h : {
-              ...h,
-              checkIns: h.checkIns.includes(date)
-                ? h.checkIns.filter((d) => d !== date)
-                : [...h.checkIns, date],
-            }
-          ),
-        })),
-
-      markMilestoneShown: (id, days) =>
-        set((s) => ({
-          habits: s.habits.map((h) =>
-            h.id !== id ? h : {
-              ...h,
-              milestonesShown: [...h.milestonesShown, days],
-            }
-          ),
-        })),
-    }),
-    { name: 'habit-store' }
-  )
-);
+              frequency,
+              weeklyTarget,
+      
