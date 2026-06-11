@@ -223,9 +223,6 @@ function HabitHeatmap({ lang }: { lang: string }) {
           {lang === 'zh' ? '少' : 'Less'}
         </span>
         {[0, 0.25, 0.5, 0.75, 1].map((o, i) => (
-          <rect key={i} />
-        ))}
-        {[0, 0.25, 0.5, 0.75, 1].map((o, i) => (
           <svg key={i} width={CELL} height={CELL} style={{ display: 'inline-block' }}>
             <rect x={0} y={0} width={CELL} height={CELL} rx={2}
               fill={o === 0 ? 'var(--color-bg-tertiary)' : 'var(--color-accent)'}
