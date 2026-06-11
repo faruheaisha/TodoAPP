@@ -6,39 +6,90 @@ import { useOverlayStore } from '../store/overlayStore';
 import '@fontsource/dm-mono/300.css';
 import '@fontsource/dm-mono/400.css';
 
-/**
- * FocusLockScreen — 专注锁屏 overlay
- *
- * 设计对标 Costudy "Locked-In Mode"：
- *  - 深色渐变背景（非纯黑，有层次感）
- *  - 大号计时圆环 + 多层光晕
- *  - 中心大字倒计时（90px）
- *  - 任务名沉浸显示
- *  - 开启时 setFullscreen(true) + setAlwaysOnTop(true) 覆盖系统任务栏
- *  - 双击 / ESC 退出
- */
-
-const RING_R = 172;
+const RING_R    = 344;
 const RING_CIRC = 2 * Math.PI * RING_R;
-const ACCENT = '#D97757';
+const ACCENT    = '#D97757';
+const SVG_SIZE  = 820;
+const CX        = SVG_SIZE / 2;
 
-function fmt(s: number) {
-  const m = Math.floor(s / 60);
-  const sec = s % 60;
-  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+const DIGIT_SZ = 204;
+
+const DIGIT_SHADOW = [
+  '0 -2px 0 rgba(255,255,255,0.22)',
+  '0  1px 0 rgba(255,255,255,0.06)',
+  '0  3px 6px rgba(0,0,0,0.90)',
+  '0  8px 20px rgba(0,0,0,0.75)',
+  '0 20px 52px rgba(0,0,0,0.55)',
+  '0  0  90px rgba(217,119,87,0.10)',
+].join(', ');
+
+function Digit({ val }: { val: string }) {
+  return (
+    <div style={{
+      position: 'relative',
+      width: DIGIT_SZ * 0.58,
+      height: DIGIT_SZ * 1.08,
+      overflow: 'hidden',
+      willChange: 'transform',
+      backfaceVisibility: 'hidden',
+      transform: 'translateZ(0)',
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}>
+      <AnimatePresence mode="popLayout">
+        <motion.span
+          key={val}
+          initial={{ y: '-65%', opacity: 0, filter: 'blur(6px)' }}
+          animate={{ y: '0%',  opacity: 1, filter: 'blur(0px)' }}
+          exit={{   y:  '65%', opacity: 0, filter: 'blur(6px)' }}
+          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+          style={{
+            position: 'absolute',
+            fontFamily: "'DM Mono', 'Cascadia Code', monospace",
+            fontSize: DIGIT_SZ,
+            fontWeight: 300,
+            color: '#EDE8DC',
+            letterSpacing: '-0.04em',
+            lineHeight: 1,
+            textShadow: DIGIT_SHADOW,
+          }}
+        >
+          {val}
+        </motion.span>
+      </AnimatePresence>
+    </div>
+  );
 }
+
+function Colon() {
+  return (
+    <span style={{
+      fontFamily: "'DM Mono', 'Cascadia Code', monospace",
+      fontSize: DIGIT_SZ * 0.65,
+      fontWeight: 100,
+      color: 'rgba(255,255,255,0.50)',
+      lineHeight: 1,
+      margin: `0 ${DIGIT_SZ * 0.02}px`,
+      userSelect: 'none',
+      textShadow: '0 -1px 0 rgba(255,255,255,0.18), 0 4px 12px rgba(0,0,0,0.85)',
+      alignSelf: 'center',
+      paddingBottom: DIGIT_SZ * 0.04,
+    }}>:</span>
+  );
+}
+
 function nowTime() {
   return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-// Trigger Tauri window fullscreen
 async function setWindowFullscreen(full: boolean) {
   try {
     const { getCurrentWindow } = await import('@tauri-apps/api/window');
     const win = getCurrentWindow();
     await win.setFullscreen(full);
     await win.setAlwaysOnTop(full);
-  } catch { /* dev / non-Tauri */ }
+  } catch { /* dev */ }
 }
 
 export default function FocusLockScreen() {
@@ -49,13 +100,11 @@ export default function FocusLockScreen() {
   const [clockStr, setClockStr] = useState(nowTime);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Fullscreen on mount, restore on unmount
   useEffect(() => {
     setWindowFullscreen(true);
     return () => { setWindowFullscreen(false); };
   }, []);
 
-  // Keep ticking while locked
   useEffect(() => {
     if (isRunning) {
       intervalRef.current = setInterval(() => useFocusStore.getState().tick(Date.now()), 250);
@@ -63,126 +112,96 @@ export default function FocusLockScreen() {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [isRunning]);
 
-  // Corner clock
   useEffect(() => {
     const id = setInterval(() => setClockStr(nowTime()), 1000);
     return () => clearInterval(id);
   }, []);
 
-  // ESC / double-click to close
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeFocusLock(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [closeFocusLock]);
 
-  const total = focusDurationFor(mode, settings);
-  const progress = total > 0 ? (total - remainingSeconds) / total : 0;
+  const total        = focusDurationFor(mode, settings);
+  const progress     = total > 0 ? (total - remainingSeconds) / total : 0;
   const strokeOffset = RING_CIRC * progress;
-  const modeLabel = mode === 'work' ? '专注中' : mode === 'shortBreak' ? '短休息' : '长休息';
+  const modeLabel    = mode === 'work' ? '专注中' : mode === 'shortBreak' ? '短休息' : '长休息';
+  const progressPct  = Math.round(progress * 100);
 
-  // Progress: 0→1 as time drains
-  const progressPct = Math.round(progress * 100);
+  const mm = String(Math.floor(remainingSeconds / 60)).padStart(2, '0');
+  const ss = String(remainingSeconds % 60).padStart(2, '0');
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.5 }}
+      transition={{ duration: 0.6 }}
       onDoubleClick={closeFocusLock}
       style={{
         position: 'fixed', inset: 0, zIndex: 9999,
-        // Costudy-style: deep gradient, not flat black
-        background: 'radial-gradient(ellipse at 50% 40%, #1a1520 0%, #0d0b0e 55%, #000 100%)',
+        background: '#000',
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        userSelect: 'none', cursor: 'default',
+        userSelect: 'none', cursor: 'none',
         overflow: 'hidden',
       }}
     >
-      {/* Ambient background glow — coral tint behind ring */}
-      <div style={{
-        position: 'absolute',
-        width: 600, height: 600,
-        borderRadius: '50%',
-        background: `radial-gradient(circle, rgba(217,119,87,0.06) 0%, transparent 70%)`,
-        pointerEvents: 'none',
-      }} />
-
-      {/* Corner clock */}
       <div style={{
         position: 'absolute', top: 32, right: 40,
         fontFamily: "'DM Mono', 'Cascadia Code', monospace",
-        fontSize: 13, color: 'rgba(255,255,255,0.22)', letterSpacing: '0.1em',
+        fontSize: 13, color: 'rgba(255,255,255,0.38)', letterSpacing: '0.1em',
       }}>
         {clockStr}
       </div>
 
-      {/* Progress % top-left */}
       <div style={{
         position: 'absolute', top: 32, left: 40,
         fontFamily: "'DM Mono', 'Cascadia Code', monospace",
-        fontSize: 11, color: 'rgba(255,255,255,0.15)', letterSpacing: '0.12em',
+        fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.12em',
       }}>
         {progressPct}%
       </div>
 
-      {/* Hint bottom */}
       <div style={{
         position: 'absolute', bottom: 32, left: '50%', transform: 'translateX(-50%)',
-        fontFamily: "'Inter Variable', Inter, sans-serif",
-        fontSize: 11, color: 'rgba(255,255,255,0.12)',
+        fontFamily: "'DM Mono', 'Cascadia Code', monospace",
+        fontSize: 11, color: 'rgba(255,255,255,0.30)',
         letterSpacing: '0.1em', whiteSpace: 'nowrap',
       }}>
         双击任意位置 · ESC 退出专注锁屏
       </div>
 
-      {/* Main ring */}
-      <div style={{ position: 'relative', width: 424, height: 424 }}>
-        <svg width={424} height={424} viewBox="0 0 424 424">
-          {/* Outer ambient glow ring — pulses when running */}
+      <div style={{ position: 'relative', width: SVG_SIZE, height: SVG_SIZE }}>
+        <svg width={SVG_SIZE} height={SVG_SIZE} viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`}>
           {isRunning && (
             <>
-              <motion.circle cx={212} cy={212} r={RING_R + 36}
-                fill="none" stroke={ACCENT} strokeWidth={1}
-                opacity={0}
-                animate={{ opacity: [0, 0.10, 0] }}
+              <motion.circle cx={CX} cy={CX} r={RING_R + 48}
+                fill="none" stroke={ACCENT} strokeWidth={1} opacity={0}
+                animate={{ opacity: [0, 0.08, 0] }}
                 transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
               />
-              <motion.circle cx={212} cy={212} r={RING_R + 20}
-                fill="none" stroke={ACCENT} strokeWidth={2}
-                opacity={0}
-                animate={{ opacity: [0, 0.18, 0] }}
+              <motion.circle cx={CX} cy={CX} r={RING_R + 26}
+                fill="none" stroke={ACCENT} strokeWidth={2} opacity={0}
+                animate={{ opacity: [0, 0.16, 0] }}
                 transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut', delay: 0.4 }}
               />
             </>
           )}
-          {/* Track */}
-          <circle cx={212} cy={212} r={RING_R}
-            fill="none"
-            stroke="rgba(255,255,255,0.05)"
-            strokeWidth={18}
-          />
-          {/* Subtle second track shadow */}
-          <circle cx={212} cy={212} r={RING_R}
-            fill="none"
-            stroke="rgba(217,119,87,0.08)"
-            strokeWidth={18}
-          />
-          {/* Progress arc */}
+          <circle cx={CX} cy={CX} r={RING_R}
+            fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={36} />
+          <circle cx={CX} cy={CX} r={RING_R}
+            fill="none" stroke="rgba(217,119,87,0.07)" strokeWidth={36} />
           <motion.circle
-            cx={212} cy={212} r={RING_R}
-            fill="none"
-            stroke="url(#ringGrad)"
-            strokeWidth={18}
-            strokeLinecap="round"
+            cx={CX} cy={CX} r={RING_R}
+            fill="none" stroke="url(#ringGrad)"
+            strokeWidth={36} strokeLinecap="round"
             strokeDasharray={RING_CIRC}
             animate={{ strokeDashoffset: strokeOffset }}
             transition={{ duration: 0.3, ease: 'linear' }}
-            transform="rotate(-90 212 212)"
+            transform={`rotate(-90 ${CX} ${CX})`}
           />
-          {/* Gradient def */}
           <defs>
             <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stopColor="#E8956A" />
@@ -191,38 +210,23 @@ export default function FocusLockScreen() {
           </defs>
         </svg>
 
-        {/* Center countdown */}
         <div style={{
           position: 'absolute', inset: 0,
           display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center', gap: 6,
+          alignItems: 'center', justifyContent: 'center', gap: 12,
         }}>
-          <motion.span
-            key={Math.floor(remainingSeconds)}
-            initial={{ opacity: 0.5, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.15 }}
-            style={{
-              fontFamily: "'DM Mono', 'Cascadia Code', monospace",
-              fontSize: 102,
-              fontWeight: 300,
-              color: '#FDFAF7',
-              letterSpacing: '-0.03em',
-              lineHeight: 1,
-              textShadow: [
-                '0 2px 4px rgba(0,0,0,0.6)',
-                '0 4px 16px rgba(0,0,0,0.4)',
-                `0 0 40px rgba(217,119,87,0.15)`,
-              ].join(', '),
-            }}
-          >
-            {fmt(remainingSeconds)}
-          </motion.span>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <Digit val={mm[0]} />
+            <Digit val={mm[1]} />
+            <Colon />
+            <Digit val={ss[0]} />
+            <Digit val={ss[1]} />
+          </div>
           <span style={{
-            fontFamily: "'Inter Variable', Inter, sans-serif",
-            fontSize: 11, fontWeight: 400,
-            color: 'rgba(255,255,255,0.3)',
-            letterSpacing: '0.2em',
+            fontFamily: "'DM Mono', 'Cascadia Code', monospace",
+            fontSize: 13, fontWeight: 400,
+            color: 'rgba(255,255,255,0.40)',
+            letterSpacing: '0.22em',
             textTransform: 'uppercase',
           }}>
             {modeLabel}
@@ -230,7 +234,6 @@ export default function FocusLockScreen() {
         </div>
       </div>
 
-      {/* Task name */}
       <AnimatePresence>
         {linkedTodo && mode === 'work' && (
           <motion.div
@@ -239,19 +242,18 @@ export default function FocusLockScreen() {
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.4, delay: 0.15 }}
             style={{
-              marginTop: 36,
+              marginTop: 40,
               display: 'flex', alignItems: 'center', gap: 10,
-              maxWidth: 340,
+              maxWidth: 400,
             }}
           >
-            {/* Accent dot */}
             <div style={{
               width: 6, height: 6, borderRadius: '50%',
               backgroundColor: ACCENT, flexShrink: 0,
               boxShadow: `0 0 8px ${ACCENT}`,
             }} />
             <span style={{
-              fontFamily: "'Inter Variable', Inter, sans-serif",
+              fontFamily: "'DM Mono', 'Cascadia Code', monospace",
               fontSize: 15, fontWeight: 300,
               color: 'rgba(255,255,255,0.45)',
               letterSpacing: '0.02em',
