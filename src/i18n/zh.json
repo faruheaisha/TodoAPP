@@ -171,6 +171,7 @@
     "unlink": "取消关联"
   },
   "insights": {
+    "trendTitle": "完成趋势（近14天）",
     "focusTitle": "专注时长（近7天）",
     "habitTitle": "习惯热力图（近5周）",
     "statsTitle": "数据速览"

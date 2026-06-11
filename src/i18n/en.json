@@ -171,6 +171,7 @@
     "unlink": "Unlink"
   },
   "insights": {
+    "trendTitle": "Completion Trend (Last 14 Days)",
     "focusTitle": "Focus Time (Last 7 Days)",
     "habitTitle": "Habit Heatmap (Last 5 Weeks)",
     "statsTitle": "Quick Stats"
