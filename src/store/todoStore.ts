@@ -64,6 +64,8 @@ export const useTodoStore = create<TodoStore>()((set, get) => ({
     useSubtaskStore.getState().deleteAllForTodo(id);
     useRecurrenceStore.getState().removeRule(id);
     useTagStore.getState().removeAllForTodo(id);
+    const { useNotesStore } = await import('./notesStore');
+    useNotesStore.getState().removeTodoNote(id);
     set((state) => ({
       todos: state.todos.filter((todo) => todo.id !== id),
     }));

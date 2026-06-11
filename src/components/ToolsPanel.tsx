@@ -1,11 +1,13 @@
 import type { ComponentType } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Timer, CheckSquare, BarChart2, CalendarDays } from 'lucide-react';
+import { X, Timer, CheckSquare, BarChart2, CalendarDays, Hourglass, StickyNote } from 'lucide-react';
 import { useToolsPanelStore, type ToolId } from '../store/toolsStore';
 import { useSheet } from '../lib/responsive';
 import { PomodoroTool } from './tools/PomodoroTool';
+import { TimerTool } from './tools/TimerTool';
 import { CalendarTool } from './tools/CalendarTool';
+import { NotesTool } from './tools/NotesTool';
 import { HabitTool } from './tools/HabitTool';
 import { InsightsTool } from './tools/InsightsTool';
 
@@ -29,7 +31,9 @@ interface ToolDef {
 
 const TOOLS: ToolDef[] = [
   { id: 'pomodoro', icon: Timer,        labelKey: 'tools.pomodoro', Component: PomodoroTool },
+  { id: 'timer',    icon: Hourglass,    labelKey: 'tools.timer',    Component: TimerTool },
   { id: 'calendar', icon: CalendarDays, labelKey: 'tools.calendar', Component: CalendarTool },
+  { id: 'notes',    icon: StickyNote,   labelKey: 'tools.notes',    Component: NotesTool },
   { id: 'habits',   icon: CheckSquare,  labelKey: 'tools.habits',   Component: HabitTool },
   { id: 'insights', icon: BarChart2,    labelKey: 'tools.insights', Component: InsightsTool },
 ];

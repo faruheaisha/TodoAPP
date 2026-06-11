@@ -130,7 +130,9 @@
     "calendar": "Calendar",
     "habits": "Habits",
     "moreSoon": "More tools coming soon",
-    "insights": "Insights"
+    "insights": "Insights",
+    "timer": "Timers",
+    "notes": "Notes"
   },
   "habits": {
     "subtitle": "Last 7 Days",
@@ -185,5 +187,26 @@
   "calendar": {
     "today": "Today",
     "noTasks": "Nothing scheduled this day"
+  },
+  "timer": {
+    "newCountdown": "New countdown",
+    "min": "min",
+    "custom": "Custom",
+    "stopwatch": "Stopwatch",
+    "countdown": "Countdown",
+    "empty": "No timers yet — add one above",
+    "reset": "Reset",
+    "remove": "Remove",
+    "doneToast": "Time's up: {{label}}"
+  },
+  "notes": {
+    "scratchpad": "Scratchpad",
+    "scratchpadPlaceholder": "Jot down anything — saves automatically…",
+    "todoNote": "Todo notes",
+    "selectTodo": "Pick a todo to annotate…",
+    "noTodos": "No active todos",
+    "todoNotePlaceholder": "Notes for \"{{title}}\"…",
+    "selectHint": "Select a todo above first",
+    "saved": "Saved"
   }
 }

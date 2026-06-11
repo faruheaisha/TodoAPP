@@ -9,7 +9,7 @@ import { create } from 'zustand';
  */
 
 // 新增工具时在此追加 ID（同时在 ToolsPanel 的注册表 TOOLS 数组中登记）
-export type ToolId = 'pomodoro' | 'calendar' | 'habits' | 'insights';
+export type ToolId = 'pomodoro' | 'timer' | 'calendar' | 'notes' | 'habits' | 'insights';
 
 interface ToolsPanelState {
   isOpen: boolean;
