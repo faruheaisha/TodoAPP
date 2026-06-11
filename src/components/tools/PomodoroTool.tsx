@@ -35,7 +35,7 @@ function formatTime(totalSeconds: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-const RING_RADIUS = 104;
+const RING_RADIUS = 118;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
 export function PomodoroTool() {
@@ -130,12 +130,12 @@ export function PomodoroTool() {
 
       {/* 计时圆环 */}
       <div className="flex flex-col items-center" style={{ gap: '14px' }}>
-        <div className="relative" style={{ width: 248, height: 248 }}>
-          <svg width={248} height={248} viewBox="0 0 248 248">
+        <div className="relative" style={{ width: 276, height: 276 }}>
+          <svg width={276} height={276} viewBox="0 0 276 276">
             {/* 运行时呼吸光晕 */}
             {isRunning && (
               <motion.circle
-                cx={124} cy={124} r={RING_RADIUS + 10}
+                cx={138} cy={138} r={RING_RADIUS + 10}
                 fill="none"
                 stroke={meta.ring}
                 strokeWidth={4}
@@ -145,16 +145,16 @@ export function PomodoroTool() {
               />
             )}
             <circle
-              cx={124}
-              cy={124}
+              cx={138}
+              cy={138}
               r={RING_RADIUS}
               fill="none"
               stroke="var(--color-bg-tertiary)"
               strokeWidth={12}
             />
             <motion.circle
-              cx={124}
-              cy={124}
+              cx={138}
+              cy={138}
               r={RING_RADIUS}
               fill="none"
               stroke={meta.ring}
@@ -163,7 +163,7 @@ export function PomodoroTool() {
               strokeDasharray={RING_CIRCUMFERENCE}
               animate={{ strokeDashoffset: dashOffset }}
               transition={{ duration: 0.4, ease: 'linear' }}
-              transform="rotate(-90 124 124)"
+              transform="rotate(-90 138 138)"
             />
           </svg>
           {/* 环中心内容 */}
@@ -171,7 +171,20 @@ export function PomodoroTool() {
             <ModeIcon size={15} style={{ color: meta.ring }} />
             <span
               className="tabular-nums"
-              style={{ fontSize: 54, fontWeight: 300, color: 'var(--color-text-primary)', fontFamily: "'DM Mono', 'Cascadia Code', monospace", letterSpacing: '-0.02em', lineHeight: 1 }}
+              style={{
+                fontSize: 54, fontWeight: 300,
+                fontFamily: "'DM Mono', 'Cascadia Code', monospace",
+                letterSpacing: '-0.04em', lineHeight: 1,
+                color: '#EDE8DC',
+                textShadow: [
+                  '0 -2px 0 rgba(255,255,255,0.22)',
+                  '0  1px 0 rgba(255,255,255,0.06)',
+                  '0  3px 6px rgba(0,0,0,0.90)',
+                  '0  8px 20px rgba(0,0,0,0.75)',
+                  '0 20px 52px rgba(0,0,0,0.55)',
+                  '0  0  90px rgba(217,119,87,0.10)',
+                ].join(', '),
+              }}
             >
               {formatTime(remainingSeconds)}
             </span>
@@ -465,6 +478,6 @@ async function notifySessionDone(body: string) {
       sendNotification({ title: 'TodoApp', body });
     }
   } catch (e) {
-     console.warn('Pomodoro notification skipped:', e);
+    console.warn('Pomodoro notification skipped:', e);
   }
 }

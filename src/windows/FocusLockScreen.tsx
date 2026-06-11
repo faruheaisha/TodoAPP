@@ -18,7 +18,7 @@ import '@fontsource/dm-mono/400.css';
  *  - 双击 / ESC 退出
  */
 
-const RING_R = 148;
+const RING_R = 172;
 const RING_CIRC = 2 * Math.PI * RING_R;
 const ACCENT = '#D97757';
 
@@ -139,18 +139,18 @@ export default function FocusLockScreen() {
       </div>
 
       {/* Main ring */}
-      <div style={{ position: 'relative', width: 376, height: 376 }}>
-        <svg width={376} height={376} viewBox="0 0 376 376">
+      <div style={{ position: 'relative', width: 424, height: 424 }}>
+        <svg width={424} height={424} viewBox="0 0 424 424">
           {/* Outer ambient glow ring — pulses when running */}
           {isRunning && (
             <>
-              <motion.circle cx={188} cy={188} r={RING_R + 36}
+              <motion.circle cx={212} cy={212} r={RING_R + 36}
                 fill="none" stroke={ACCENT} strokeWidth={1}
                 opacity={0}
                 animate={{ opacity: [0, 0.10, 0] }}
                 transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
               />
-              <motion.circle cx={188} cy={188} r={RING_R + 20}
+              <motion.circle cx={212} cy={212} r={RING_R + 20}
                 fill="none" stroke={ACCENT} strokeWidth={2}
                 opacity={0}
                 animate={{ opacity: [0, 0.18, 0] }}
@@ -159,20 +159,20 @@ export default function FocusLockScreen() {
             </>
           )}
           {/* Track */}
-          <circle cx={188} cy={188} r={RING_R}
+          <circle cx={212} cy={212} r={RING_R}
             fill="none"
             stroke="rgba(255,255,255,0.05)"
             strokeWidth={18}
           />
           {/* Subtle second track shadow */}
-          <circle cx={188} cy={188} r={RING_R}
+          <circle cx={212} cy={212} r={RING_R}
             fill="none"
             stroke="rgba(217,119,87,0.08)"
             strokeWidth={18}
           />
           {/* Progress arc */}
           <motion.circle
-            cx={188} cy={188} r={RING_R}
+            cx={212} cy={212} r={RING_R}
             fill="none"
             stroke="url(#ringGrad)"
             strokeWidth={18}
@@ -180,7 +180,7 @@ export default function FocusLockScreen() {
             strokeDasharray={RING_CIRC}
             animate={{ strokeDashoffset: strokeOffset }}
             transition={{ duration: 0.3, ease: 'linear' }}
-            transform="rotate(-90 188 188)"
+            transform="rotate(-90 212 212)"
           />
           {/* Gradient def */}
           <defs>
