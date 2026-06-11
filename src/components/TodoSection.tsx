@@ -1,12 +1,12 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTodoStore, type Todo } from '../store/todoStore';
 import { useCompletionStore } from '../store/completionStore';
 import { useTagStore } from '../store/tagStore';
-import { sortTodos } from '../lib/utils';
+import { sortTodos, isOverdue, isDueToday } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TodoCard } from './TodoCard';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, AlertCircle, CalendarCheck } from 'lucide-react';
 
 /**
  * 已完成任务折叠方案：
@@ -19,7 +19,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 const MAX_VISIBLE_PER_GROUP = 10;
 
 interface TodoSectionProps {
-  filter?: 'all' | 'active' | 'completed';
+  filter?: 'today' | 'all' | 'active' | 'completed';
   tagFilter?: string | null;
 }
 
@@ -34,6 +34,34 @@ export default function TodoSection({ filter = 'all', tagFilter = null }: TodoSe
     if (!tagFilter) return list;
     return list.filter(td => (todoTags[td.id] ?? []).includes(tagFilter));
   };
+
+  // 今日视图：跨临时/长时的智能列表 —— 逾期 + 今日到期
+  if (filter === 'today') {
+    const pool = filterByTag(todos.filter((td) => !td.completed));
+    const overdue = sortTodos(pool.filter(isOverdue));
+    const dueToday = sortTodos(pool.filter((td) => isDueToday(td) && !isOverdue(td)));
+
+    if (overdue.length === 0 && dueToday.length === 0) {
+      return <EmptyText text={t('app.todayEmpty')} />;
+    }
+
+    return (
+      <div>
+        {overdue.length > 0 && (
+          <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+            <SectionHeader color="#e5484d" label={t('app.todayOverdue')} count={overdue.length} suffix={t('app.items')} icon={<AlertCircle size={11} style={{ color: '#e5484d' }} />} />
+            {overdue.map((todo) => <TodoCard key={todo.id} todo={todo} />)}
+          </motion.section>
+        )}
+        {dueToday.length > 0 && (
+          <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} style={{ marginTop: overdue.length > 0 ? '6px' : 0 }}>
+            <SectionHeader color="var(--color-accent)" label={t('app.todayDue')} count={dueToday.length} suffix={t('app.items')} icon={<CalendarCheck size={11} style={{ color: 'var(--color-accent)' }} />} />
+            {dueToday.map((todo) => <TodoCard key={todo.id} todo={todo} />)}
+          </motion.section>
+        )}
+      </div>
+    );
+  }
 
   const activeTodos = filterByTag(todos.filter((td) => !td.completed));
   const completedTodos = filterByTag(todos.filter((td) => td.completed));
@@ -221,13 +249,13 @@ function DayGroup({ group }: { group: DayGroupData }) {
 
 // ── 通用子组件 ────────────────────────────────────────────────────────
 
-function SectionHeader({ color, label, count, suffix }: { color: string; label: string; count: number; suffix: string }) {
+function SectionHeader({ color, label, count, suffix, icon }: { color: string; label: string; count: number; suffix: string; icon?: ReactNode }) {
   return (
     <div
       className="flex items-center flex-shrink-0"
       style={{ height: 'var(--section-header-h)', padding: '5px var(--pad-x) 3px', gap: '5px', backgroundColor: 'var(--color-section-bg)' }}
     >
-      <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: color, flexShrink: 0 }} />
+      {icon ?? <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: color, flexShrink: 0 }} />}
       <h2 className="text-[10px] font-medium uppercase tracking-wider select-none" style={{ color: 'var(--color-text-secondary)', letterSpacing: '.03em' }}>
         {label}
       </h2>

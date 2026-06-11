@@ -10,9 +10,10 @@ import { useRecurrenceStore, RECURRENCE_OPTIONS } from '../store/recurrenceStore
 import { useTagStore, TAG_PALETTE, type Tag } from '../store/tagStore';
 import { TagChip } from './TagChip';
 import { formatDeadline, isUrgent, isOverdue } from '../lib/utils';
+import { PRIORITY_META, priorityColor } from '../lib/priority';
 import { useIsTouch } from '../lib/responsive';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronDown, ChevronRight, Plus, Repeat } from 'lucide-react';
+import { X, ChevronDown, ChevronRight, Plus, Repeat, Flag } from 'lucide-react';
 
 interface TodoCardProps {
   todo: Todo;
@@ -21,7 +22,7 @@ interface TodoCardProps {
 export function TodoCard({ todo }: TodoCardProps) {
   const { t, i18n } = useTranslation();
   const lang = i18n.language.startsWith('zh') ? 'zh' : 'en';
-  const { toggleComplete, deleteTodo } = useTodoStore();
+  const { toggleComplete, deleteTodo, setPriority } = useTodoStore();
   const { addSubtask, toggleSubtask, deleteSubtask, getSubtasks } = useSubtaskStore();
   const recurrenceRule = useRecurrenceStore((s) => s.rules[todo.id] ?? null);
   const { tags, todoTags, addTag, addTagToTodo, removeTagFromTodo, getTodoTags } = useTagStore();
@@ -36,6 +37,7 @@ export function TodoCard({ todo }: TodoCardProps) {
   const [addingSubtask, setAddingSubtask] = useState(false);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [showTagPicker, setShowTagPicker] = useState(false);
+  const [showPriorityPicker, setShowPriorityPicker] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const subtaskInputRef = useRef<HTMLInputElement>(null);
 
@@ -79,7 +81,7 @@ export function TodoCard({ todo }: TodoCardProps) {
         exit={{ opacity: 0, x: 12 }}
         transition={{ duration: 0.55, ease: 'easeOut' }}
         onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => { setIsHovered(false); setShowTagPicker(false); }}
+        onMouseLeave={() => { setIsHovered(false); setShowTagPicker(false); setShowPriorityPicker(false); }}
         className={`todo-row flex items-center ${flash ? 'todo-flash' : ''}`}
         style={{
           minHeight: 'var(--todo-row-h)',
@@ -128,6 +130,15 @@ export function TodoCard({ todo }: TodoCardProps) {
           >
             {subtasksOpen ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
           </button>
+        )}
+
+        {/* 优先级旗标 — 仅 priority>0 且未完成时常驻显示 */}
+        {todo.priority > 0 && !todo.completed && (
+          <Flag
+            size={11}
+            strokeWidth={2}
+            style={{ flexShrink: 0, color: priorityColor(todo.priority), fill: priorityColor(todo.priority) }}
+          />
         )}
 
         {/* Title */}
@@ -217,9 +228,24 @@ export function TodoCard({ todo }: TodoCardProps) {
               className="flex items-center flex-shrink-0"
               style={{ gap: '2px' }}
             >
+              {/* 优先级 */}
+              <button
+                onClick={() => { setShowPriorityPicker(v => !v); setShowTagPicker(false); }}
+                className="flex items-center justify-center transition-colors cursor-pointer"
+                style={{
+                  width: isTouch ? '34px' : '18px', height: isTouch ? '34px' : '18px', borderRadius: '6px',
+                  color: todo.priority > 0 ? priorityColor(todo.priority) : (showPriorityPicker ? 'var(--clay)' : 'var(--color-text-tertiary)'),
+                  border: 'none', backgroundColor: 'transparent',
+                }}
+                title={lang === 'zh' ? '设置优先级' : 'Set priority'}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--clay)'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = todo.priority > 0 ? priorityColor(todo.priority) : (showPriorityPicker ? 'var(--clay)' : 'var(--color-text-tertiary)'); }}
+              >
+                <Flag size={11} strokeWidth={2} style={todo.priority > 0 ? { fill: 'currentColor' } : undefined} />
+              </button>
               {/* 标签 */}
               <button
-                onClick={() => setShowTagPicker(v => !v)}
+                onClick={() => { setShowTagPicker(v => !v); setShowPriorityPicker(false); }}
                 className="flex items-center justify-center transition-colors cursor-pointer"
                 style={{
                   width: isTouch ? '34px' : '18px', height: isTouch ? '34px' : '18px', borderRadius: '6px',
@@ -272,6 +298,43 @@ export function TodoCard({ todo }: TodoCardProps) {
           )}
         </AnimatePresence>
       </motion.div>
+
+      {/* 优先级选择弹出层 */}
+      {showPriorityPicker && (
+        <div
+          style={{
+            position: 'absolute', top: '100%', right: 'var(--pad-x)', zIndex: 200,
+            borderRadius: '8px', border: '0.5px solid var(--color-border)',
+            backgroundColor: 'var(--color-bg-primary)',
+            boxShadow: 'var(--shadow-md)',
+            minWidth: '130px', padding: '4px',
+            display: 'flex', flexDirection: 'column', gap: '1px',
+          }}
+          onClick={e => e.stopPropagation()}
+          onMouseEnter={() => setIsHovered(true)}
+        >
+          {PRIORITY_META.map(meta => {
+            const active = todo.priority === meta.value;
+            return (
+              <button
+                key={meta.value}
+                onClick={() => { setPriority(todo.id, meta.value); setShowPriorityPicker(false); }}
+                className="w-full flex items-center cursor-pointer transition-colors"
+                style={{
+                  gap: '8px', padding: '5px 8px', borderRadius: '5px', border: 'none',
+                  backgroundColor: active ? 'var(--color-bg-tertiary)' : 'transparent',
+                  color: 'var(--color-text-secondary)', fontSize: '11px',
+                }}
+                onMouseEnter={(e) => { if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-bg-tertiary)'; }}
+                onMouseLeave={(e) => { if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
+              >
+                <Flag size={11} strokeWidth={2} style={{ color: meta.color, fill: meta.value > 0 ? meta.color : 'none', flexShrink: 0 }} />
+                <span className="flex-1 text-left">{lang === 'zh' ? meta.labelZh : meta.labelEn}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* 标签选择器弹出层（在主行外，避免影响布局）*/}
       {showTagPicker && (

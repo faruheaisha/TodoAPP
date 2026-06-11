@@ -5,10 +5,11 @@ export function sortTodos(todos: Todo[]): Todo[] {
   const quick = todos.filter((t) => t.todoType === 'quick');
   const longterm = todos.filter((t) => t.todoType === 'longterm');
 
-  // Sort longterm: overdue first, then by deadline ascending
+  // Sort longterm: priority desc → overdue first → deadline ascending
   const now = new Date();
   longterm.sort((a, b) => {
     if (a.completed !== b.completed) return a.completed ? 1 : -1;
+    if (a.priority !== b.priority) return b.priority - a.priority;
     if (a.deadline && b.deadline) {
       const aDate = new Date(a.deadline);
       const bDate = new Date(b.deadline);
@@ -22,9 +23,10 @@ export function sortTodos(todos: Todo[]): Todo[] {
     return 0;
   });
 
-  // Sort quick: by created_at descending (newest first)
+  // Sort quick: priority desc → created_at descending (newest first)
   quick.sort((a, b) => {
     if (a.completed !== b.completed) return a.completed ? 1 : -1;
+    if (a.priority !== b.priority) return b.priority - a.priority;
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
@@ -44,6 +46,24 @@ export function isUrgent(todo: Todo): boolean {
 export function isOverdue(todo: Todo): boolean {
   if (!todo.deadline || todo.completed) return false;
   return new Date(todo.deadline) < new Date();
+}
+
+// Check if a todo is due today (deadline falls on the current calendar day)
+export function isDueToday(todo: Todo): boolean {
+  if (!todo.deadline || todo.completed) return false;
+  const d = new Date(todo.deadline);
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
+}
+
+// 今日视图所含任务：未完成，且「今天到期」或「已逾期」
+export function isInTodayView(todo: Todo): boolean {
+  if (todo.completed) return false;
+  return isOverdue(todo) || isDueToday(todo);
 }
 
 // Format deadline for display

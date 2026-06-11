@@ -1,9 +1,10 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTodoStore } from '../store/todoStore';
+import { isInTodayView } from '../lib/utils';
 import { useIsTouch } from '../lib/responsive';
 
-export type FilterType = 'all' | 'active' | 'completed';
+export type FilterType = 'today' | 'all' | 'active' | 'completed';
 
 interface FilterTabsProps {
   activeFilter?: FilterType;
@@ -17,8 +18,10 @@ export default function FilterTabs({ activeFilter: externalFilter, onFilterChang
 
   const activeCount = todos.filter((t) => !t.completed).length;
   const completedCount = todos.filter((t) => t.completed).length;
+  const todayCount = todos.filter(isInTodayView).length;
 
   const filters: { key: FilterType; label: string; count: number }[] = [
+    { key: 'today', label: t('app.filterToday'), count: todayCount },
     { key: 'all', label: t('app.filterAll'), count: todos.length },
     { key: 'active', label: t('app.filterActive'), count: activeCount },
     { key: 'completed', label: t('app.filterCompleted'), count: completedCount },

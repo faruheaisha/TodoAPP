@@ -229,7 +229,12 @@ export default function SettingsDrawer() {
         const raw = JSON.parse(evt.target?.result as string);
         const imported = raw.todos ?? raw;
         if (Array.isArray(imported) && imported.length > 0) {
-          setTodos(imported);
+          // 兼容旧备份：补齐新增字段默认值，避免缺字段导致排序异常
+          const normalized = imported.map((it) => ({
+            ...it,
+            priority: typeof it.priority === 'number' ? it.priority : 0,
+          }));
+          setTodos(normalized);
           show(t('settings.importSuccess') + ' ' + imported.length + ' ' + t('app.items'));
         } else {
           show(t('settings.importInvalid'));

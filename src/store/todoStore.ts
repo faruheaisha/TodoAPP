@@ -12,6 +12,9 @@ import { useTagStore } from './tagStore';
 
 export type TodoType = 'quick' | 'longterm';
 
+/** 优先级：0=无 1=低(P3) 2=中(P2) 3=高(P1)，对应 Todoist 的 P1-P4 体系 */
+export type Priority = 0 | 1 | 2 | 3;
+
 export interface Todo {
   id: string;
   title: string;
@@ -20,15 +23,17 @@ export interface Todo {
   completed: boolean;
   createdAt: string;
   reminderSent: boolean;
+  priority: Priority;
 }
 
 interface TodoStore {
   todos: Todo[];
   isLoading: boolean;
-  addTodo: (title: string, todoType?: TodoType, deadline?: string | null) => Promise<void>;
+  addTodo: (title: string, todoType?: TodoType, deadline?: string | null, priority?: Priority) => Promise<void>;
   updateTodo: (id: string, updates: Partial<Todo>) => Promise<void>;
   deleteTodo: (id: string) => Promise<void>;
   toggleComplete: (id: string) => Promise<void>;
+  setPriority: (id: string, priority: Priority) => Promise<void>;
   setTodos: (todos: Todo[]) => void;
   clearReminderFlags: () => Promise<void>;
 }
@@ -37,11 +42,20 @@ export const useTodoStore = create<TodoStore>()((set, get) => ({
   todos: [],
   isLoading: true,
 
-  addTodo: async (title, todoType = 'quick', deadline = null) => {
-    const created = await createTodoInDB(title, todoType, deadline);
+  addTodo: async (title, todoType = 'quick', deadline = null, priority = 0) => {
+    const created = await createTodoInDB(title, todoType, deadline, priority);
     if (created) {
       set((state) => ({ todos: [...state.todos, created] }));
     }
+  },
+
+  setPriority: async (id, priority) => {
+    await updateTodoInDB(id, { priority });
+    set((state) => ({
+      todos: state.todos.map((todo) =>
+        todo.id === id ? { ...todo, priority } : todo
+      ),
+    }));
   },
 
   updateTodo: async (id, updates) => {
@@ -50,6 +64,7 @@ export const useTodoStore = create<TodoStore>()((set, get) => ({
       todoType: updates.todoType,
       deadline: updates.deadline,
       completed: updates.completed,
+      priority: updates.priority,
     });
     set((state) => ({
       todos: state.todos.map((todo) =>
@@ -83,7 +98,7 @@ export const useTodoStore = create<TodoStore>()((set, get) => ({
       const rule = useRecurrenceStore.getState().getRule(id);
       if (rule) {
         const nextDeadline = getNextDeadline(rule.type, todo.deadline);
-        const created = await createTodoInDB(todo.title, todo.todoType, nextDeadline);
+        const created = await createTodoInDB(todo.title, todo.todoType, nextDeadline, todo.priority);
         if (created) {
           useRecurrenceStore.getState().setRule(created.id, rule);
           set((state) => ({

@@ -39,8 +39,21 @@ export async function initDB(): Promise<void> {
         reminder_sent INTEGER NOT NULL DEFAULT 0
       );
     `);
+    // 迁移：为已有库补充新列（SQLite 无 ADD COLUMN IF NOT EXISTS，需先探测列）
+    await ensureColumn(database, 'priority', 'INTEGER NOT NULL DEFAULT 0');
   } catch (e) {
     console.error('Failed to initialize database:', e);
+  }
+}
+
+// 幂等地为 todos 表补充列：仅当列不存在时执行 ALTER TABLE
+async function ensureColumn(database: Database, column: string, definition: string): Promise<void> {
+  try {
+    const cols = await database.select<{ name: string }[]>(`PRAGMA table_info(todos)`);
+    if (cols.some((c) => c.name === column)) return;
+    await database.execute(`ALTER TABLE todos ADD COLUMN ${column} ${definition}`);
+  } catch (e) {
+    console.error(`Failed to ensure column ${column}:`, e);
   }
 }
 
@@ -56,11 +69,13 @@ export async function loadTodos(): Promise<Todo[]> {
       completed: number;
       created_at: string;
       reminder_sent: number;
+      priority: number | null;
     }[]>(`
-      SELECT id, title, todo_type, deadline, completed, created_at, reminder_sent
+      SELECT id, title, todo_type, deadline, completed, created_at, reminder_sent, priority
       FROM todos
       ORDER BY
         completed ASC,
+        priority DESC,
         CASE
           WHEN todo_type = 'longterm' AND deadline IS NOT NULL THEN 1
           WHEN todo_type = 'longterm' THEN 2
@@ -78,6 +93,7 @@ export async function loadTodos(): Promise<Todo[]> {
       completed: number;
       created_at: string;
       reminder_sent: number;
+      priority: number | null;
     }) => ({
       id: r.id,
       title: r.title,
@@ -86,6 +102,7 @@ export async function loadTodos(): Promise<Todo[]> {
       completed: Boolean(r.completed),
       createdAt: r.created_at,
       reminderSent: Boolean(r.reminder_sent),
+      priority: (r.priority ?? 0) as Todo['priority'],
     }));
   } catch (e) {
     console.error('Failed to load todos:', e);
@@ -97,7 +114,8 @@ export async function loadTodos(): Promise<Todo[]> {
 export async function createTodoInDB(
   title: string,
   todoType: string,
-  deadline: string | null
+  deadline: string | null,
+  priority: number = 0
 ): Promise<Todo | null> {
   try {
     const database = await getDB();
@@ -105,8 +123,8 @@ export async function createTodoInDB(
     const created_at = new Date().toISOString();
 
     await database.execute(
-      `INSERT INTO todos (id, title, todo_type, deadline, completed, created_at) VALUES (?, ?, ?, ?, 0, ?)`,
-      [id, title, todoType, deadline ?? null, created_at]
+      `INSERT INTO todos (id, title, todo_type, deadline, completed, created_at, priority) VALUES (?, ?, ?, ?, 0, ?, ?)`,
+      [id, title, todoType, deadline ?? null, created_at, priority]
     );
 
     return {
@@ -117,6 +135,7 @@ export async function createTodoInDB(
       completed: false,
       createdAt: created_at,
       reminderSent: false,
+      priority: priority as Todo['priority'],
     };
   } catch (e) {
     console.error('Failed to create todo:', e);
@@ -127,7 +146,7 @@ export async function createTodoInDB(
 // Update a todo
 export async function updateTodoInDB(
   id: string,
-  updates: Partial<Pick<Todo, 'title' | 'todoType' | 'deadline' | 'completed'>>
+  updates: Partial<Pick<Todo, 'title' | 'todoType' | 'deadline' | 'completed' | 'priority'>>
 ): Promise<void> {
   try {
     const database = await getDB();
@@ -143,6 +162,9 @@ export async function updateTodoInDB(
     }
     if (updates.completed !== undefined) {
       await database.execute('UPDATE todos SET completed = ? WHERE id = ?', [updates.completed ? 1 : 0, id]);
+    }
+    if (updates.priority !== undefined) {
+      await database.execute('UPDATE todos SET priority = ? WHERE id = ?', [updates.priority, id]);
     }
   } catch (e) {
     console.error('Failed to update todo:', e);
@@ -206,6 +228,7 @@ export async function onTodoReminder(callback: (todo: Todo) => void): Promise<Un
       completed: Boolean(payload.completed),
       createdAt: (payload.created_at as string) ?? '',
       reminderSent: Boolean(payload.reminder_sent),
+      priority: ((payload.priority as number) ?? 0) as Todo['priority'],
     });
   });
 }
