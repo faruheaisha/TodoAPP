@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import '@fontsource/dm-mono/300.css';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, RotateCcw, Coffee, BrainCircuit, Moon, Link2, Lock, Clock } from 'lucide-react';
 import {
@@ -8,6 +9,7 @@ import {
   focusDurationFor,
 } from '../../store/focusStore';
 import { useTodoStore } from '../../store/todoStore';
+import { TodoCombobox } from '../TodoCombobox';
 import { useOverlayStore } from '../../store/overlayStore';
 import { useToast } from '../Toast';
 
@@ -33,7 +35,7 @@ function formatTime(totalSeconds: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-const RING_RADIUS = 86;
+const RING_RADIUS = 104;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
 export function PomodoroTool() {
@@ -128,12 +130,12 @@ export function PomodoroTool() {
 
       {/* 计时圆环 */}
       <div className="flex flex-col items-center" style={{ gap: '14px' }}>
-        <div className="relative" style={{ width: 212, height: 212 }}>
-          <svg width={212} height={212} viewBox="0 0 212 212">
+        <div className="relative" style={{ width: 248, height: 248 }}>
+          <svg width={248} height={248} viewBox="0 0 248 248">
             {/* 运行时呼吸光晕 */}
             {isRunning && (
               <motion.circle
-                cx={106} cy={106} r={RING_RADIUS + 10}
+                cx={124} cy={124} r={RING_RADIUS + 10}
                 fill="none"
                 stroke={meta.ring}
                 strokeWidth={4}
@@ -143,25 +145,25 @@ export function PomodoroTool() {
               />
             )}
             <circle
-              cx={106}
-              cy={106}
+              cx={124}
+              cy={124}
               r={RING_RADIUS}
               fill="none"
               stroke="var(--color-bg-tertiary)"
-              strokeWidth={11}
+              strokeWidth={12}
             />
             <motion.circle
-              cx={106}
-              cy={106}
+              cx={124}
+              cy={124}
               r={RING_RADIUS}
               fill="none"
               stroke={meta.ring}
-              strokeWidth={11}
+              strokeWidth={12}
               strokeLinecap="round"
               strokeDasharray={RING_CIRCUMFERENCE}
               animate={{ strokeDashoffset: dashOffset }}
               transition={{ duration: 0.4, ease: 'linear' }}
-              transform="rotate(-90 106 106)"
+              transform="rotate(-90 124 124)"
             />
           </svg>
           {/* 环中心内容 */}
@@ -169,7 +171,7 @@ export function PomodoroTool() {
             <ModeIcon size={15} style={{ color: meta.ring }} />
             <span
               className="tabular-nums"
-              style={{ fontSize: 42, fontWeight: 300, color: 'var(--color-text-primary)', fontFamily: 'var(--font-mono)', letterSpacing: '-0.01em', lineHeight: 1 }}
+              style={{ fontSize: 54, fontWeight: 300, color: 'var(--color-text-primary)', fontFamily: "'DM Mono', 'Cascadia Code', monospace", letterSpacing: '-0.02em', lineHeight: 1 }}
             >
               {formatTime(remainingSeconds)}
             </span>
@@ -218,36 +220,16 @@ export function PomodoroTool() {
                 size={12}
                 style={{ color: linkedTodo ? 'var(--clay)' : 'var(--color-text-tertiary)', flexShrink: 0 }}
               />
-              <select
-                value={linkedTodoId ?? ''}
-                onChange={(e) => setLinkedTodo(e.target.value || null)}
+              <TodoCombobox
+                todos={activeTodos}
+                linkedTodo={linkedTodo}
                 disabled={isRunning}
-                className="flex-1 text-[11px] cursor-pointer"
-                style={{
-                  appearance: 'none',
-                  WebkitAppearance: 'none',
-                  background: 'var(--color-bg-tertiary)',
-                  border: '1px solid ' + (linkedTodo ? 'var(--clay)' : 'var(--color-border)'),
-                  borderRadius: '6px',
-                  color: linkedTodo ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)',
-                  padding: '5px 24px 5px 10px',
-                  outline: 'none',
-                  opacity: isRunning ? 0.6 : 1,
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238C8A87' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")`,
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 8px center',
-                  transition: 'border-color 0.15s',
-                }}
-              >
-                <option value="">
-                  {activeTodos.length === 0 ? t('pomodoro.noTodo') : t('pomodoro.selectTodo')}
-                </option>
-                {activeTodos.map((todo) => (
-                  <option key={todo.id} value={todo.id}>
-                    {todo.title.length > 28 ? todo.title.slice(0, 28) + '…' : todo.title}
-                  </option>
-                ))}
-              </select>
+                placeholder={activeTodos.length === 0 ? t('pomodoro.noTodo') : t('pomodoro.selectTodo')}
+                searchPlaceholder={t('pomodoro.searchTodo')}
+                emptyText={t('pomodoro.noMatch')}
+                noneText={t('pomodoro.unlink')}
+                onSelect={(id) => setLinkedTodo(id)}
+              />
             </motion.div>
           )}
         </AnimatePresence>
@@ -483,6 +465,6 @@ async function notifySessionDone(body: string) {
       sendNotification({ title: 'TodoApp', body });
     }
   } catch (e) {
-    console.warn('Pomodoro notification skipped:', e);
+     console.warn('Pomodoro notification skipped:', e);
   }
 }

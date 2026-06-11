@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useFocusStore, focusDurationFor } from '../store/focusStore';
 import { useTodoStore } from '../store/todoStore';
 import { useOverlayStore } from '../store/overlayStore';
+import '@fontsource/dm-mono/300.css';
+import '@fontsource/dm-mono/400.css';
 
 /**
  * FocusLockScreen — 专注锁屏 overlay
@@ -16,7 +18,7 @@ import { useOverlayStore } from '../store/overlayStore';
  *  - 双击 / ESC 退出
  */
 
-const RING_R = 120;
+const RING_R = 148;
 const RING_CIRC = 2 * Math.PI * RING_R;
 const ACCENT = '#D97757';
 
@@ -111,7 +113,7 @@ export default function FocusLockScreen() {
       {/* Corner clock */}
       <div style={{
         position: 'absolute', top: 32, right: 40,
-        fontFamily: "'Inter Variable', Inter, monospace",
+        fontFamily: "'DM Mono', 'Cascadia Code', monospace",
         fontSize: 13, color: 'rgba(255,255,255,0.22)', letterSpacing: '0.1em',
       }}>
         {clockStr}
@@ -120,7 +122,7 @@ export default function FocusLockScreen() {
       {/* Progress % top-left */}
       <div style={{
         position: 'absolute', top: 32, left: 40,
-        fontFamily: "'Inter Variable', Inter, monospace",
+        fontFamily: "'DM Mono', 'Cascadia Code', monospace",
         fontSize: 11, color: 'rgba(255,255,255,0.15)', letterSpacing: '0.12em',
       }}>
         {progressPct}%
@@ -137,18 +139,18 @@ export default function FocusLockScreen() {
       </div>
 
       {/* Main ring */}
-      <div style={{ position: 'relative', width: 320, height: 320 }}>
-        <svg width={320} height={320} viewBox="0 0 320 320">
+      <div style={{ position: 'relative', width: 376, height: 376 }}>
+        <svg width={376} height={376} viewBox="0 0 376 376">
           {/* Outer ambient glow ring — pulses when running */}
           {isRunning && (
             <>
-              <motion.circle cx={160} cy={160} r={RING_R + 32}
+              <motion.circle cx={188} cy={188} r={RING_R + 36}
                 fill="none" stroke={ACCENT} strokeWidth={1}
                 opacity={0}
                 animate={{ opacity: [0, 0.10, 0] }}
                 transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
               />
-              <motion.circle cx={160} cy={160} r={RING_R + 18}
+              <motion.circle cx={188} cy={188} r={RING_R + 20}
                 fill="none" stroke={ACCENT} strokeWidth={2}
                 opacity={0}
                 animate={{ opacity: [0, 0.18, 0] }}
@@ -157,28 +159,28 @@ export default function FocusLockScreen() {
             </>
           )}
           {/* Track */}
-          <circle cx={160} cy={160} r={RING_R}
+          <circle cx={188} cy={188} r={RING_R}
             fill="none"
             stroke="rgba(255,255,255,0.05)"
-            strokeWidth={16}
+            strokeWidth={18}
           />
           {/* Subtle second track shadow */}
-          <circle cx={160} cy={160} r={RING_R}
+          <circle cx={188} cy={188} r={RING_R}
             fill="none"
             stroke="rgba(217,119,87,0.08)"
-            strokeWidth={16}
+            strokeWidth={18}
           />
           {/* Progress arc */}
           <motion.circle
-            cx={160} cy={160} r={RING_R}
+            cx={188} cy={188} r={RING_R}
             fill="none"
             stroke="url(#ringGrad)"
-            strokeWidth={16}
+            strokeWidth={18}
             strokeLinecap="round"
             strokeDasharray={RING_CIRC}
             animate={{ strokeDashoffset: strokeOffset }}
             transition={{ duration: 0.3, ease: 'linear' }}
-            transform="rotate(-90 160 160)"
+            transform="rotate(-90 188 188)"
           />
           {/* Gradient def */}
           <defs>
@@ -201,11 +203,11 @@ export default function FocusLockScreen() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.15 }}
             style={{
-              fontFamily: "'Inter Variable', Inter, monospace",
-              fontSize: 80,
+              fontFamily: "'DM Mono', 'Cascadia Code', monospace",
+              fontSize: 102,
               fontWeight: 300,
               color: '#FDFAF7',
-              letterSpacing: '-0.01em',
+              letterSpacing: '-0.03em',
               lineHeight: 1,
               textShadow: [
                 '0 2px 4px rgba(0,0,0,0.6)',
