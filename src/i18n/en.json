@@ -158,7 +158,10 @@
     "focusLockTitle": "Open fullscreen focus lock screen",
     "clockScreen": "Clock Screen",
     "clockScreenTitle": "Open fullscreen clock screensaver",
-    "focusLockDisabled": "Start the timer first to enter focus lock"
+    "focusLockDisabled": "Start the timer first to enter focus lock",
+    "searchTodo": "Search todos…",
+    "noMatch": "No matching todos",
+    "unlink": "Unlink"
   },
   "insights": {
     "focusTitle": "Focus Time (Last 7 Days)",
@@ -178,5 +181,9 @@
     "motivation2": "Every completion is a promise kept to yourself.",
     "motivation3": "Focus is the best gift you give yourself.",
     "motivation4": "Today's persistence is tomorrow's confidence."
+  },
+  "calendar": {
+    "today": "Today",
+    "noTasks": "Nothing scheduled this day"
   }
 }

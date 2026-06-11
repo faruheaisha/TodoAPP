@@ -158,7 +158,10 @@
     "focusLockTitle": "开启全屏专注锁屏，屏蔽干扰",
     "clockScreen": "时间流动",
     "clockScreenTitle": "打开全屏时钟屏保，用于学习",
-    "focusLockDisabled": "请先启动番茄钟再进入专注锁屏"
+    "focusLockDisabled": "请先启动番茄钟再进入专注锁屏",
+    "searchTodo": "搜索任务…",
+    "noMatch": "没有匹配的任务",
+    "unlink": "取消关联"
   },
   "insights": {
     "focusTitle": "专注时长（近7天）",
@@ -178,5 +181,9 @@
     "motivation2": "每一个完成都是对自己承诺的兑现。",
     "motivation3": "专注，是送给自己最好的礼物。",
     "motivation4": "今天的坚持，是明天的底气。"
+  },
+  "calendar": {
+    "today": "今天",
+    "noTasks": "这一天没有任务"
   }
 }

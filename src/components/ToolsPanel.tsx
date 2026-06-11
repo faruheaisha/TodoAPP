@@ -1,10 +1,11 @@
 import type { ComponentType } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Timer, CheckSquare, BarChart2 } from 'lucide-react';
+import { X, Timer, CheckSquare, BarChart2, CalendarDays } from 'lucide-react';
 import { useToolsPanelStore, type ToolId } from '../store/toolsStore';
 import { useSheet } from '../lib/responsive';
 import { PomodoroTool } from './tools/PomodoroTool';
+import { CalendarTool } from './tools/CalendarTool';
 import { HabitTool } from './tools/HabitTool';
 import { InsightsTool } from './tools/InsightsTool';
 
@@ -27,9 +28,10 @@ interface ToolDef {
 }
 
 const TOOLS: ToolDef[] = [
-  { id: 'pomodoro', icon: Timer,       labelKey: 'tools.pomodoro', Component: PomodoroTool },
-  { id: 'habits',   icon: CheckSquare, labelKey: 'tools.habits',   Component: HabitTool },
-  { id: 'insights', icon: BarChart2,   labelKey: 'tools.insights', Component: InsightsTool },
+  { id: 'pomodoro', icon: Timer,        labelKey: 'tools.pomodoro', Component: PomodoroTool },
+  { id: 'calendar', icon: CalendarDays, labelKey: 'tools.calendar', Component: CalendarTool },
+  { id: 'habits',   icon: CheckSquare,  labelKey: 'tools.habits',   Component: HabitTool },
+  { id: 'insights', icon: BarChart2,    labelKey: 'tools.insights', Component: InsightsTool },
 ];
 
 export default function ToolsPanel() {
