@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Settings, Moon, Sun, Timer } from 'lucide-react';
+import { Settings, Moon, Sun, Monitor, Timer } from 'lucide-react';
 import { useSettingsStore } from '../store/settingsStore';
 import { useToolsPanelStore } from '../store/toolsStore';
 import { useFocusStore } from '../store/focusStore';
 import { motion } from 'framer-motion';
+import BrandMark from './BrandMark';
 
 export default function Header() {
   const { t } = useTranslation();
@@ -13,31 +14,25 @@ export default function Header() {
 
   return (
     <header
-      className="flex items-center border-b flex-shrink-0"
+      className="safe-pad-top flex items-center border-b flex-shrink-0"
       style={{
-        height: 'var(--header-h)',
-        padding: '8px 14px',
+        height: 'calc(var(--header-h) + var(--safe-top))',
+        padding: '8px var(--pad-x)',
         borderColor: 'var(--color-border)',
         backgroundColor: 'var(--color-bg-primary)',
         gap: '8px',
       }}
     >
       {/* Logo */}
-      <div
-        className="rounded-full flex items-center justify-center flex-shrink-0"
-        style={{ width: '28px', height: '28px', backgroundColor: 'var(--clay)' }}
-      >
-        <span className="text-xs font-bold" style={{ color: 'var(--ivory-light)' }}>
-          T
-        </span>
-      </div>
+      <BrandMark size={26} />
 
-      {/* Title */}
+      {/* Title — 收紧字距 + 加重字重，建立排版锚点 */}
       <h1
-        className="text-[16px] font-semibold select-none app-title"
+        className="text-[16px] select-none app-title"
         style={{
           color: 'var(--color-text-primary)',
-          letterSpacing: 'var(--tracking-normal)',
+          letterSpacing: 'var(--tracking-tight)',
+          fontWeight: 650,
         }}
       >
         {t('app.title')}
@@ -55,10 +50,11 @@ export default function Header() {
             <motion.div
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
-              className="absolute right-0 top-full mt-1 rounded-lg border shadow-lg overflow-hidden z-50"
+              className="absolute right-0 top-full mt-1 rounded-lg border overflow-hidden z-50"
               style={{
                 borderColor: 'var(--color-border)',
                 backgroundColor: 'var(--color-bg-secondary)',
+                boxShadow: 'var(--shadow-md)',
               }}
             >
               <button
@@ -86,13 +82,13 @@ export default function Header() {
         {/* Tools 入口 */}
         <ToolsButton />
 
-        {/* Theme Toggle */}
+        {/* Theme Toggle — 三态循环：浅色 → 深色 → 跟随系统 */}
         <IconButton
-          onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-          title={theme === 'light' ? '切换到深色模式' : 'Switch to light mode'}
-          color="var(--color-text-secondary)"
+          onClick={() => setTheme(theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light')}
+          title={t(`settings.themeMode.${theme}`)}
+          color={theme === 'system' ? 'var(--clay)' : 'var(--color-text-secondary)'}
         >
-          {theme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
+          {theme === 'light' ? <Sun size={14} /> : theme === 'dark' ? <Moon size={14} /> : <Monitor size={14} />}
         </IconButton>
 
         {/* Settings */}

@@ -11,7 +11,9 @@
     "completed": "Completed",
     "overdue": "Overdue",
     "dueSoon": "Due Soon",
-    "empty": "No todos yet. Start by adding your first one.",
+    "empty": "Start with one small thing",
+    "emptyHint": "Capture the one thing that matters most right now.",
+    "emptyCta": "Add your first todo",
     "deadline": "Deadline",
     "noDeadline": "No deadline",
     "filterAll": "All",
@@ -27,6 +29,12 @@
     "theme": "Theme",
     "lightMode": "Light Mode",
     "darkMode": "Dark Mode",
+    "systemMode": "System",
+    "themeMode": {
+      "light": "Light Mode",
+      "dark": "Dark Mode",
+      "system": "Follow System"
+    },
     "startupDelay": "Startup Prompt Delay",
     "achievementTime": "Daily Achievement Time",
     "achievementOff": "Off",
@@ -122,7 +130,9 @@
     "calendar": "Calendar",
     "habits": "Habits",
     "moreSoon": "More tools coming soon",
-    "insights": "Insights"
+    "insights": "Insights",
+    "timer": "Timers",
+    "notes": "Notes"
   },
   "habits": {
     "subtitle": "Last 7 Days",
@@ -150,11 +160,53 @@
     "focusLockTitle": "Open fullscreen focus lock screen",
     "clockScreen": "Clock Screen",
     "clockScreenTitle": "Open fullscreen clock screensaver",
-    "focusLockDisabled": "Start the timer first to enter focus lock"
+    "focusLockDisabled": "Start the timer first to enter focus lock",
+    "searchTodo": "Search todos…",
+    "noMatch": "No matching todos",
+    "unlink": "Unlink"
   },
   "insights": {
     "focusTitle": "Focus Time (Last 7 Days)",
     "habitTitle": "Habit Heatmap (Last 5 Weeks)",
     "statsTitle": "Quick Stats"
+  },
+  "achievement": {
+    "title": "Today's Review",
+    "statTodos": "Todos done",
+    "statFocus": "Focus time",
+    "statHabits": "Habits",
+    "unitItems": "items",
+    "unitMinutes": "min",
+    "button": "Done for today",
+    "motivation0": "Today you went beyond yesterday's self.",
+    "motivation1": "One step at a time — that's how momentum builds.",
+    "motivation2": "Every completion is a promise kept to yourself.",
+    "motivation3": "Focus is the best gift you give yourself.",
+    "motivation4": "Today's persistence is tomorrow's confidence."
+  },
+  "calendar": {
+    "today": "Today",
+    "noTasks": "Nothing scheduled this day"
+  },
+  "timer": {
+    "newCountdown": "New countdown",
+    "min": "min",
+    "custom": "Custom",
+    "stopwatch": "Stopwatch",
+    "countdown": "Countdown",
+    "empty": "No timers yet — add one above",
+    "reset": "Reset",
+    "remove": "Remove",
+    "doneToast": "Time's up: {{label}}"
+  },
+  "notes": {
+    "scratchpad": "Scratchpad",
+    "scratchpadPlaceholder": "Jot down anything — saves automatically…",
+    "todoNote": "Todo notes",
+    "selectTodo": "Pick a todo to annotate…",
+    "noTodos": "No active todos",
+    "todoNotePlaceholder": "Notes for \"{{title}}\"…",
+    "selectHint": "Select a todo above first",
+    "saved": "Saved"
   }
 }

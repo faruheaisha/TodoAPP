@@ -10,8 +10,9 @@ import { useRecurrenceStore, RECURRENCE_OPTIONS } from '../store/recurrenceStore
 import { useTagStore, TAG_PALETTE, type Tag } from '../store/tagStore';
 import { TagChip } from './TagChip';
 import { formatDeadline, isUrgent, isOverdue } from '../lib/utils';
+import { useIsTouch } from '../lib/responsive';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronDown, ChevronRight, Plus } from 'lucide-react';
+import { X, ChevronDown, ChevronRight, Plus, Repeat } from 'lucide-react';
 
 interface TodoCardProps {
   todo: Todo;
@@ -26,7 +27,10 @@ export function TodoCard({ todo }: TodoCardProps) {
   const { tags, todoTags, addTag, addTagToTodo, removeTagFromTodo, getTodoTags } = useTagStore();
   const todoTagList: Tag[] = getTodoTags(todo.id);
 
+  const isTouch = useIsTouch();
   const [isHovered, setIsHovered] = useState(false);
+  // 触屏无 hover 概念：操作区常驻显示，保证删除/标签/子任务可达
+  const showActions = isHovered || isTouch;
   const [flash, setFlash] = useState(false);
   const [subtasksOpen, setSubtasksOpen] = useState(false);
   const [addingSubtask, setAddingSubtask] = useState(false);
@@ -71,18 +75,15 @@ export function TodoCard({ todo }: TodoCardProps) {
       <motion.div
         layout
         initial={{ opacity: 0, x: -12 }}
-        animate={flash
-          ? { opacity: 1, x: 0, backgroundColor: ['transparent', 'rgba(217,119,87,0.10)', 'transparent'] }
-          : { opacity: 1, x: 0, backgroundColor: 'transparent' }
-        }
+        animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: 12 }}
         transition={{ duration: 0.55, ease: 'easeOut' }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => { setIsHovered(false); setShowTagPicker(false); }}
-        className="flex items-center"
+        className={`todo-row flex items-center ${flash ? 'todo-flash' : ''}`}
         style={{
           minHeight: 'var(--todo-row-h)',
-          padding: '7px 14px',
+          padding: '7px var(--pad-x)',
           gap: '8px',
           borderTop: '0.5px solid var(--color-separator)',
           cursor: 'default',
@@ -194,21 +195,22 @@ export function TodoCard({ todo }: TodoCardProps) {
         {/* 重复规则 badge */}
         {recurrenceRule && (
           <span
-            className="flex-shrink-0"
+            className="flex-shrink-0 inline-flex items-center"
             title={RECURRENCE_OPTIONS.find(o => o.type === recurrenceRule.type)?.[lang === 'zh' ? 'labelZh' : 'labelEn']}
             style={{
-              fontSize: '9px', padding: '1px 5px', borderRadius: '10px',
+              fontSize: '9px', padding: '1px 6px', borderRadius: '10px', gap: '3px',
               backgroundColor: 'var(--color-bg-tertiary)',
               color: 'var(--color-text-tertiary)',
             }}
           >
-            🔁 {RECURRENCE_OPTIONS.find(o => o.type === recurrenceRule.type)?.[lang === 'zh' ? 'labelZh' : 'labelEn']}
+            <Repeat size={8} strokeWidth={2} />
+            {RECURRENCE_OPTIONS.find(o => o.type === recurrenceRule.type)?.[lang === 'zh' ? 'labelZh' : 'labelEn']}
           </span>
         )}
 
-        {/* Hover 操作区 */}
+        {/* 操作区 — 桌面 hover 显现，触屏常驻 */}
         <AnimatePresence>
-          {isHovered && (
+          {showActions && (
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               transition={{ duration: 0.1 }}
@@ -220,7 +222,7 @@ export function TodoCard({ todo }: TodoCardProps) {
                 onClick={() => setShowTagPicker(v => !v)}
                 className="flex items-center justify-center transition-colors cursor-pointer"
                 style={{
-                  width: '18px', height: '18px', borderRadius: '4px',
+                  width: isTouch ? '34px' : '18px', height: isTouch ? '34px' : '18px', borderRadius: '6px',
                   color: showTagPicker ? 'var(--clay)' : 'var(--color-text-tertiary)',
                   border: 'none', backgroundColor: 'transparent',
                 }}
@@ -244,7 +246,7 @@ export function TodoCard({ todo }: TodoCardProps) {
                 }}
                 className="flex items-center justify-center transition-colors cursor-pointer"
                 style={{
-                  width: '18px', height: '18px', borderRadius: '4px',
+                  width: isTouch ? '34px' : '18px', height: isTouch ? '34px' : '18px', borderRadius: '6px',
                   color: 'var(--color-text-tertiary)', border: 'none', backgroundColor: 'transparent',
                 }}
                 title={t('app.addSubtask')}
@@ -258,7 +260,7 @@ export function TodoCard({ todo }: TodoCardProps) {
                 onClick={() => deleteTodo(todo.id).catch(console.error)}
                 className="flex items-center justify-center transition-colors cursor-pointer"
                 style={{
-                  width: '18px', height: '18px', borderRadius: '4px',
+                  width: isTouch ? '34px' : '18px', height: isTouch ? '34px' : '18px', borderRadius: '6px',
                   color: 'var(--color-text-tertiary)', border: 'none', backgroundColor: 'transparent',
                 }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--clay)'; }}
@@ -275,10 +277,10 @@ export function TodoCard({ todo }: TodoCardProps) {
       {showTagPicker && (
         <div
           style={{
-            position: 'absolute', top: '100%', right: '14px', zIndex: 200,
+            position: 'absolute', top: '100%', right: 'var(--pad-x)', zIndex: 200,
             borderRadius: '8px', border: '0.5px solid var(--color-border)',
             backgroundColor: 'var(--color-bg-primary)',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.16)',
+            boxShadow: 'var(--shadow-md)',
             minWidth: '170px', padding: '8px',
             display: 'flex', flexDirection: 'column', gap: '6px',
           }}
@@ -338,7 +340,7 @@ export function TodoCard({ todo }: TodoCardProps) {
             transition={{ duration: 0.2, ease: 'easeInOut' }}
             style={{ overflow: 'hidden' }}
           >
-            <div style={{ padding: '2px 14px 6px 38px', display: 'flex', flexDirection: 'column', gap: '1px' }}>
+            <div style={{ padding: '2px var(--pad-x) 6px 38px', display: 'flex', flexDirection: 'column', gap: '1px' }}>
               {subtasks.map((sub) => (
                 <div
                   key={sub.id}
@@ -372,9 +374,9 @@ export function TodoCard({ todo }: TodoCardProps) {
                   </span>
                   <button
                     onClick={() => deleteSubtask(todo.id, sub.id)}
-                    className="flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    className={`flex items-center justify-center transition-opacity cursor-pointer ${isTouch ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                     style={{
-                      width: '14px', height: '14px', borderRadius: '3px',
+                      width: isTouch ? '28px' : '14px', height: isTouch ? '28px' : '14px', borderRadius: '4px',
                       color: 'var(--color-text-tertiary)', border: 'none', backgroundColor: 'transparent',
                     }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--clay)'; }}

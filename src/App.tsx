@@ -7,9 +7,16 @@ import { useCompletionStore } from './store/completionStore';
 import { useHabitStore } from './store/habitStore';
 import { calcWeeklyStats, buildReportText, msUntilNext } from './lib/weeklyReport';
 import { useOverlayStore } from './store/overlayStore';
+import { usePrefersDark } from './lib/responsive';
 
 const FocusLockScreen = lazy(() => import('./windows/FocusLockScreen'));
 const ClockScreen = lazy(() => import('./windows/ClockScreen'));
+// 非首屏组件懒加载：减小首屏 bundle，缩短冷启动白屏时间
+const SettingsDrawer = lazy(() => import('./components/SettingsDrawer'));
+const ToolsPanel = lazy(() => import('./components/ToolsPanel'));
+const DailyAchievementModal = lazy(() =>
+  import('./components/DailyAchievementModal').then((m) => ({ default: m.DailyAchievementModal }))
+);
 import { TagChip } from './components/TagChip';
 import { initDB, loadTodos } from './lib/tauri';
 
@@ -21,14 +28,11 @@ import AddTodoBar from './components/AddTodoBar';
 import FilterTabs, { type FilterType } from './components/FilterTabs';
 import TodoSection from './components/TodoSection';
 import EmptyState from './components/EmptyState';
-import SettingsDrawer from './components/SettingsDrawer';
-import ToolsPanel from './components/ToolsPanel';
-import { DailyAchievementModal } from './components/DailyAchievementModal';
 
 function App() {
   const { t, i18n } = useTranslation();
   const {
-    theme, language, accentColor,
+    theme, language, accentColor, hotkey,
     startupDelay, reminderIgnored, lastPromptDate, setLastPromptDate,
     achievementTime, achievementLastDate, setAchievementLastDate,
     weeklyReportEnabled, weeklyReportDay, weeklyReportTime, weeklyReportLastDate, setWeeklyReportLastDate,
@@ -41,10 +45,16 @@ function App() {
   const [filter, setFilter] = useState<FilterType>('all');
   const [activeTag, setActiveTag] = useState<string | null>(null);
 
-  // Apply theme
+  // 主题解析：theme='system' 时跟随系统/手机日夜模式实时切换
+  const prefersDark = usePrefersDark();
+  const resolvedTheme = theme === 'system' ? (prefersDark ? 'dark' : 'light') : theme;
+
+  // Apply theme + 同步移动端浏览器外壳 theme-color
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
+    document.documentElement.setAttribute('data-theme', resolvedTheme);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', resolvedTheme === 'dark' ? '#1a1a18' : '#faf9f5');
+  }, [resolvedTheme]);
 
   // Apply accent color
   useEffect(() => {
@@ -237,10 +247,71 @@ function App() {
     init();
   }, []);
 
+  // 全局快捷键：注册 settings 中的 hotkey，按下时切换主窗口显示/隐藏
+  useEffect(() => {
+    if (!hotkey) return;
+    let active = true;
+    let registeredKey: string | null = null;
+
+    (async () => {
+      try {
+        const { register, unregister, isRegistered } = await import('@tauri-apps/plugin-global-shortcut');
+        if (await isRegistered(hotkey)) await unregister(hotkey);
+        if (!active) return;
+        await register(hotkey, async (event) => {
+          if (event.state !== 'Pressed') return;
+          try {
+            const { getCurrentWindow } = await import('@tauri-apps/api/window');
+            const win = getCurrentWindow();
+            const visible = await win.isVisible();
+            const focused = await win.isFocused();
+            if (visible && focused) {
+              await win.hide();
+            } else {
+              await win.show();
+              await win.setFocus();
+            }
+          } catch (err) {
+            console.warn('Hotkey toggle failed:', err);
+          }
+        });
+        registeredKey = hotkey;
+      } catch (e) {
+        console.warn('Global shortcut registration failed:', e);
+      }
+    })();
+
+    return () => {
+      active = false;
+      if (registeredKey) {
+        import('@tauri-apps/plugin-global-shortcut')
+          .then(({ unregister }) => unregister(registeredKey!))
+          .catch(() => {});
+      }
+    };
+  }, [hotkey]);
+
+  // 无闪启动：窗口初始 visible:false（tauri.conf.json），首帧渲染完成后再显示
+  useEffect(() => {
+    let cancelled = false;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(async () => {
+        if (cancelled) return;
+        try {
+          const { getCurrentWindow } = await import('@tauri-apps/api/window');
+          const win = getCurrentWindow();
+          await win.show();
+          await win.setFocus();
+        } catch { /* 非 Tauri 环境（浏览器调试）忽略 */ }
+      });
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   const hasTodos = todos.length > 0;
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden" style={{
+    <div className="app-shell flex flex-col overflow-hidden" style={{
       backgroundColor: 'var(--color-bg-primary)',
       color: 'var(--color-text-primary)',
     }}>
@@ -255,7 +326,7 @@ function App() {
         <div
           className="flex-shrink-0 flex items-center flex-wrap"
           style={{
-            padding: '5px 14px',
+            padding: '5px var(--pad-x)',
             gap: '5px',
             borderBottom: '0.5px solid var(--color-separator)',
             backgroundColor: 'var(--color-bg-primary)',
@@ -273,7 +344,7 @@ function App() {
               color: activeTag === null ? 'var(--clay)' : 'var(--color-text-tertiary)',
             }}
           >
-            全部
+            {t('app.filterAll')}
           </button>
           {tags.map(tag => (
             <TagChip
@@ -297,11 +368,11 @@ function App() {
           </div>
         )}
       </div>
-      <SettingsDrawer />
-      <ToolsPanel />
-      <DailyAchievementModal />
-      {/* Full-screen overlays */}
       <Suspense fallback={null}>
+        <SettingsDrawer />
+        <ToolsPanel />
+        <DailyAchievementModal />
+        {/* Full-screen overlays */}
         {focusLock && <FocusLockScreen />}
         {clock && <ClockScreen />}
       </Suspense>

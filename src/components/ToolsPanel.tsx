@@ -1,9 +1,13 @@
 import type { ComponentType } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Timer, CheckSquare, BarChart2 } from 'lucide-react';
+import { X, Timer, CheckSquare, BarChart2, CalendarDays, Hourglass, StickyNote } from 'lucide-react';
 import { useToolsPanelStore, type ToolId } from '../store/toolsStore';
+import { useSheet } from '../lib/responsive';
 import { PomodoroTool } from './tools/PomodoroTool';
+import { TimerTool } from './tools/TimerTool';
+import { CalendarTool } from './tools/CalendarTool';
+import { NotesTool } from './tools/NotesTool';
 import { HabitTool } from './tools/HabitTool';
 import { InsightsTool } from './tools/InsightsTool';
 
@@ -26,14 +30,18 @@ interface ToolDef {
 }
 
 const TOOLS: ToolDef[] = [
-  { id: 'pomodoro', icon: Timer,       labelKey: 'tools.pomodoro', Component: PomodoroTool },
-  { id: 'habits',   icon: CheckSquare, labelKey: 'tools.habits',   Component: HabitTool },
-  { id: 'insights', icon: BarChart2,   labelKey: 'tools.insights', Component: InsightsTool },
+  { id: 'pomodoro', icon: Timer,        labelKey: 'tools.pomodoro', Component: PomodoroTool },
+  { id: 'timer',    icon: Hourglass,    labelKey: 'tools.timer',    Component: TimerTool },
+  { id: 'calendar', icon: CalendarDays, labelKey: 'tools.calendar', Component: CalendarTool },
+  { id: 'notes',    icon: StickyNote,   labelKey: 'tools.notes',    Component: NotesTool },
+  { id: 'habits',   icon: CheckSquare,  labelKey: 'tools.habits',   Component: HabitTool },
+  { id: 'insights', icon: BarChart2,    labelKey: 'tools.insights', Component: InsightsTool },
 ];
 
 export default function ToolsPanel() {
   const { t } = useTranslation();
   const { isOpen, activeTool, setIsOpen, setActiveTool } = useToolsPanelStore();
+  const sheet = useSheet();
 
   const active = TOOLS.find((tool) => tool.id === activeTool) ?? TOOLS[0];
   const ActiveComponent = active.Component;
@@ -53,25 +61,48 @@ export default function ToolsPanel() {
             onClick={() => setIsOpen(false)}
           />
 
-          {/* Centering layer — flex 居中而非 transform: translate(-50%,-50%)，
-              避免与 Framer Motion 自身管理的 scale transform 互相覆盖导致偏移 */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+          {/* 定位层：桌面居中、手机贴底 sheet（flex 居中避免与 scale transform 冲突）*/}
+          <div className={`fixed inset-0 z-50 flex justify-center pointer-events-none ${sheet.alignClass}`}>
           <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.96 }}
-            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-            className="flex overflow-hidden pointer-events-auto"
+            {...sheet.motion}
+            className={`${sheet.isPhone ? 'flex-col' : ''} flex overflow-hidden pointer-events-auto`}
             style={{
-              width: 'min(760px, 92vw)',
-              height: 'min(560px, 88vh)',
-              borderRadius: 'var(--radius-lg)',
+              ...sheet.panelStyle({ width: 'min(760px, 92vw)', height: 'min(560px, 88vh)' }),
+              ...(sheet.isPhone ? { height: 'min(80dvh, 600px)' } : null),
               backgroundColor: 'var(--color-bg-secondary)',
               border: '0.5px solid var(--color-border)',
-              boxShadow: '0 16px 48px rgba(0,0,0,0.2)',
+              boxShadow: 'var(--shadow-lg)',
             }}
           >
-            {/* Left nav — 工具列表，宽度与 SettingsDrawer 对齐以统一视觉节奏 */}
+            {sheet.isPhone ? (
+              /* 手机：顶部横向 tab 栏（横向滚动，44px 触控高） */
+              <div className="flex-shrink-0 border-b flex items-center overflow-x-auto" style={{ borderColor: 'var(--color-border)', padding: '8px 12px', gap: '6px' }}>
+                {TOOLS.map((tool) => {
+                  const isActive = activeTool === tool.id;
+                  const Icon = tool.icon;
+                  return (
+                    <button
+                      key={tool.id}
+                      onClick={() => setActiveTool(tool.id)}
+                      className="flex items-center gap-1.5 flex-shrink-0 transition-all cursor-pointer rounded-lg"
+                      style={{
+                        height: '38px',
+                        padding: '0 14px',
+                        fontSize: '13px',
+                        color: isActive ? 'var(--color-fill-text)' : 'var(--color-text-tertiary)',
+                        backgroundColor: isActive ? 'var(--color-fill)' : 'var(--color-bg-tertiary)',
+                        fontWeight: isActive ? 500 : 400,
+                        border: 'none',
+                      }}
+                    >
+                      <Icon size={15} />
+                      {t(tool.labelKey)}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+            /* 桌面：左侧导航 — 宽度与 SettingsDrawer 对齐以统一视觉节奏 */
             <div className="flex-shrink-0 border-r flex flex-col" style={{ width: '150px', borderColor: 'var(--color-border)' }}>
               <div className="px-4 py-3 border-b flex items-center" style={{ borderColor: 'var(--color-border)' }}>
                 <span className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)', letterSpacing: 'var(--tracking-normal)' }}>
@@ -94,11 +125,12 @@ export default function ToolsPanel() {
                         color: isActive ? 'var(--color-fill-text)' : 'var(--color-text-tertiary)',
                         backgroundColor: isActive ? 'var(--color-fill)' : 'transparent',
                         fontWeight: isActive ? 500 : 400,
+                        position: 'relative',
                       }}
                       onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-bg-tertiary)'; }}
                       onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
                     >
-                      <Icon size={13} />
+                      <Icon size={15} />
                       {t(tool.labelKey)}
                     </button>
                   );
@@ -110,10 +142,11 @@ export default function ToolsPanel() {
                 </span>
               </div>
             </div>
+            )}
 
             {/* Right content */}
             <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex items-center justify-between border-b flex-shrink-0" style={{ borderColor: 'var(--color-border)', padding: '14px 26px' }}>
+              <div className="flex items-center justify-between border-b flex-shrink-0" style={{ borderColor: 'var(--color-border)', padding: sheet.isPhone ? '12px 16px' : '12px 24px' }}>
                 <span className="text-xs font-medium" style={{ color: 'var(--color-text-primary)' }}>
                   {t(active.labelKey)}
                 </span>
@@ -125,7 +158,7 @@ export default function ToolsPanel() {
                   <X size={13} />
                 </button>
               </div>
-              <div className="tools-scroll flex-1 overflow-y-auto" style={{ padding: '28px 32px' }}>
+              <div className="tools-scroll flex-1 overflow-y-auto" style={{ padding: sheet.isPhone ? '18px 16px' : '22px 26px' }}>
                 <ActiveComponent />
               </div>
             </div>

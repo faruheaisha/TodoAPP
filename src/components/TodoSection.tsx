@@ -225,7 +225,7 @@ function SectionHeader({ color, label, count, suffix }: { color: string; label: 
   return (
     <div
       className="flex items-center flex-shrink-0"
-      style={{ height: 'var(--section-header-h)', padding: '5px 14px 3px', gap: '5px', backgroundColor: 'var(--color-section-bg)' }}
+      style={{ height: 'var(--section-header-h)', padding: '5px var(--pad-x) 3px', gap: '5px', backgroundColor: 'var(--color-section-bg)' }}
     >
       <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: color, flexShrink: 0 }} />
       <h2 className="text-[10px] font-medium uppercase tracking-wider select-none" style={{ color: 'var(--color-text-secondary)', letterSpacing: '.03em' }}>
@@ -240,7 +240,7 @@ function SectionHeader({ color, label, count, suffix }: { color: string; label: 
 
 function EmptyText({ text }: { text: string }) {
   return (
-    <p className="text-center select-none" style={{ padding: '12px 14px', fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
+    <p className="text-center select-none" style={{ padding: '12px var(--pad-x)', fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
       {text}
     </p>
   );

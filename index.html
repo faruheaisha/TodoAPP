@@ -2,7 +2,18 @@
 <html lang="zh">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover：内容延伸到刘海/灵动岛/圆角下，配合 safe-area inset 使用 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="A minimalist, Anthropic-style todo app — across desktop and mobile." />
+    <!-- 移动端浏览器外壳着色，App 启动后按解析主题动态更新 -->
+    <meta name="theme-color" content="#faf9f5" />
+    <!-- PWA / iOS 全屏 Web App -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="TodoApp" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <title>TodoApp</title>
   </head>
   <body>

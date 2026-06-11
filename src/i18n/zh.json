@@ -11,7 +11,9 @@
     "completed": "完成",
     "overdue": "已过期",
     "dueSoon": "即将截止",
-    "empty": "还没有待办事项，开始添加第一个吧",
+    "empty": "从一件小事开始",
+    "emptyHint": "记下此刻最重要的一件事，从这里开始。",
+    "emptyCta": "添加第一个待办",
     "deadline": "截止时间",
     "noDeadline": "无截止时间",
     "filterAll": "全部",
@@ -27,6 +29,12 @@
     "theme": "主题",
     "lightMode": "日间模式",
     "darkMode": "夜间模式",
+    "systemMode": "跟随系统",
+    "themeMode": {
+      "light": "日间模式",
+      "dark": "夜间模式",
+      "system": "跟随系统日夜"
+    },
     "startupDelay": "开机弹窗延迟",
     "achievementTime": "每日成就弹窗时间",
     "achievementOff": "关闭",
@@ -122,7 +130,9 @@
     "calendar": "日历",
     "habits": "习惯打卡",
     "moreSoon": "更多工具即将上线",
-    "insights": "数据洞察"
+    "insights": "数据洞察",
+    "timer": "计时器",
+    "notes": "笔记"
   },
   "habits": {
     "subtitle": "最近 7 天",
@@ -150,11 +160,53 @@
     "focusLockTitle": "开启全屏专注锁屏，屏蔽干扰",
     "clockScreen": "时间流动",
     "clockScreenTitle": "打开全屏时钟屏保，用于学习",
-    "focusLockDisabled": "请先启动番茄钟再进入专注锁屏"
+    "focusLockDisabled": "请先启动番茄钟再进入专注锁屏",
+    "searchTodo": "搜索任务…",
+    "noMatch": "没有匹配的任务",
+    "unlink": "取消关联"
   },
   "insights": {
     "focusTitle": "专注时长（近7天）",
     "habitTitle": "习惯热力图（近5周）",
     "statsTitle": "数据速览"
+  },
+  "achievement": {
+    "title": "今日成就",
+    "statTodos": "任务完成",
+    "statFocus": "专注时长",
+    "statHabits": "习惯打卡",
+    "unitItems": "项",
+    "unitMinutes": "分钟",
+    "button": "收下成就",
+    "motivation0": "今天的你，超越了昨天的自己。",
+    "motivation1": "一步一个脚印，持续积累的力量。",
+    "motivation2": "每一个完成都是对自己承诺的兑现。",
+    "motivation3": "专注，是送给自己最好的礼物。",
+    "motivation4": "今天的坚持，是明天的底气。"
+  },
+  "calendar": {
+    "today": "今天",
+    "noTasks": "这一天没有任务"
+  },
+  "timer": {
+    "newCountdown": "新建倒计时",
+    "min": "分钟",
+    "custom": "自定义",
+    "stopwatch": "正计时",
+    "countdown": "倒计时",
+    "empty": "还没有计时器，从上方添加一个",
+    "reset": "重置",
+    "remove": "删除",
+    "doneToast": "计时结束：{{label}}"
+  },
+  "notes": {
+    "scratchpad": "随手记",
+    "scratchpadPlaceholder": "想到什么就记下来，自动保存…",
+    "todoNote": "任务笔记",
+    "selectTodo": "选择要记笔记的任务…",
+    "noTodos": "暂无进行中的任务",
+    "todoNotePlaceholder": "为「{{title}}」写点备注…",
+    "selectHint": "先在上方选择一个任务",
+    "saved": "已保存"
   }
 }

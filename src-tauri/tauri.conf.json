@@ -12,6 +12,7 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "TodoApp",
         "width": 780,
         "height": 600,
@@ -22,7 +23,8 @@
         "decorations": true,
         "hiddenTitle": true,
         "titleBarStyle": "Overlay",
-        "transparent": false
+        "transparent": false,
+        "visible": false
       }
     ],
     "security": {

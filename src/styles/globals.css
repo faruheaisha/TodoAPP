@@ -61,6 +61,11 @@
   --color-card-shadow:        0 1px 3px rgba(20, 20, 19, 0.04);
   --color-card-shadow-hover:  0 4px 12px rgba(20, 20, 19, 0.06);
 
+  /* ── 深度体系（唯一阴影来源，禁止组件内硬编码 rgba 阴影）── */
+  --shadow-sm:  0 2px 8px rgba(20, 20, 19, 0.08);    /* hover 浮起、小弹层 */
+  --shadow-md:  0 8px 24px rgba(20, 20, 19, 0.12);   /* 下拉、popover */
+  --shadow-lg:  0 16px 48px rgba(20, 20, 19, 0.16);  /* 模态、sheet */
+
   /* ── 字体 ── */
   --font-family: 'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', 'IBM Plex Mono', 'Cascadia Code', monospace;
@@ -74,6 +79,9 @@
   /* ── 过渡 — 只允许 color/background/border-color/opacity 有 transition ── */
   --transition-fast: 150ms ease;
   --transition-normal: 200ms ease;
+  /* 全局动效节奏：进场 180ms ease-out / 退场 120ms ease-in（Linear/Craft 口径） */
+  --motion-enter: 180ms cubic-bezier(0, 0, 0.2, 1);
+  --motion-exit:  120ms cubic-bezier(0.4, 0, 1, 1);
 
   /* ── 字距 ── */
   --tracking-tight:  -0.02em;
@@ -87,7 +95,18 @@
   --filter-row-h: 30px;        /* 过滤器行高度 */
   --section-header-h: 26px;    /* 分组 header 高度 */
   --todo-row-h: 34px;          /* 任务行高度 */
+
+  /* ── 安全区（刘海/灵动岛/手势条）── 桌面恒为 0，移动端由系统注入 ── */
+  --safe-top:    env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left:   env(safe-area-inset-left, 0px);
+  --safe-right:  env(safe-area-inset-right, 0px);
+
+  /* 让原生表单控件（日期/时间选择器、滚动条）跟随浅色主题 */
+  color-scheme: light;
 }
+
+[data-theme='dark'] { color-scheme: dark; }
 
 /* ═══════════════════════════════════════════════════════════
    深色模式 — 暖调近黑
@@ -121,6 +140,10 @@
 
   --color-card-shadow:        0 1px 3px rgba(0, 0, 0, 0.2);
   --color-card-shadow-hover:  0 4px 12px rgba(0, 0, 0, 0.3);
+
+  --shadow-sm:  0 2px 8px rgba(0, 0, 0, 0.28);
+  --shadow-md:  0 8px 24px rgba(0, 0, 0, 0.38);
+  --shadow-lg:  0 16px 48px rgba(0, 0, 0, 0.5);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -138,6 +161,20 @@ html, body, #root {
   overflow: hidden;
 }
 
+/* App 外壳：用 dvh 取代 vh，避免移动端浏览器地址栏伸缩导致的高度跳动/截断 */
+.app-shell {
+  height: 100vh;       /* 老浏览器回退 */
+  height: 100dvh;      /* 动态视口高度 */
+  /* 横向安全区（横屏刘海）内缩，竖向安全区交由 header/底部各自处理 */
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
+}
+
+/* 顶栏吃掉顶部安全区，背景延伸到刘海下 */
+.safe-pad-top { padding-top: var(--safe-top); }
+/* 底部元素吃掉手势条安全区 */
+.safe-pad-bottom { padding-bottom: var(--safe-bottom); }
+
 body {
   font-family: var(--font-family);
   background-color: var(--color-bg-primary);
@@ -154,6 +191,25 @@ body {
 ::-webkit-scrollbar-thumb:hover { background: var(--color-text-tertiary); }
 .scroll-visible:hover::-webkit-scrollbar-thumb,
 .scroll-visible:focus-within::-webkit-scrollbar-thumb { background: var(--color-border); }
+
+/* ── Todo 行完成 flash — CSS keyframes，避免 JS 内联 bg 覆盖 hover ── */
+@keyframes todo-flash {
+  0%   { background-color: transparent; }
+  30%  { background-color: var(--color-accent-light); }
+  100% { background-color: transparent; }
+}
+.todo-flash { animation: todo-flash 600ms ease-out; }
+
+/* ── Todo 行 hover 质感 — 仅真实悬停设备（桌面鼠标），触屏不闪烁 ── */
+@media (hover: hover) and (pointer: fine) {
+  .todo-row {
+    transition: background-color var(--motion-enter), box-shadow var(--motion-enter);
+  }
+  .todo-row:hover {
+    background-color: var(--color-bg-secondary);
+    box-shadow: var(--shadow-sm);
+  }
+}
 
 /* tools-panel 内容区专用细滚动条 */
 .tools-scroll::-webkit-scrollbar { width: 3px; }
@@ -181,6 +237,33 @@ body {
   .add-btn-text { display: none; }
   .add-btn-icon-only { display: inline-flex; }
   .deadline-label { font-size: 10px; max-width: 60px; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   触控适配 — 手指为主输入设备（手机/平板）
+   桌面鼠标（pointer: fine）不受影响，保持紧凑信息密度。
+   ═══════════════════════════════════════════════════════════ */
+@media (pointer: coarse) {
+  /* 行内操作在触屏常驻显示（无 hover 概念）：由组件读取 useIsTouch 控制，
+     此处兜底保证已渲染的操作区可点目标足够大 */
+  .touch-target,
+  button.touch-target {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  /* 主待办行加高，留足点击区 */
+  :root { --todo-row-h: 48px; --input-row-h: 46px; --header-h: 52px; --filter-row-h: 40px; }
+  /* 触屏隐藏纤细滚动条的 hover 依赖，改为常显细条 */
+  .tools-scroll::-webkit-scrollbar-thumb,
+  .scroll-visible::-webkit-scrollbar-thumb { background: var(--color-border); }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   手机竖屏 ≤600px — 全宽布局、模态转底部 sheet（由组件配合 useIsPhone）
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 600px) {
+  :root { --pad-x: 16px; }
+  /* 居中模态在手机上转为贴边全宽，由组件追加 .sheet-mobile 类驱动具体形态 */
 }
 
 /* SM 标准 520–720px：默认，所有值完整 */
@@ -217,4 +300,14 @@ body {
   --clay-light: rgba(106, 155, 204, 0.12);
   --color-accent:       #6a9bcc;
   --color-accent-hover: #4e7fa8;
-  --col
+  --color-accent-light: rgba(106, 155, 204, 0.12);
+}
+
+[data-accent='fig'] {
+  --clay:       #c46686;
+  --clay-hover: #a84e6c;
+  --clay-light: rgba(196, 102, 134, 0.12);
+  --color-accent:       #c46686;
+  --color-accent-hover: #a84e6c;
+  --color-accent-light: rgba(196, 102, 134, 0.12);
+}
