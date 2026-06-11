@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useFocusStore, focusDurationFor } from '../store/focusStore';
 import { useTodoStore } from '../store/todoStore';
 import { useOverlayStore } from '../store/overlayStore';
+import '@fontsource/dm-mono/300.css';
+import '@fontsource/dm-mono/400.css';
 
 /**
  * FocusLockScreen — 专注锁屏 overlay
@@ -111,7 +113,7 @@ export default function FocusLockScreen() {
       {/* Corner clock */}
       <div style={{
         position: 'absolute', top: 32, right: 40,
-        fontFamily: "'Inter Variable', Inter, monospace",
+        fontFamily: "'DM Mono', 'Cascadia Code', monospace",
         fontSize: 13, color: 'rgba(255,255,255,0.22)', letterSpacing: '0.1em',
       }}>
         {clockStr}
@@ -120,7 +122,7 @@ export default function FocusLockScreen() {
       {/* Progress % top-left */}
       <div style={{
         position: 'absolute', top: 32, left: 40,
-        fontFamily: "'Inter Variable', Inter, monospace",
+        fontFamily: "'DM Mono', 'Cascadia Code', monospace",
         fontSize: 11, color: 'rgba(255,255,255,0.15)', letterSpacing: '0.12em',
       }}>
         {progressPct}%
@@ -201,7 +203,7 @@ export default function FocusLockScreen() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.15 }}
             style={{
-              fontFamily: "'Inter Variable', Inter, monospace",
+              fontFamily: "'DM Mono', 'Cascadia Code', monospace",
               fontSize: 80,
               fontWeight: 300,
               color: '#FDFAF7',

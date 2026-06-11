@@ -164,5 +164,19 @@
     "focusTitle": "专注时长（近7天）",
     "habitTitle": "习惯热力图（近5周）",
     "statsTitle": "数据速览"
+  },
+  "achievement": {
+    "title": "今日成就",
+    "statTodos": "任务完成",
+    "statFocus": "专注时长",
+    "statHabits": "习惯打卡",
+    "unitItems": "项",
+    "unitMinutes": "分钟",
+    "button": "收下成就",
+    "motivation0": "今天的你，超越了昨天的自己。",
+    "motivation1": "一步一个脚印，持续积累的力量。",
+    "motivation2": "每一个完成都是对自己承诺的兑现。",
+    "motivation3": "专注，是送给自己最好的礼物。",
+    "motivation4": "今天的坚持，是明天的底气。"
   }
 }

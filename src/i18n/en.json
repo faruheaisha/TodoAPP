@@ -164,5 +164,19 @@
     "focusTitle": "Focus Time (Last 7 Days)",
     "habitTitle": "Habit Heatmap (Last 5 Weeks)",
     "statsTitle": "Quick Stats"
+  },
+  "achievement": {
+    "title": "Today's Review",
+    "statTodos": "Todos done",
+    "statFocus": "Focus time",
+    "statHabits": "Habits",
+    "unitItems": "items",
+    "unitMinutes": "min",
+    "button": "Done for today",
+    "motivation0": "Today you went beyond yesterday's self.",
+    "motivation1": "One step at a time — that's how momentum builds.",
+    "motivation2": "Every completion is a promise kept to yourself.",
+    "motivation3": "Focus is the best gift you give yourself.",
+    "motivation4": "Today's persistence is tomorrow's confidence."
   }
 }

@@ -4,6 +4,7 @@ import { useTodoStore } from '../store/todoStore';
 import { useRecurrenceStore, RECURRENCE_OPTIONS, type RecurrenceType } from '../store/recurrenceStore';
 import { useTagStore, TAG_PALETTE } from '../store/tagStore';
 import { TagChip } from './TagChip';
+import DatePicker from './DatePicker';
 import { parseNLP } from '../lib/nlpDate';
 import { useIsTouch } from '../lib/responsive';
 import { Plus, Calendar, Repeat, Sparkles, Sun, Briefcase, CalendarDays, CalendarRange } from 'lucide-react';
@@ -28,12 +29,12 @@ export default function AddTodoBar() {
   const [title, setTitle] = useState('');
   const [todoType, setTodoType] = useState<'quick' | 'longterm'>('quick');
   const [deadline, setDeadline] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [recurrence, setRecurrence] = useState<RecurrenceType | ''>('');
   const [showRecurrencePicker, setShowRecurrencePicker] = useState(false);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [newTagName, setNewTagName] = useState('');
-  const deadlineInputRef = useRef<HTMLInputElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
   // EmptyState 的引导按钮触发：聚焦标题输入框
@@ -97,6 +98,7 @@ export default function AddTodoBar() {
     setSelectedTagIds([]);
     setShowRecurrencePicker(false);
     setShowTagPicker(false);
+    setShowDatePicker(false);
     setNlpHint(null);
     setNlpDeadline(null);
   }, [title, todoType, deadline, recurrence, selectedTagIds, nlpDeadline, addTodo, setRule, addTagToTodo]);
@@ -217,7 +219,7 @@ export default function AddTodoBar() {
       {todoType === 'longterm' && (
         <div className="mt-1.5" style={{ position: 'relative' }}>
           <div
-            onClick={() => deadlineInputRef.current?.showPicker?.()}
+            onClick={() => { setShowDatePicker((v) => !v); setShowRecurrencePicker(false); setShowTagPicker(false); }}
             className="flex items-center cursor-pointer transition-colors"
             style={{
               height: isTouch ? '40px' : '28px', padding: '0 10px', borderRadius: '5px',
@@ -230,7 +232,7 @@ export default function AddTodoBar() {
             <Calendar size={12} style={{ color: deadline ? 'var(--clay)' : 'var(--color-text-tertiary)', flexShrink: 0 }} />
             <span className="text-xs flex-1" style={{ color: deadline ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)' }}>
               {deadline
-                ? new Date(deadline).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                ? new Date(deadline).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
                 : t('app.deadline')}
             </span>
             {deadline && (
@@ -241,11 +243,16 @@ export default function AddTodoBar() {
               >×</button>
             )}
           </div>
-          <input ref={deadlineInputRef} type="datetime-local" value={deadline}
-            onChange={(e) => setDeadline(e.target.value)}
-            style={{ position: 'absolute', top: 0, left: 0, width: 0, height: 0, opacity: 0, pointerEvents: 'none', border: 'none' }}
-            tabIndex={-1}
-          />
+          <AnimatePresence>
+            {showDatePicker && (
+              <DatePicker
+                value={deadline}
+                onChange={setDeadline}
+                onClose={() => setShowDatePicker(false)}
+                lang={lang}
+              />
+            )}
+          </AnimatePresence>
         </div>
       )}
 

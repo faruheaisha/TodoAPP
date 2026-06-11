@@ -1,6 +1,9 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useOverlayStore } from '../store/overlayStore';
+// 等宽数字字体 — 随懒加载 chunk 按需加载，数字宽度均一、翻牌不抖动
+import '@fontsource/dm-mono/300.css';
+import '@fontsource/dm-mono/400.css';
 
 /**
  * ClockScreen — 时间流动屏保
@@ -59,6 +62,9 @@ function Digit({ val }: { val: string }) {
       width: SZ * 0.58,
       height: SZ * 1.08,
       overflow: 'hidden',
+      willChange: 'transform',
+      backfaceVisibility: 'hidden',
+      transform: 'translateZ(0)',
       display: 'inline-flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -72,7 +78,7 @@ function Digit({ val }: { val: string }) {
           transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
           style={{
             position: 'absolute',
-            fontFamily: "'Inter Variable', Inter, monospace",
+            fontFamily: "'DM Mono', 'Cascadia Code', monospace",
             fontSize: SZ,
             fontWeight: 300,
             color: '#EDE8DC',
@@ -91,7 +97,7 @@ function Digit({ val }: { val: string }) {
 function Colon() {
   return (
     <span style={{
-      fontFamily: "'Inter Variable', Inter, monospace",
+      fontFamily: "'DM Mono', 'Cascadia Code', monospace",
       fontSize: SZ * 0.65,
       fontWeight: 100,
       color: 'rgba(255,255,255,0.50)',
