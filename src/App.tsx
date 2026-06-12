@@ -20,6 +20,7 @@ const DailyAchievementModal = lazy(() =>
 );
 // AI 生态入口（aiEnabled 才挂载，保持纯本地模式零开销）
 const PetWidget = lazy(() => import('./components/pet/PetWidget'));
+const ChatPanel = lazy(() => import('./components/chat/ChatPanel'));
 import { TagChip } from './components/TagChip';
 import { initDB, loadTodos } from './lib/tauri';
 
@@ -376,8 +377,9 @@ function App() {
         <SettingsDrawer />
         <ToolsPanel />
         <DailyAchievementModal />
-        {/* AI 生态：Asha 宠物（aiEnabled 才挂载；聊天面板在 ChatPanel 接入） */}
+        {/* AI 生态：Asha 宠物 + 聊天面板（aiEnabled 才挂载） */}
         {aiEnabled && <PetWidget />}
+        {aiEnabled && <ChatPanel />}
         {/* Full-screen overlays */}
         {focusLock && <FocusLockScreen />}
         {clock && <ClockScreen />}

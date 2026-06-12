@@ -33,8 +33,11 @@ interface ChatState {
   activeSessionId: string | null;
   isOpen: boolean;
   hasUnread: boolean;
+  /** Asha 正在思考/生成（运行态，宠物表情联动） */
+  assistantBusy: boolean;
 
   setIsOpen: (open: boolean) => void;
+  setAssistantBusy: (busy: boolean) => void;
   newSession: (mode?: ChatMode) => string;
   switchSession: (id: string) => void;
   deleteSession: (id: string) => void;
@@ -52,8 +55,10 @@ export const useChatStore = create<ChatState>()(
       activeSessionId: null,
       isOpen: false,
       hasUnread: false,
+      assistantBusy: false,
 
       setIsOpen: (isOpen) => set({ isOpen, ...(isOpen ? { hasUnread: false } : null) }),
+      setAssistantBusy: (assistantBusy) => set({ assistantBusy }),
 
       newSession: (mode = 'chat') => {
         const id = crypto.randomUUID();

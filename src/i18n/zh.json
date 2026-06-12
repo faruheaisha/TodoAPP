@@ -161,6 +161,25 @@
     "getKey": "获取 Key",
     "privacyNote": "隐私说明：API Key 与对话内容仅保存在本机，请求直接发送至你选择的厂商，不经任何中转服务器。可访问域名由系统白名单严格限定。"
   },
+  "chat": {
+    "greeting": "你好，我是 Asha（阿夏）🐾 一只住在 TodoApp 里的小雪豹。问我怎么用这个应用，或者切到 cowork 模式，我可以帮你整理任务。",
+    "newChat": "新对话",
+    "untitled": "未命名对话",
+    "modeChat": "聊天",
+    "modeCowork": "协作",
+    "modeChatHint": "纯对话模式，不会读取或修改你的任务",
+    "modeCoworkHint": "协作模式：Asha 可查看/创建任务、添加子任务、调优先级，写操作需你确认",
+    "placeholder": "和 Asha 聊聊…（Enter 发送，Shift+Enter 换行）",
+    "placeholderCowork": "让 Asha 帮你整理任务…（写操作会先征求确认）",
+    "thinking": "Asha 正在思考…",
+    "confirmTitle": "Asha 想执行以下操作，是否允许？",
+    "approve": "允许",
+    "decline": "拒绝",
+    "send": "发送",
+    "stop": "停止生成",
+    "noProvider": "还没有可用的模型。去 设置 → AI 实验室 配置任一厂商的 API Key。",
+    "noProviderShort": "未配置模型"
+  },
   "breakdown": {
     "title": "AI 拆解任务",
     "thinking": "Asha 正在思考…",

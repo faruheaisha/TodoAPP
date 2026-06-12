@@ -24,12 +24,18 @@ function loadPos(): { x: number; y: number } {
 }
 
 export default function PetWidget() {
-  const { isOpen, setIsOpen, hasUnread } = useChatStore();
+  const { isOpen, setIsOpen, hasUnread, assistantBusy } = useChatStore();
   const [hovered, setHovered] = useState(false);
   const [dragging, setDragging] = useState(false);
   const posRef = useRef(loadPos());
 
-  const state: AshaState = dragging ? 'dragging' : hovered ? 'hover' : 'idle';
+  const state: AshaState = dragging
+    ? 'dragging'
+    : assistantBusy
+      ? 'thinking'
+      : hovered
+        ? 'hover'
+        : 'idle';
 
   return (
     <motion.div

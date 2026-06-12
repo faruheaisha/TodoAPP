@@ -161,6 +161,25 @@
     "getKey": "Get a key",
     "privacyNote": "Privacy: your API keys and conversations never leave this device except going directly to the provider you choose. Reachable domains are strictly allow-listed."
   },
+  "chat": {
+    "greeting": "Hi, I'm Asha 🐾 — a little snow leopard living inside TodoApp. Ask me anything about the app, or switch to cowork mode and I'll help organize your tasks.",
+    "newChat": "New chat",
+    "untitled": "Untitled",
+    "modeChat": "Chat",
+    "modeCowork": "Cowork",
+    "modeChatHint": "Conversation only — never reads or touches your tasks",
+    "modeCoworkHint": "Cowork: Asha can list/create todos, add subtasks, set priority. Writes need your approval",
+    "placeholder": "Talk to Asha… (Enter to send, Shift+Enter for newline)",
+    "placeholderCowork": "Ask Asha to organize your tasks… (writes need approval)",
+    "thinking": "Asha is thinking…",
+    "confirmTitle": "Asha wants to perform these actions. Allow?",
+    "approve": "Allow",
+    "decline": "Decline",
+    "send": "Send",
+    "stop": "Stop",
+    "noProvider": "No model configured. Go to Settings → AI Lab and add any provider's API key.",
+    "noProviderShort": "No model"
+  },
   "breakdown": {
     "title": "AI Breakdown",
     "thinking": "Asha is thinking…",
