@@ -17,6 +17,7 @@ tauri-plugin-autostart = "2.3"
 tauri-plugin-dialog = "2.2"
 tauri-plugin-fs = "2.2"
 tauri-plugin-global-shortcut = "2.2"
+tauri-plugin-http = "2"
 tauri-plugin-notification = "2.2"
 tauri-plugin-sql = { version = "2.3", features = ["sqlite"] }
 tauri-plugin-store = "2.2"
