@@ -1,13 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, RotateCcw, Coffee, BrainCircuit, Moon, Link2, Lock, Clock } from 'lucide-react';
+import { Play, Pause, RotateCcw, Coffee, BrainCircuit, Moon, Link2, Lock, Clock, AudioLines } from 'lucide-react';
 import {
   useFocusStore,
   type FocusMode,
   focusDurationFor,
 } from '../../store/focusStore';
 import { useTodoStore } from '../../store/todoStore';
+import { useToolsPanelStore } from '../../store/toolsStore';
 import { TodoCombobox } from '../TodoCombobox';
 import { useOverlayStore } from '../../store/overlayStore';
 import { useToast } from '../Toast';
@@ -62,6 +63,7 @@ export function PomodoroTool() {
   const activeTodos = todos.filter((todo) => !todo.completed);
   const linkedTodo = activeTodos.find((todo) => todo.id === linkedTodoId) ?? null;
   const { openFocusLock, openClock } = useOverlayStore();
+  const setActiveTool = useToolsPanelStore((s) => s.setActiveTool);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -324,6 +326,26 @@ export function PomodoroTool() {
         >
           <Clock size={12} />
           {t('pomodoro.clockScreen')}
+        </button>
+        {/* 音景快捷入口 */}
+        <button
+          onClick={() => setActiveTool('soundscape')}
+          className="flex items-center flex-1 transition-all cursor-pointer"
+          style={{
+            gap: '6px',
+            padding: '8px 12px',
+            borderRadius: '8px',
+            border: '1px solid var(--color-border)',
+            backgroundColor: 'transparent',
+            color: 'var(--color-text-secondary)',
+            fontSize: '11px',
+            fontWeight: 500,
+            justifyContent: 'center',
+          }}
+          title={t('tools.soundscape')}
+        >
+          <AudioLines size={12} />
+          {t('tools.soundscape')}
         </button>
       </div>
 

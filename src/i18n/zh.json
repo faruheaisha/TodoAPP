@@ -141,7 +141,15 @@
     "insights": "数据洞察",
     "timer": "计时器",
     "notes": "笔记",
-    "matrix": "四象限"
+    "matrix": "四象限",
+    "soundscape": "音景"
+  },
+  "soundscape": {
+    "master": "主音量",
+    "stopAll": "全部停止",
+    "missing": "未安装",
+    "missingHint": "部分音景文件尚未安装。在项目目录运行下方命令，按提示从 Pixabay 挑选下载（许可证允许商业打包）：",
+    "licenseNote": "内置音景均来自 Pixabay License / CC0 资源，允许商业使用，详见 sounds/LICENSES.md"
   },
   "habits": {
     "subtitle": "最近 7 天",

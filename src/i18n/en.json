@@ -141,7 +141,15 @@
     "insights": "Insights",
     "timer": "Timers",
     "notes": "Notes",
-    "matrix": "Matrix"
+    "matrix": "Matrix",
+    "soundscape": "Sounds"
+  },
+  "soundscape": {
+    "master": "Master volume",
+    "stopAll": "Stop all",
+    "missing": "Not installed",
+    "missingHint": "Some sound files are not installed yet. Run the command below and follow the prompts to pick sounds from Pixabay (license allows commercial bundling):",
+    "licenseNote": "Built-in soundscapes are Pixabay License / CC0 resources, commercial use allowed. See sounds/LICENSES.md"
   },
   "habits": {
     "subtitle": "Last 7 Days",
