@@ -1,24 +1,18 @@
 /**
- * InsightsTool — 数据洞察面板
+ * InsightsTool — 数据洞察面板 v2
  *
- * 设计理念：
- *  - 纯 SVG 图表，零外部依赖，bundle 不增大
- *  - 数据全部来自已有 store，无新网络请求
- *
- * 参考开源项目：
- *  - GitHub Contribution Graph (全球最知名热力图 UX pattern)
- *  - Obsidian Stats Plugin (⭐4.2k, Trikzon/obsidian-graphs): 紧凑嵌入式数据可视化
- *  - Habitify: 每日习惯完成率柱状图样式
+ * 改进：
+ *  - CompletionTrendChart: 新增 Y 轴网格线/标签 + X 轴日期标签
+ *  - HabitHeatmap: 修复图例被截断问题
  */
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Flame, Clock, CheckCircle2, Target, TrendingUp } from 'lucide-react';
 import { useFocusStore } from '../../store/focusStore';
-import { useHabitStore, toDateKey, calcStreak, HABIT_COLORS } from '../../store/habitStore';
+import { useHabitStore, toDateKey, calcStreak } from '../../store/habitStore';
 import { useTodoStore } from '../../store/todoStore';
 import { useCompletionStore } from '../../store/completionStore';
 
-// ─── 工具函数 ─────────────────────────────────────────────────────────────────
 function dateKey(offsetDays: number): string {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
@@ -50,53 +44,93 @@ function CompletionTrendChart({ lang }: { lang: string }) {
   const max = Math.max(...data.map((d) => d.count), 1);
   const total = data.reduce((a, d) => a + d.count, 0);
 
-  // 几何布局（viewBox 坐标，宽度由 CSS 100% 自适应）
-  const W = 280, H = 72, padX = 5, padTop = 8, padBottom = 6;
-  const innerW = W - padX * 2;
+  const W = 300, H = 100;
+  const padLeft = 28, padRight = 6, padTop = 12, padBottom = 20;
+  const innerW = W - padLeft - padRight;
   const innerH = H - padTop - padBottom;
+  const chartBottom = padTop + innerH;
+
   const pts = data.map((d, i) => {
-    const x = padX + (innerW * i) / (DAYS - 1);
+    const x = padLeft + (innerW * i) / (DAYS - 1);
     const y = padTop + innerH * (1 - d.count / max);
     return { x, y, ...d };
   });
-  const baseline = padTop + innerH;
-  const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
-  const area = `${line} L${pts[pts.length - 1].x.toFixed(1)} ${baseline} L${pts[0].x.toFixed(1)} ${baseline} Z`;
+  const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
+  const area = `${line} L${pts[pts.length - 1].x.toFixed(1)} ${chartBottom} L${pts[0].x.toFixed(1)} ${chartBottom} Z`;
+
+  const yTicks = [0, Math.ceil(max / 2), max];
+  const xLabelIdxs = [0, 6, 13];
+  const fmtDate = (key: string) => {
+    const d = new Date(key + "T12:00:00");
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+  };
 
   return (
-    <div style={{ marginBottom: '20px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <TrendingUp size={12} style={{ color: 'var(--color-accent)' }} />
-          <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--color-text-primary)' }}>
-            {t('insights.trendTitle')}
+    <div style={{ marginBottom: "20px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <TrendingUp size={12} style={{ color: "var(--color-accent)" }} />
+          <span style={{ fontSize: "11px", fontWeight: 500, color: "var(--color-text-primary)" }}>
+            {t("insights.trendTitle")}
           </span>
         </div>
-        <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>
-          {lang === 'zh' ? `共 ${total} 项` : `${total} done`}
+        <span style={{ fontSize: "11px", color: "var(--color-text-tertiary)" }}>
+          {lang === "zh" ? `共 ${total} 项` : `${total} done`}
         </span>
       </div>
 
       {total === 0 ? (
-        <p style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>
-          {lang === 'zh' ? '近两周还没有完成记录，完成一个任务就能看到趋势。' : 'No completions in the last 14 days yet.'}
+        <p style={{ fontSize: "11px", color: "var(--color-text-tertiary)" }}>
+          {lang === "zh" ? "近两周还没有完成记录，完成一个任务就能看到趋势。" : "No completions in the last 14 days yet."}
         </p>
       ) : (
-        <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" style={{ display: 'block', overflow: 'visible' }}>
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" style={{ display: "block", overflow: "visible" }}>
           <defs>
             <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.22" />
+              <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.20" />
               <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0" />
             </linearGradient>
           </defs>
+
+          {/* Y 轴网格线 + 标签 */}
+          {yTicks.map((tick) => {
+            const gy = padTop + innerH * (1 - tick / max);
+            return (
+              <g key={tick}>
+                <line
+                  x1={padLeft} y1={gy} x2={padLeft + innerW} y2={gy}
+                  stroke="var(--color-border)" strokeWidth="0.5" vectorEffect="non-scaling-stroke"
+                />
+                <text
+                  x={padLeft - 4} y={gy + 3.5}
+                  textAnchor="end" fontSize="7.5"
+                  fill="var(--color-text-tertiary)"
+                  vectorEffect="non-scaling-stroke"
+                >
+                  {tick}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* Y 轴竖线 */}
+          <line
+            x1={padLeft} y1={padTop} x2={padLeft} y2={chartBottom}
+            stroke="var(--color-border)" strokeWidth="0.5" vectorEffect="non-scaling-stroke"
+          />
+
+          {/* 面积填充 + 折线 */}
           <path d={area} fill="url(#trendFill)" />
-          <path d={line} fill="none" stroke="var(--color-accent)" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+          <path d={line} fill="none" stroke="var(--color-accent)" strokeWidth="1.5"
+            strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+
+          {/* 数据点 */}
           {pts.map((p, i) => (
             <circle
               key={p.key}
               cx={p.x} cy={p.y}
               r={i === DAYS - 1 ? 3 : (p.count > 0 ? 1.8 : 0)}
-              fill={i === DAYS - 1 ? 'var(--color-accent)' : 'var(--color-bg-secondary)'}
+              fill={i === DAYS - 1 ? "var(--color-accent)" : "var(--color-bg-secondary)"}
               stroke="var(--color-accent)"
               strokeWidth={p.count > 0 || i === DAYS - 1 ? 1.2 : 0}
               vectorEffect="non-scaling-stroke"
@@ -104,6 +138,23 @@ function CompletionTrendChart({ lang }: { lang: string }) {
               <title>{`${p.key}: ${p.count}`}</title>
             </circle>
           ))}
+
+          {/* X 轴日期标签 */}
+          {xLabelIdxs.map((idx) => {
+            const p = pts[idx];
+            const anchor = idx === 0 ? "start" : idx === DAYS - 1 ? "end" : "middle";
+            return (
+              <text
+                key={p.key}
+                x={p.x} y={chartBottom + 13}
+                textAnchor={anchor} fontSize="7.5"
+                fill="var(--color-text-tertiary)"
+                vectorEffect="non-scaling-stroke"
+              >
+                {fmtDate(p.key)}
+              </text>
+            );
+          })}
         </svg>
       )}
     </div>
@@ -114,9 +165,8 @@ function CompletionTrendChart({ lang }: { lang: string }) {
 function FocusBarChart({ lang }: { lang: string }) {
   const { t } = useTranslation();
   const { sessionLog, settings } = useFocusStore();
-  const locale = lang === 'zh' ? 'zh-CN' : 'en-US';
+  const locale = lang === "zh" ? "zh-CN" : "en-US";
 
-  // 按日聚合最近7天
   const days = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => {
       const key = dateKey(i - 6);
@@ -137,22 +187,20 @@ function FocusBarChart({ lang }: { lang: string }) {
   const SVG_W = 7 * (BAR_W + GAP) - GAP;
 
   return (
-    <div style={{ marginBottom: '20px' }}>
-      {/* 区块标题 */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Clock size={12} style={{ color: 'var(--color-accent)' }} />
-          <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--color-text-primary)' }}>
-            {t('insights.focusTitle')}
+    <div style={{ marginBottom: "20px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <Clock size={12} style={{ color: "var(--color-accent)" }} />
+          <span style={{ fontSize: "11px", fontWeight: 500, color: "var(--color-text-primary)" }}>
+            {t("insights.focusTitle")}
           </span>
         </div>
-        <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>
-          {lang === 'zh' ? `本周 ${totalH}h` : `This week ${totalH}h`}
+        <span style={{ fontSize: "11px", color: "var(--color-text-tertiary)" }}>
+          {lang === "zh" ? `本周 ${totalH}h` : `This week ${totalH}h`}
         </span>
       </div>
 
-      {/* SVG 柱状图 */}
-      <svg width={SVG_W} height={BAR_H + 18} style={{ display: 'block', overflow: 'visible' }}>
+      <svg width={SVG_W} height={BAR_H + 18} style={{ display: "block", overflow: "visible" }}>
         {days.map((d, i) => {
           const x = i * (BAR_W + GAP);
           const barH = d.mins > 0 ? Math.max(4, (d.mins / maxMins) * BAR_H) : 2;
@@ -160,38 +208,20 @@ function FocusBarChart({ lang }: { lang: string }) {
           const isToday = i === 6;
           return (
             <g key={d.key}>
-              {/* 空心底座（灰色背景） */}
-              <rect
-                x={x} y={0} width={BAR_W} height={BAR_H}
-                rx={4}
-                fill="var(--color-bg-tertiary)"
-              />
-              {/* 实心进度条 */}
+              <rect x={x} y={0} width={BAR_W} height={BAR_H} rx={4} fill="var(--color-bg-tertiary)" />
               {d.mins > 0 && (
-                <rect
-                  x={x} y={y} width={BAR_W} height={barH}
-                  rx={4}
-                  fill={isToday ? 'var(--color-accent)' : 'var(--color-accent)'}
-                  opacity={isToday ? 1 : 0.55}
-                />
+                <rect x={x} y={y} width={BAR_W} height={barH} rx={4}
+                  fill="var(--color-accent)" opacity={isToday ? 1 : 0.55} />
               )}
-              {/* 分钟标签（有数据时显示） */}
               {d.mins > 0 && (
-                <text
-                  x={x + BAR_W / 2} y={y - 3}
-                  textAnchor="middle"
-                  fontSize="8"
-                  fill="var(--color-text-tertiary)"
-                >
+                <text x={x + BAR_W / 2} y={y - 3} textAnchor="middle" fontSize="8" fill="var(--color-text-tertiary)">
                   {d.mins >= 60 ? `${(d.mins/60).toFixed(1)}h` : `${d.mins}m`}
                 </text>
               )}
-              {/* 星期标签 */}
               <text
                 x={x + BAR_W / 2} y={BAR_H + 14}
-                textAnchor="middle"
-                fontSize="8"
-                fill={isToday ? 'var(--color-accent)' : 'var(--color-text-tertiary)'}
+                textAnchor="middle" fontSize="8"
+                fill={isToday ? "var(--color-accent)" : "var(--color-text-tertiary)"}
                 fontWeight={isToday ? 600 : 400}
               >
                 {shortWeekday(d.key, locale)}
@@ -201,10 +231,9 @@ function FocusBarChart({ lang }: { lang: string }) {
         })}
       </svg>
 
-      {/* 无数据提示 */}
       {totalMins === 0 && (
-        <p style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', marginTop: '4px' }}>
-          {lang === 'zh' ? '本周还没有专注记录，开始第一个番茄钟吧 🍅' : 'No focus sessions yet. Start your first Pomodoro! 🍅'}
+        <p style={{ fontSize: "11px", color: "var(--color-text-tertiary)", marginTop: "4px" }}>
+          {lang === "zh" ? "本周还没有专注记录，开始第一个番茄钟吧 🍅" : "No focus sessions yet. Start your first Pomodoro! 🍅"}
         </p>
       )}
     </div>
@@ -216,7 +245,6 @@ function HabitHeatmap({ lang }: { lang: string }) {
   const { t } = useTranslation();
   const { habits } = useHabitStore();
 
-  // 最近 5 周 × 7 天 = 35 格
   const WEEKS = 5;
   const CELL  = 11;
   const GAP   = 3;
@@ -231,7 +259,6 @@ function HabitHeatmap({ lang }: { lang: string }) {
 
   const maxCount = Math.max(...grid.map(g => g.count), 1);
 
-  // 最长连续天数（所有习惯中最高）
   const topStreak = useMemo(() => {
     if (!habits.length) return 0;
     return Math.max(...habits.map(h => calcStreak(new Set(h.checkIns))));
@@ -239,41 +266,40 @@ function HabitHeatmap({ lang }: { lang: string }) {
 
   if (!habits.length) {
     return (
-      <div style={{ marginBottom: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-          <Flame size={12} style={{ color: '#f59e0b' }} />
-          <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--color-text-primary)' }}>
-            {t('insights.habitTitle')}
+      <div style={{ marginBottom: "20px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
+          <Flame size={12} style={{ color: "#f59e0b" }} />
+          <span style={{ fontSize: "11px", fontWeight: 500, color: "var(--color-text-primary)" }}>
+            {t("insights.habitTitle")}
           </span>
         </div>
-        <p style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>
-          {lang === 'zh' ? '还没有习惯，去习惯打卡添加第一个吧' : 'No habits yet. Add one in the Habits tab!'}
+        <p style={{ fontSize: "11px", color: "var(--color-text-tertiary)" }}>
+          {lang === "zh" ? "还没有习惯，去习惯打卡添加第一个吧" : "No habits yet. Add one in the Habits tab!"}
         </p>
       </div>
     );
   }
 
   return (
-    <div style={{ marginBottom: '20px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Flame size={12} style={{ color: '#f59e0b' }} />
-          <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--color-text-primary)' }}>
-            {t('insights.habitTitle')}
+    <div style={{ paddingBottom: "8px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <Flame size={12} style={{ color: "#f59e0b" }} />
+          <span style={{ fontSize: "11px", fontWeight: 500, color: "var(--color-text-primary)" }}>
+            {t("insights.habitTitle")}
           </span>
         </div>
         {topStreak > 0 && (
-          <span style={{ fontSize: '11px', color: '#f59e0b' }}>
-            🔥 {lang === 'zh' ? `最长 ${topStreak} 天` : `Best ${topStreak}d streak`}
+          <span style={{ fontSize: "11px", color: "#f59e0b" }}>
+            🔥 {lang === "zh" ? `最长 ${topStreak} 天` : `Best ${topStreak}d streak`}
           </span>
         )}
       </div>
 
-      {/* 热力格 */}
       <svg
         width={WEEKS * (CELL + GAP) - GAP}
         height={7 * (CELL + GAP) - GAP}
-        style={{ display: 'block' }}
+        style={{ display: "block", overflow: "visible" }}
       >
         {grid.map((cell, idx) => {
           const col = Math.floor(idx / 7);
@@ -288,32 +314,32 @@ function HabitHeatmap({ lang }: { lang: string }) {
               x={x} y={y}
               width={CELL} height={CELL}
               rx={2}
-              fill={cell.count > 0 ? 'var(--color-accent)' : 'var(--color-bg-tertiary)'}
+              fill={cell.count > 0 ? "var(--color-accent)" : "var(--color-bg-tertiary)"}
               opacity={cell.count > 0 ? opacity : 1}
-              stroke={isToday ? 'var(--color-accent)' : 'none'}
+              stroke={isToday ? "var(--color-accent)" : "none"}
               strokeWidth={isToday ? 1.5 : 0}
             >
-              <title>{`${cell.key}: ${cell.count} habit${cell.count !== 1 ? 's' : ''}`}</title>
+              <title>{`${cell.key}: ${cell.count} habit${cell.count !== 1 ? "s" : ""}`}</title>
             </rect>
           );
         })}
       </svg>
 
       {/* 图例 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '6px' }}>
-        <span style={{ fontSize: '9px', color: 'var(--color-text-tertiary)' }}>
-          {lang === 'zh' ? '少' : 'Less'}
+      <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "8px" }}>
+        <span style={{ fontSize: "9px", color: "var(--color-text-tertiary)" }}>
+          {lang === "zh" ? "少" : "Less"}
         </span>
         {[0, 0.25, 0.5, 0.75, 1].map((o, i) => (
-          <svg key={i} width={CELL} height={CELL} style={{ display: 'inline-block' }}>
+          <svg key={i} width={CELL} height={CELL} style={{ display: "inline-block" }}>
             <rect x={0} y={0} width={CELL} height={CELL} rx={2}
-              fill={o === 0 ? 'var(--color-bg-tertiary)' : 'var(--color-accent)'}
+              fill={o === 0 ? "var(--color-bg-tertiary)" : "var(--color-accent)"}
               opacity={o === 0 ? 1 : 0.15 + 0.85 * o}
             />
           </svg>
         ))}
-        <span style={{ fontSize: '9px', color: 'var(--color-text-tertiary)' }}>
-          {lang === 'zh' ? '多' : 'More'}
+        <span style={{ fontSize: "9px", color: "var(--color-text-tertiary)" }}>
+          {lang === "zh" ? "多" : "More"}
         </span>
       </div>
     </div>
@@ -339,53 +365,53 @@ function QuickStats({ lang }: { lang: string }) {
 
   const stats = [
     {
-      icon: <Clock size={13} style={{ color: 'var(--color-accent)' }} />,
+      icon: <Clock size={13} style={{ color: "var(--color-accent)" }} />,
       value: `${totalFocusH}h`,
-      label: lang === 'zh' ? '累计专注' : 'Total Focus',
+      label: lang === "zh" ? "累计专注" : "Total Focus",
     },
     {
-      icon: <Flame size={13} style={{ color: '#f59e0b' }} />,
+      icon: <Flame size={13} style={{ color: "#f59e0b" }} />,
       value: `${activeHabits}/${totalHabits}`,
-      label: lang === 'zh' ? '今日习惯' : "Today's Habits",
+      label: lang === "zh" ? "今日习惯" : "Today's Habits",
     },
     {
-      icon: <CheckCircle2 size={13} style={{ color: '#6a9bcc' }} />,
+      icon: <CheckCircle2 size={13} style={{ color: "#6a9bcc" }} />,
       value: `${completedTodos}/${totalTodos}`,
-      label: lang === 'zh' ? 'Todo 完成' : 'Todos Done',
+      label: lang === "zh" ? "Todo 完成" : "Todos Done",
     },
     {
-      icon: <Target size={13} style={{ color: '#788c5d' }} />,
+      icon: <Target size={13} style={{ color: "#788c5d" }} />,
       value: `${completedWorkSessions}`,
-      label: lang === 'zh' ? '完成番茄' : 'Pomodoros',
+      label: lang === "zh" ? "完成番茄" : "Pomodoros",
     },
   ];
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
-        <Target size={12} style={{ color: 'var(--color-text-secondary)' }} />
-        <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--color-text-primary)' }}>
-          {t('insights.statsTitle')}
+      <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px" }}>
+        <Target size={12} style={{ color: "var(--color-text-secondary)" }} />
+        <span style={{ fontSize: "11px", fontWeight: 500, color: "var(--color-text-primary)" }}>
+          {t("insights.statsTitle")}
         </span>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px" }}>
         {stats.map((s, i) => (
           <div
             key={i}
             style={{
-              padding: '10px 8px',
-              borderRadius: '8px',
-              background: 'var(--color-bg-tertiary)',
-              border: '0.5px solid var(--color-border)',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
-              textAlign: 'center',
+              padding: "10px 8px",
+              borderRadius: "8px",
+              background: "var(--color-bg-tertiary)",
+              border: "0.5px solid var(--color-border)",
+              display: "flex", flexDirection: "column", alignItems: "center", gap: "4px",
+              textAlign: "center",
             }}
           >
             {s.icon}
-            <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--color-text-primary)', fontVariantNumeric: 'tabular-nums' }}>
+            <span style={{ fontSize: "15px", fontWeight: 600, color: "var(--color-text-primary)", fontVariantNumeric: "tabular-nums" }}>
               {s.value}
             </span>
-            <span style={{ fontSize: '9px', color: 'var(--color-text-tertiary)', lineHeight: 1.2 }}>
+            <span style={{ fontSize: "9px", color: "var(--color-text-tertiary)", lineHeight: 1.2 }}>
               {s.label}
             </span>
           </div>
@@ -398,17 +424,16 @@ function QuickStats({ lang }: { lang: string }) {
 // ─── 主组件 ───────────────────────────────────────────────────────────────────
 export function InsightsTool() {
   const { i18n } = useTranslation();
-  const lang = i18n.language.startsWith('zh') ? 'zh' : 'en';
+  const lang = i18n.language.startsWith("zh") ? "zh" : "en";
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-      {/* 分隔线样式的区块 */}
+    <div style={{ display: "flex", flexDirection: "column", gap: "4px", paddingBottom: "16px" }}>
       <CompletionTrendChart lang={lang} />
-      <div style={{ height: '0.5px', background: 'var(--color-border)', margin: '4px 0' }} />
+      <div style={{ height: "0.5px", background: "var(--color-border)", margin: "4px 0" }} />
       <FocusBarChart lang={lang} />
-      <div style={{ height: '0.5px', background: 'var(--color-border)', margin: '4px 0' }} />
+      <div style={{ height: "0.5px", background: "var(--color-border)", margin: "4px 0" }} />
       <HabitHeatmap lang={lang} />
-      <div style={{ height: '0.5px', background: 'var(--color-border)', margin: '4px 0' }} />
+      <div style={{ height: "0.5px", background: "var(--color-border)", margin: "4px 0" }} />
       <QuickStats lang={lang} />
     </div>
   );

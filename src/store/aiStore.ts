@@ -7,7 +7,9 @@ import { getProvider } from '../lib/ai/providers';
  *
  * aiEnabled 是「自我升级」总开关：默认关闭，app 表现为纯本地待办工具；
  * 用户在 设置→AI 实验室 开启并配好任一厂商 key 后，
- * 界面才出现 Asha 宠物、任务拆解等 AI 入口。
+ * 界面才出现任务拆解等 AI 入口。
+ *
+ * petVisible 独立于 aiEnabled，默认 true，无需 API key 即可显示 Asha 宠物。
  *
  * 隐私边界：API key 仅存本机 localStorage（zustand persist），
  * 不上传任何服务器；请求直连用户所选厂商。
@@ -20,11 +22,14 @@ export interface ProviderConfig {
 
 interface AIState {
   aiEnabled: boolean;
+  /** 宠物 Asha 独立开关：默认开，不依赖 AI API */
+  petVisible: boolean;
   /** providerId → 用户配置 */
   configs: Record<string, ProviderConfig>;
   activeProviderId: string;
 
   setAiEnabled: (v: boolean) => void;
+  setPetVisible: (v: boolean) => void;
   setProviderConfig: (id: string, config: Partial<ProviderConfig>) => void;
   setActiveProvider: (id: string) => void;
 }
@@ -33,10 +38,12 @@ export const useAIStore = create<AIState>()(
   persist(
     (set) => ({
       aiEnabled: false,
+      petVisible: true,
       configs: {},
       activeProviderId: 'deepseek',
 
       setAiEnabled: (aiEnabled) => set({ aiEnabled }),
+      setPetVisible: (petVisible) => set({ petVisible }),
 
       setProviderConfig: (id, config) =>
         set((s) => {

@@ -47,6 +47,7 @@ function App() {
   const habits = useHabitStore((s) => s.habits);
   const { focusLock, clock } = useOverlayStore();
   const aiEnabled = useAIStore((s) => s.aiEnabled);
+  const petVisible = useAIStore((s) => s.petVisible);
   const [filter, setFilter] = useState<FilterType>('all');
   const [activeTag, setActiveTag] = useState<string | null>(null);
 
@@ -377,8 +378,9 @@ function App() {
         <SettingsDrawer />
         <ToolsPanel />
         <DailyAchievementModal />
-        {/* AI 生态：Asha 宠物 + 聊天面板（aiEnabled 才挂载） */}
-        {aiEnabled && <PetWidget />}
+        {/* Asha 宠物（独立开关，默认开） */}
+        {petVisible && <PetWidget />}
+        {/* 聊天面板（需要 AI API key 才有意义） */}
         {aiEnabled && <ChatPanel />}
         {/* Full-screen overlays */}
         {focusLock && <FocusLockScreen />}

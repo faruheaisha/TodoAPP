@@ -80,7 +80,11 @@ export function TodoCard({ todo }: TodoCardProps) {
   const hasAlert = urgent || overdue;
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div
+      style={{ position: 'relative' }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => { setIsHovered(false); setShowTagPicker(false); setShowPriorityPicker(false); setShowBreakdown(false); }}
+    >
       {/* 主行 */}
       <motion.div
         layout={!isManual}
@@ -88,8 +92,6 @@ export function TodoCard({ todo }: TodoCardProps) {
         animate={{ opacity: 1, x: 0 }}
         exit={isManual ? undefined : { opacity: 0, x: 12 }}
         transition={{ duration: 0.55, ease: 'easeOut' }}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => { setIsHovered(false); setShowTagPicker(false); setShowPriorityPicker(false); }}
         className={`todo-row flex items-center ${flash ? 'todo-flash' : ''}`}
         style={{
           minHeight: 'var(--todo-row-h)',
@@ -326,7 +328,7 @@ export function TodoCard({ todo }: TodoCardProps) {
 
       {/* AI 拆解弹出层 */}
       {showBreakdown && (
-        <div onMouseEnter={() => setIsHovered(true)}>
+        <div>
           <BreakdownPopover
             todoId={todo.id}
             title={todo.title}
@@ -347,7 +349,6 @@ export function TodoCard({ todo }: TodoCardProps) {
             display: 'flex', flexDirection: 'column', gap: '1px',
           }}
           onClick={e => e.stopPropagation()}
-          onMouseEnter={() => setIsHovered(true)}
         >
           {PRIORITY_META.map(meta => {
             const active = todo.priority === meta.value;
@@ -384,7 +385,6 @@ export function TodoCard({ todo }: TodoCardProps) {
             display: 'flex', flexDirection: 'column', gap: '6px',
           }}
           onClick={e => e.stopPropagation()}
-          onMouseEnter={() => setIsHovered(true)}
         >
           {/* 已有标签 — 点击切换 */}
           {tags.length > 0 && (
