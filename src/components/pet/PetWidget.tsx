@@ -2,13 +2,15 @@
  * PetWidget — Asha 浮动入口
  *
  * 右下角浮动，可拖拽换位（offset 持久化），点击打开聊天面板。
- * 仅 aiEnabled 时渲染（由 App 控制）。
- * z-index 30：低于 overlay(40) 与各模态(50)，不遮挡核心交互。
+ * 悬停时显示时段化话语气泡（framer-motion 淡入上浮）。
+ * 宠物情绪随时间段自动切换（晨/午/傍晚/深夜）。
  */
-import { useRef, useState } from 'react';
-import { motion } from 'framer-motion';
+import { useRef, useState, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { useChatStore } from '../../store/chatStore';
 import AshaPet, { type AshaState } from './AshaPet';
+import { getRandomPhrase, getPeriodMood } from '../../lib/petPhrases';
 
 const POS_KEY = 'todoapp-pet-pos';
 
@@ -24,62 +26,147 @@ function loadPos(): { x: number; y: number } {
 }
 
 export default function PetWidget() {
+  const { i18n } = useTranslation();
+  const lang = i18n.language.startsWith('zh') ? 'zh' : 'en';
+
   const { isOpen, setIsOpen, hasUnread, assistantBusy } = useChatStore();
-  const [hovered, setHovered] = useState(false);
+  const [hovered,  setHovered]  = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [phrase,   setPhrase]   = useState<string | null>(null);
   const posRef = useRef(loadPos());
 
+  // 悬停开始：抽话语
+  const handleHoverStart = useCallback(() => {
+    setHovered(true);
+    setPhrase(getRandomPhrase(lang));
+  }, [lang]);
+
+  const handleHoverEnd = useCallback(() => {
+    setHovered(false);
+    // 300ms 延迟再隐藏，避免鼠标轻扫导致气泡闪烁
+    setTimeout(() => setPhrase(null), 300);
+  }, []);
+
+  // 宠物动画状态优先级：dragging > thinking > speaking(hover) > 时段情绪
+  const baseMood   = getPeriodMood();
   const state: AshaState = dragging
     ? 'dragging'
     : assistantBusy
       ? 'thinking'
       : hovered
-        ? 'hover'
-        : 'idle';
+        ? 'speaking'
+        : baseMood;
+
+  const showBubble = hovered && !dragging && phrase !== null;
 
   return (
-    <motion.div
-      drag
-      dragMomentum={false}
-      initial={{ x: posRef.current.x, y: posRef.current.y }}
-      onDragStart={() => setDragging(true)}
-      onDragEnd={(_, info) => {
-        setDragging(false);
-        posRef.current = {
-          x: posRef.current.x + info.offset.x,
-          y: posRef.current.y + info.offset.y,
-        };
-        try { localStorage.setItem(POS_KEY, JSON.stringify(posRef.current)); } catch { /* 配额满忽略 */ }
-      }}
-      onTap={() => { if (!dragging) setIsOpen(!isOpen); }}
-      onHoverStart={() => setHovered(true)}
-      onHoverEnd={() => setHovered(false)}
-      whileHover={{ scale: 1.06 }}
-      whileTap={{ scale: 0.94 }}
-      className="select-none"
+    <div
       style={{
         position: 'fixed',
         right: '18px',
         bottom: '18px',
         zIndex: 30,
-        cursor: 'pointer',
-        // 给吉祥物一个柔和的落地阴影
-        filter: 'drop-shadow(0 4px 10px rgba(20, 20, 19, 0.18))',
       }}
-      title="Asha · 阿夏"
     >
-      <AshaPet state={state} size={68} />
-      {/* 未读小红点 */}
-      {hasUnread && !isOpen && (
-        <span
-          style={{
-            position: 'absolute', top: '6px', right: '8px',
-            width: '9px', height: '9px', borderRadius: '50%',
-            backgroundColor: 'var(--clay)',
-            border: '1.5px solid var(--color-bg-primary)',
-          }}
-        />
-      )}
-    </motion.div>
+      {/* 话语气泡（悬停时出现，宠物上方） */}
+      <AnimatePresence>
+        {showBubble && (
+          <motion.div
+            key="phrase-bubble"
+            initial={{ opacity: 0, y: 8, scale: 0.92 }}
+            animate={{ opacity: 1, y: 0,  scale: 1    }}
+            exit={{    opacity: 0, y: 5,  scale: 0.95 }}
+            transition={{ duration: 0.22, ease: 'easeOut' }}
+            style={{
+              position: 'absolute',
+              bottom: '82px',
+              right: '0px',
+              maxWidth: '168px',
+              minWidth: '100px',
+              padding: '9px 13px',
+              borderRadius: '14px',
+              background: 'var(--color-bg-primary)',
+              border: '1.5px solid var(--clay)',
+              boxShadow: '0 6px 20px rgba(0,0,0,0.13), 0 1px 4px rgba(0,0,0,0.08)',
+              fontSize: '11.5px',
+              lineHeight: '1.55',
+              color: 'var(--color-text-primary)',
+              pointerEvents: 'none',
+              userSelect: 'none',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+            }}
+          >
+            {phrase}
+            {/* 小三角 —— 指向宠物 */}
+            <span
+              style={{
+                position: 'absolute',
+                bottom: '-8px',
+                right: '26px',
+                width: 0,
+                height: 0,
+                borderLeft: '7px solid transparent',
+                borderRight: '7px solid transparent',
+                borderTop: '8px solid var(--clay)',
+              }}
+            />
+            {/* 三角内填充（遮住border） */}
+            <span
+              style={{
+                position: 'absolute',
+                bottom: '-6px',
+                right: '27px',
+                width: 0,
+                height: 0,
+                borderLeft: '6px solid transparent',
+                borderRight: '6px solid transparent',
+                borderTop: '7px solid var(--color-bg-primary)',
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 宠物本体 */}
+      <motion.div
+        drag
+        dragMomentum={false}
+        initial={{ x: posRef.current.x, y: posRef.current.y }}
+        onDragStart={() => setDragging(true)}
+        onDragEnd={(_, info) => {
+          setDragging(false);
+          posRef.current = {
+            x: posRef.current.x + info.offset.x,
+            y: posRef.current.y + info.offset.y,
+          };
+          try { localStorage.setItem(POS_KEY, JSON.stringify(posRef.current)); } catch { /* 配额满忽略 */ }
+        }}
+        onTap={() => { if (!dragging) setIsOpen(!isOpen); }}
+        onHoverStart={handleHoverStart}
+        onHoverEnd={handleHoverEnd}
+        whileHover={{ scale: 1.06 }}
+        whileTap={{ scale: 0.94 }}
+        className="select-none"
+        style={{
+          cursor: 'pointer',
+          filter: 'drop-shadow(0 4px 10px rgba(20, 20, 19, 0.18))',
+        }}
+        title="Asha · 阿夏"
+      >
+        <AshaPet state={state} size={68} />
+        {/* 未读小红点 */}
+        {hasUnread && !isOpen && (
+          <span
+            style={{
+              position: 'absolute', top: '6px', right: '8px',
+              width: '9px', height: '9px', borderRadius: '50%',
+              backgroundColor: 'var(--clay)',
+              border: '1.5px solid var(--color-bg-primary)',
+            }}
+          />
+        )}
+      </motion.div>
+    </div>
   );
 }

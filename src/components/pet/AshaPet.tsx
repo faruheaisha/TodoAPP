@@ -1,21 +1,19 @@
 /**
  * AshaPet — 雪豹「Asha · 阿夏」吉祥物
  *
- * 名字源自创作者 Faruhe·Aisha；雪豹是新疆代表性动物，高辨识度。
- * 圆润 chibi 比例（大头小身），固定品牌配色（不随主题变化，
- * 吉祥物作为品牌资产需要跨深浅色一致的识别度）。
- *
  * 状态机（由父组件传入）：
  *  idle     — 呼吸起伏 + 随机眨眼 + 尾巴缓摆
+ *  happy    — 眯眼微笑（早晨时段）
  *  hover    — 竖耳 + 眼睛微张
  *  thinking — 歪头 + 省略号气泡
  *  speaking — 嘴部微动 + 头部小幅点动
+ *  sleepy   — 半闭眼 + 缓慢呼吸（深夜时段）
  *  dragging — 压扁挤压（被拎起感）
  */
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 
-export type AshaState = 'idle' | 'hover' | 'thinking' | 'speaking' | 'dragging';
+export type AshaState = 'idle' | 'happy' | 'hover' | 'thinking' | 'speaking' | 'sleepy' | 'dragging';
 
 // 品牌固定配色 — 雪豹灰白皮毛
 const FUR       = '#ECE8E1';
@@ -28,9 +26,10 @@ const EYE_IRIS  = '#8FB3A3';
 const EYE_DARK  = '#3A3733';
 
 export default function AshaPet({ state = 'idle', size = 72 }: { state?: AshaState; size?: number }) {
-  // 随机眨眼：2.4-5.2s 间隔，眨 130ms
+  // 随机眨眼：2.4-5.2s 间隔，眨 130ms（sleepy 时跳过）
   const [blink, setBlink] = useState(false);
   useEffect(() => {
+    if (state === 'sleepy') return;
     let alive = true;
     let timer: ReturnType<typeof setTimeout>;
     const loop = () => {
@@ -43,10 +42,27 @@ export default function AshaPet({ state = 'idle', size = 72 }: { state?: AshaSta
     };
     loop();
     return () => { alive = false; clearTimeout(timer); };
-  }, []);
+  }, [state]);
 
-  const eyesClosed = blink || state === 'dragging';
-  const headTilt = state === 'thinking' ? -8 : 0;
+  const eyesClosed  = blink || state === 'dragging';
+  const headTilt    = state === 'thinking' ? -8 : 0;
+
+  // 各状态眼睛 scaleY
+  const eyeScaleY = eyesClosed
+    ? 0.08
+    : state === 'happy'
+      ? 0.72          // 眯眼微笑
+      : state === 'sleepy'
+        ? 0.42          // 半闭眼
+        : state === 'hover'
+          ? 1.08
+          : 1;
+
+  // 呼吸速度：sleepy 更慢
+  const breathDuration = state === 'sleepy' ? 5.5 : 3.2;
+
+  // happy 状态：嘴角上扬偏移
+  const happyMouthY = state === 'happy' ? -1.5 : 0;
 
   return (
     <motion.svg
@@ -54,7 +70,6 @@ export default function AshaPet({ state = 'idle', size = 72 }: { state?: AshaSta
       height={size}
       viewBox="0 0 120 124"
       fill="none"
-      // 呼吸：整体轻微缩放；拖拽时压扁
       animate={
         state === 'dragging'
           ? { scaleX: 1.06, scaleY: 0.92 }
@@ -63,13 +78,13 @@ export default function AshaPet({ state = 'idle', size = 72 }: { state?: AshaSta
       transition={
         state === 'dragging'
           ? { duration: 0.15 }
-          : { duration: 3.2, repeat: Infinity, ease: 'easeInOut' }
+          : { duration: breathDuration, repeat: Infinity, ease: 'easeInOut' }
       }
       style={{ transformOrigin: '50% 100%', display: 'block' }}
     >
-      {/* ── 尾巴（最底层）：雪豹标志性粗尾，缓摆 ── */}
+      {/* ── 尾巴（最底层）── */}
       <motion.g
-        animate={{ rotate: state === 'idle' ? [0, 4, 0, -2, 0] : 0 }}
+        animate={{ rotate: state === 'idle' || state === 'happy' ? [0, 4, 0, -2, 0] : 0 }}
         transition={{ duration: 5.5, repeat: Infinity, ease: 'easeInOut' }}
         style={{ transformOrigin: '86px 100px' }}
       >
@@ -80,26 +95,58 @@ export default function AshaPet({ state = 'idle', size = 72 }: { state?: AshaSta
           strokeLinecap="round"
           fill="none"
         />
-        {/* 尾环纹 */}
         <circle cx="104" cy="88" r="3.4" fill={SPOT} />
         <circle cx="108" cy="76" r="3" fill={SPOT_DARK} />
-        <circle cx="97" cy="97" r="3.2" fill={SPOT} />
+        <circle cx="97"  cy="97" r="3.2" fill={SPOT} />
       </motion.g>
 
       {/* ── 身体 ── */}
       <ellipse cx="58" cy="96" rx="30" ry="24" fill={FUR} />
       <ellipse cx="58" cy="100" rx="18" ry="15" fill={MUZZLE} opacity="0.7" />
-      {/* 身上斑点 */}
-      <circle cx="36" cy="90" r="2.6" fill={SPOT} />
-      <circle cx="80" cy="92" r="2.4" fill={SPOT} />
+      <circle cx="36" cy="90"  r="2.6" fill={SPOT} />
+      <circle cx="80" cy="92"  r="2.4" fill={SPOT} />
       <circle cx="42" cy="102" r="2.2" fill={SPOT_DARK} opacity="0.7" />
-      {/* 前爪 */}
       <ellipse cx="46" cy="116" rx="9" ry="6" fill={FUR_SHADE} />
       <ellipse cx="70" cy="116" rx="9" ry="6" fill={FUR_SHADE} />
 
-      {/* ── 头（歪头由此组控制）── */}
+      {/* happy 状态：爪子小星星 ✨ */}
+      {state === 'happy' && (
+        <motion.g
+          animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.1, 0.8] }}
+          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+          style={{ transformOrigin: '28px 110px' }}
+        >
+          <text x="22" y="114" fontSize="8" fill={NOSE} opacity="0.9">✨</text>
+        </motion.g>
+      )}
+
+      {/* sleepy 状态：Zzz */}
+      {state === 'sleepy' && (
+        <motion.g>
+          <motion.text
+            x="88" y="42" fontSize="7" fill={SPOT} opacity="0.8"
+            animate={{ opacity: [0.2, 0.8, 0.2], y: [42, 39, 42] }}
+            transition={{ duration: 2.8, repeat: Infinity, delay: 0 }}
+          >z</motion.text>
+          <motion.text
+            x="95" y="34" fontSize="9" fill={SPOT} opacity="0.8"
+            animate={{ opacity: [0.2, 0.8, 0.2], y: [34, 31, 34] }}
+            transition={{ duration: 2.8, repeat: Infinity, delay: 0.5 }}
+          >z</motion.text>
+          <motion.text
+            x="104" y="24" fontSize="11" fill={SPOT} opacity="0.8"
+            animate={{ opacity: [0.2, 0.8, 0.2], y: [24, 20, 24] }}
+            transition={{ duration: 2.8, repeat: Infinity, delay: 1 }}
+          >Z</motion.text>
+        </motion.g>
+      )}
+
+      {/* ── 头部（歪头由此组控制）── */}
       <motion.g
-        animate={{ rotate: headTilt, y: state === 'speaking' ? [0, -1.5, 0] : 0 }}
+        animate={{
+          rotate: headTilt,
+          y: state === 'speaking' ? [0, -1.5, 0] : happyMouthY,
+        }}
         transition={
           state === 'speaking'
             ? { y: { duration: 0.9, repeat: Infinity, ease: 'easeInOut' }, rotate: { duration: 0.25 } }
@@ -107,9 +154,9 @@ export default function AshaPet({ state = 'idle', size = 72 }: { state?: AshaSta
         }
         style={{ transformOrigin: '60px 56px' }}
       >
-        {/* 耳朵（hover 时竖起） */}
+        {/* 耳朵（hover/happy 时竖起） */}
         <motion.g
-          animate={{ rotate: state === 'hover' ? -7 : 0 }}
+          animate={{ rotate: (state === 'hover' || state === 'happy') ? -8 : 0 }}
           transition={{ duration: 0.18 }}
           style={{ transformOrigin: '34px 26px' }}
         >
@@ -117,7 +164,7 @@ export default function AshaPet({ state = 'idle', size = 72 }: { state?: AshaSta
           <path d="M29 30 Q 31 19, 40 22 Q 35 27, 33 33 Z" fill={FUR_SHADE} />
         </motion.g>
         <motion.g
-          animate={{ rotate: state === 'hover' ? 7 : 0 }}
+          animate={{ rotate: (state === 'hover' || state === 'happy') ? 8 : 0 }}
           transition={{ duration: 0.18 }}
           style={{ transformOrigin: '86px 26px' }}
         >
@@ -142,32 +189,40 @@ export default function AshaPet({ state = 'idle', size = 72 }: { state?: AshaSta
 
         {/* 眼睛 */}
         <motion.g
-          animate={{ scaleY: eyesClosed ? 0.08 : state === 'hover' ? 1.08 : 1 }}
-          transition={{ duration: 0.09 }}
+          animate={{ scaleY: eyeScaleY }}
+          transition={{ duration: eyesClosed ? 0.09 : 0.22 }}
           style={{ transformOrigin: '60px 51px' }}
         >
-          {/* 左眼 */}
           <ellipse cx="46" cy="51" rx="6.5" ry="7.5" fill={EYE_IRIS} />
-          <circle cx="46" cy="52" r="3.6" fill={EYE_DARK} />
-          <circle cx="47.6" cy="49.6" r="1.5" fill="#FFFFFF" />
-          {/* 右眼 */}
+          <circle  cx="46" cy="52" r="3.6"  fill={EYE_DARK} />
+          <circle  cx="47.6" cy="49.6" r="1.5" fill="#FFFFFF" />
           <ellipse cx="74" cy="51" rx="6.5" ry="7.5" fill={EYE_IRIS} />
-          <circle cx="74" cy="52" r="3.6" fill={EYE_DARK} />
-          <circle cx="75.6" cy="49.6" r="1.5" fill="#FFFFFF" />
+          <circle  cx="74" cy="52" r="3.6"  fill={EYE_DARK} />
+          <circle  cx="75.6" cy="49.6" r="1.5" fill="#FFFFFF" />
         </motion.g>
 
         {/* 鼻 + 嘴 */}
         <path d="M56.5 60.5 Q 60 58.5, 63.5 60.5 Q 62 64.5, 60 64.5 Q 58 64.5, 56.5 60.5 Z" fill={NOSE} />
         <motion.g
-          animate={state === 'speaking' ? { scaleY: [1, 1.6, 1] } : { scaleY: 1 }}
-          transition={{ duration: 0.45, repeat: state === 'speaking' ? Infinity : 0, ease: 'easeInOut' }}
+          animate={
+            state === 'speaking'
+              ? { scaleY: [1, 1.6, 1] }
+              : state === 'happy'
+                ? { scaleY: 1, scaleX: 1.15 }   // happy 嘴角略宽
+                : { scaleY: 1, scaleX: 1 }
+          }
+          transition={{
+            duration: 0.45,
+            repeat: state === 'speaking' ? Infinity : 0,
+            ease: 'easeInOut',
+          }}
           style={{ transformOrigin: '60px 68px' }}
         >
           <path d="M60 64.5 Q 60 68, 56 69" stroke={SPOT_DARK} strokeWidth="1.6" strokeLinecap="round" fill="none" />
           <path d="M60 64.5 Q 60 68, 64 69" stroke={SPOT_DARK} strokeWidth="1.6" strokeLinecap="round" fill="none" />
         </motion.g>
 
-        {/* 眉斑（雪豹特征小点） */}
+        {/* 眉斑 */}
         <circle cx="46" cy="39" r="1.6" fill={SPOT_DARK} opacity="0.6" />
         <circle cx="74" cy="39" r="1.6" fill={SPOT_DARK} opacity="0.6" />
       </motion.g>
