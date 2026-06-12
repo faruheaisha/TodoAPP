@@ -24,6 +24,10 @@
     "todayOverdue": "Overdue",
     "todayDue": "Due Today",
     "todayEmpty": "Nothing due or overdue today 🎉",
+    "sortSmart": "Smart sort",
+    "sortManual": "Manual sort",
+    "sortSmartHint": "Sorted by priority & deadline. Click to switch to drag-and-drop",
+    "sortManualHint": "Manual drag-and-drop order. Click to switch back to smart sort",
     "addSubtask": "Add subtask",
     "subtaskPlaceholder": "Add subtask…"
   },

@@ -5,6 +5,7 @@
 import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTodoStore, type Todo } from '../store/todoStore';
+import { useSettingsStore } from '../store/settingsStore';
 import { useSubtaskStore } from '../store/subtaskStore';
 import { useRecurrenceStore, RECURRENCE_OPTIONS } from '../store/recurrenceStore';
 import { useTagStore, TAG_PALETTE, type Tag } from '../store/tagStore';
@@ -29,6 +30,9 @@ export function TodoCard({ todo }: TodoCardProps) {
   const todoTagList: Tag[] = getTodoTags(todo.id);
 
   const isTouch = useIsTouch();
+  // manual 拖拽模式下关闭 framer 的 layout/位移动画，避免与 dnd-kit transform 互搏
+  const sortMode = useSettingsStore((s) => s.sortMode);
+  const isManual = sortMode === 'manual';
   const [isHovered, setIsHovered] = useState(false);
   // 触屏无 hover 概念：操作区常驻显示，保证删除/标签/子任务可达
   const showActions = isHovered || isTouch;
@@ -75,10 +79,10 @@ export function TodoCard({ todo }: TodoCardProps) {
     <div style={{ position: 'relative' }}>
       {/* 主行 */}
       <motion.div
-        layout
-        initial={{ opacity: 0, x: -12 }}
+        layout={!isManual}
+        initial={isManual ? false : { opacity: 0, x: -12 }}
         animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: 12 }}
+        exit={isManual ? undefined : { opacity: 0, x: 12 }}
         transition={{ duration: 0.55, ease: 'easeOut' }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => { setIsHovered(false); setShowTagPicker(false); setShowPriorityPicker(false); }}

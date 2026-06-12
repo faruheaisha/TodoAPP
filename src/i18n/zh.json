@@ -24,6 +24,10 @@
     "todayOverdue": "已逾期",
     "todayDue": "今天到期",
     "todayEmpty": "今天没有到期或逾期的任务 🎉",
+    "sortSmart": "智能排序",
+    "sortManual": "手动排序",
+    "sortSmartHint": "当前按优先级与截止时间自动排序，点击切换为手动拖拽",
+    "sortManualHint": "当前为手动拖拽排序，点击切换回智能排序",
     "addSubtask": "添加子任务",
     "subtaskPlaceholder": "添加子任务…"
   },

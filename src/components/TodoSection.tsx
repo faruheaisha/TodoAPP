@@ -1,7 +1,14 @@
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import {
+  DndContext, PointerSensor, closestCenter, useSensor, useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useTodoStore, type Todo } from '../store/todoStore';
 import { useCompletionStore } from '../store/completionStore';
+import { useSettingsStore } from '../store/settingsStore';
 import { useTagStore } from '../store/tagStore';
 import { sortTodos, isOverdue, isDueToday } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -70,10 +77,13 @@ export default function TodoSection({ filter = 'all', tagFilter = null }: TodoSe
   const showActive = filter === 'all' || filter === 'active';
   const showCompleted = filter === 'all' || filter === 'completed';
 
-  // 分类 active todos
-  const sorted = sortTodos(activeTodos);
+  // 分类 active todos（manual 模式按用户拖拽的 sortOrder）
+  const sortMode = useSettingsStore((s) => s.sortMode);
+  const sorted = sortTodos(activeTodos, sortMode);
   const quickTodos = sorted.filter((t) => t.todoType === 'quick');
   const longtermTodos = sorted.filter((t) => t.todoType === 'longterm');
+  // 标签过滤时禁用拖拽：过滤视图下的局部重排会产生反直觉的全局次序
+  const manualEnabled = sortMode === 'manual' && !tagFilter;
 
   // 按天分组 completed todos，newest first
   const completedGroups = groupByDay(completedTodos, completionTimes);
@@ -91,7 +101,9 @@ export default function TodoSection({ filter = 'all', tagFilter = null }: TodoSe
               suffix={t('app.items')}
             />
             {quickTodos.length > 0 ? (
-              quickTodos.map((todo) => <TodoCard key={todo.id} todo={todo} />)
+              manualEnabled
+                ? <ManualSortableList todos={quickTodos} />
+                : quickTodos.map((todo) => <TodoCard key={todo.id} todo={todo} />)
             ) : (
               <EmptyText text={t('app.noActiveTasks')} />
             )}
@@ -115,7 +127,9 @@ export default function TodoSection({ filter = 'all', tagFilter = null }: TodoSe
               suffix={t('app.items') + ' ' + t('app.sortedBy')}
             />
             {longtermTodos.length > 0 ? (
-              longtermTodos.map((todo) => <TodoCard key={todo.id} todo={todo} />)
+              manualEnabled
+                ? <ManualSortableList todos={longtermTodos} />
+                : longtermTodos.map((todo) => <TodoCard key={todo.id} todo={todo} />)
             ) : (
               <EmptyText text={t('app.noActiveTasks')} />
             )}
@@ -144,6 +158,59 @@ export default function TodoSection({ filter = 'all', tagFilter = null }: TodoSe
           </motion.section>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+// ── 手动拖拽排序（manual 模式）──────────────────────────────────────────
+// quick / longterm 两段各自一个 DndContext，拖拽只在分区内进行。
+// PointerSensor 设 5px 启动阈值：保证行内按钮的点击不被吞掉。
+
+function ManualSortableList({ todos }: { todos: Todo[] }) {
+  const reorderTodos = useTodoStore((s) => s.reorderTodos);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+
+  const handleDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const ids = todos.map((t) => t.id);
+    const oldIndex = ids.indexOf(String(active.id));
+    const newIndex = ids.indexOf(String(over.id));
+    if (oldIndex < 0 || newIndex < 0) return;
+    reorderTodos(arrayMove(ids, oldIndex, newIndex)).catch(console.error);
+  };
+
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <SortableContext items={todos.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+        {todos.map((todo) => (
+          <SortableTodoCard key={todo.id} todo={todo} />
+        ))}
+      </SortableContext>
+    </DndContext>
+  );
+}
+
+function SortableTodoCard({ todo }: { todo: Todo }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: todo.id });
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.55 : 1,
+        position: 'relative',
+        zIndex: isDragging ? 50 : undefined,
+        cursor: isDragging ? 'grabbing' : undefined,
+        touchAction: 'manipulation',
+      }}
+    >
+      <TodoCard todo={todo} />
     </div>
   );
 }

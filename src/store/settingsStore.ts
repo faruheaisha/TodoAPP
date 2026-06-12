@@ -4,6 +4,8 @@ import { persist } from 'zustand/middleware';
 export type Theme = 'light' | 'dark' | 'system';
 export type AccentColor = 'coral' | 'olive' | 'sky' | 'fig';
 export type Language = 'zh' | 'en';
+/** 列表排序模式：smart=优先级+截止时间自动排序；manual=用户拖拽手动排序 */
+export type SortMode = 'smart' | 'manual';
 
 interface SettingsState {
   theme: Theme;
@@ -23,6 +25,7 @@ interface SettingsState {
   weeklyReportDay: number;   // 0=Sun…6=Sat, default 1=Mon
   weeklyReportTime: string;  // 'HH:MM'
   weeklyReportLastDate: string;
+  sortMode: SortMode;
 
   setTheme: (theme: Theme) => void;
   setLanguage: (language: Language) => void;
@@ -40,6 +43,7 @@ interface SettingsState {
   setWeeklyReportDay: (day: number) => void;
   setWeeklyReportTime: (time: string) => void;
   setWeeklyReportLastDate: (date: string) => void;
+  setSortMode: (mode: SortMode) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -60,6 +64,7 @@ export const useSettingsStore = create<SettingsState>()(
       weeklyReportDay: 1,
       weeklyReportTime: '09:00',
       weeklyReportLastDate: '',
+      sortMode: 'smart' as SortMode,
 
       setTheme: (theme) => set({ theme }),
       setLanguage: (language) => set({ language }),
@@ -77,12 +82,17 @@ export const useSettingsStore = create<SettingsState>()(
       setWeeklyReportDay: (weeklyReportDay) => set({ weeklyReportDay }),
       setWeeklyReportTime: (weeklyReportTime) => set({ weeklyReportTime }),
       setWeeklyReportLastDate: (weeklyReportLastDate) => set({ weeklyReportLastDate }),
+      setSortMode: (sortMode) => set({ sortMode }),
     }),
     {
       name: 'todoapp-settings',
-      version: 2,
+      version: 3,
       // v1→v2：theme 新增 'system' 模式（跟随系统日夜）；旧值 light/dark 保持有效
-      migrate: (persisted) => persisted as SettingsState,
+      // v2→v3：新增 sortMode（smart/manual），旧数据补默认值
+      migrate: (persisted) => {
+        const state = persisted as SettingsState;
+        return { ...state, sortMode: state.sortMode ?? 'smart' };
+      },
     }
   )
 );

@@ -41,6 +41,9 @@ export async function initDB(): Promise<void> {
     `);
     // 迁移：为已有库补充新列（SQLite 无 ADD COLUMN IF NOT EXISTS，需先探测列）
     await ensureColumn(database, 'priority', 'INTEGER NOT NULL DEFAULT 0');
+    await ensureColumn(database, 'sort_order', 'INTEGER NOT NULL DEFAULT 0');
+    // 既有行的 sort_order 用 rowid 初始化，保持原有插入顺序
+    await database.execute('UPDATE todos SET sort_order = rowid WHERE sort_order = 0');
   } catch (e) {
     console.error('Failed to initialize database:', e);
   }
@@ -70,8 +73,9 @@ export async function loadTodos(): Promise<Todo[]> {
       created_at: string;
       reminder_sent: number;
       priority: number | null;
+      sort_order: number | null;
     }[]>(`
-      SELECT id, title, todo_type, deadline, completed, created_at, reminder_sent, priority
+      SELECT id, title, todo_type, deadline, completed, created_at, reminder_sent, priority, sort_order
       FROM todos
       ORDER BY
         completed ASC,
@@ -94,6 +98,7 @@ export async function loadTodos(): Promise<Todo[]> {
       created_at: string;
       reminder_sent: number;
       priority: number | null;
+      sort_order: number | null;
     }) => ({
       id: r.id,
       title: r.title,
@@ -103,6 +108,7 @@ export async function loadTodos(): Promise<Todo[]> {
       createdAt: r.created_at,
       reminderSent: Boolean(r.reminder_sent),
       priority: (r.priority ?? 0) as Todo['priority'],
+      sortOrder: r.sort_order ?? 0,
     }));
   } catch (e) {
     console.error('Failed to load todos:', e);
@@ -122,9 +128,15 @@ export async function createTodoInDB(
     const id = crypto.randomUUID();
     const created_at = new Date().toISOString();
 
+    // 新任务排在手动序列末尾：取当前最大 sort_order + 1
+    const maxRow = await database.select<{ m: number | null }[]>(
+      'SELECT MAX(sort_order) AS m FROM todos'
+    );
+    const sortOrder = (maxRow[0]?.m ?? 0) + 1;
+
     await database.execute(
-      `INSERT INTO todos (id, title, todo_type, deadline, completed, created_at, priority) VALUES (?, ?, ?, ?, 0, ?, ?)`,
-      [id, title, todoType, deadline ?? null, created_at, priority]
+      `INSERT INTO todos (id, title, todo_type, deadline, completed, created_at, priority, sort_order) VALUES (?, ?, ?, ?, 0, ?, ?, ?)`,
+      [id, title, todoType, deadline ?? null, created_at, priority, sortOrder]
     );
 
     return {
@@ -136,6 +148,7 @@ export async function createTodoInDB(
       createdAt: created_at,
       reminderSent: false,
       priority: priority as Todo['priority'],
+      sortOrder,
     };
   } catch (e) {
     console.error('Failed to create todo:', e);
@@ -168,6 +181,18 @@ export async function updateTodoInDB(
     }
   } catch (e) {
     console.error('Failed to update todo:', e);
+  }
+}
+
+// 批量持久化手动排序（拖拽结束时调用）
+export async function updateSortOrdersInDB(pairs: { id: string; sortOrder: number }[]): Promise<void> {
+  try {
+    const database = await getDB();
+    for (const { id, sortOrder } of pairs) {
+      await database.execute('UPDATE todos SET sort_order = ? WHERE id = ?', [sortOrder, id]);
+    }
+  } catch (e) {
+    console.error('Failed to update sort orders:', e);
   }
 }
 
@@ -229,6 +254,7 @@ export async function onTodoReminder(callback: (todo: Todo) => void): Promise<Un
       createdAt: (payload.created_at as string) ?? '',
       reminderSent: Boolean(payload.reminder_sent),
       priority: ((payload.priority as number) ?? 0) as Todo['priority'],
+      sortOrder: (payload.sort_order as number) ?? 0,
     });
   });
 }

@@ -230,9 +230,10 @@ export default function SettingsDrawer() {
         const imported = raw.todos ?? raw;
         if (Array.isArray(imported) && imported.length > 0) {
           // 兼容旧备份：补齐新增字段默认值，避免缺字段导致排序异常
-          const normalized = imported.map((it) => ({
+          const normalized = imported.map((it, i) => ({
             ...it,
             priority: typeof it.priority === 'number' ? it.priority : 0,
+            sortOrder: typeof it.sortOrder === 'number' ? it.sortOrder : i + 1,
           }));
           setTodos(normalized);
           show(t('settings.importSuccess') + ' ' + imported.length + ' ' + t('app.items'));

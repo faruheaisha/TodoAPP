@@ -3,6 +3,7 @@ import {
   createTodoInDB,
   updateTodoInDB,
   deleteTodoInDB,
+  updateSortOrdersInDB,
   clearReminders,
 } from '../lib/tauri';
 import { useCompletionStore } from './completionStore';
@@ -24,6 +25,8 @@ export interface Todo {
   createdAt: string;
   reminderSent: boolean;
   priority: Priority;
+  /** 手动排序序号（sortMode='manual' 时生效，越小越靠前） */
+  sortOrder: number;
 }
 
 interface TodoStore {
@@ -34,6 +37,8 @@ interface TodoStore {
   deleteTodo: (id: string) => Promise<void>;
   toggleComplete: (id: string) => Promise<void>;
   setPriority: (id: string, priority: Priority) => Promise<void>;
+  /** 手动模式拖拽重排：传入某分区拖拽后的完整 id 顺序，重写其 sortOrder 并持久化 */
+  reorderTodos: (orderedIds: string[]) => Promise<void>;
   setTodos: (todos: Todo[]) => void;
   clearReminderFlags: () => Promise<void>;
 }
@@ -56,6 +61,22 @@ export const useTodoStore = create<TodoStore>()((set, get) => ({
         todo.id === id ? { ...todo, priority } : todo
       ),
     }));
+  },
+
+  reorderTodos: async (orderedIds) => {
+    // 以被拖拽分区原有 sortOrder 的升序值集为槽位，按新顺序重新分配，
+    // 不影响其他分区的相对次序
+    const { todos } = get();
+    const affected = todos.filter((t) => orderedIds.includes(t.id));
+    const slots = affected.map((t) => t.sortOrder).sort((a, b) => a - b);
+    const pairs = orderedIds.map((id, i) => ({ id, sortOrder: slots[i] ?? i }));
+    const map = new Map(pairs.map((p) => [p.id, p.sortOrder]));
+    set((state) => ({
+      todos: state.todos.map((t) =>
+        map.has(t.id) ? { ...t, sortOrder: map.get(t.id)! } : t
+      ),
+    }));
+    await updateSortOrdersInDB(pairs);
   },
 
   updateTodo: async (id, updates) => {
