@@ -1,27 +1,24 @@
-# Asha 音景资源许可证清单
+# Sound Licenses — Asha Soundscape
 
-本目录存放 TodoApp 内置音景（专注白噪音）资源。**所有入库音频必须满足：允许商业使用、允许打包进应用分发。**
+All audio files in this directory are **procedurally generated** by
+`scripts/generate-sounds.py` using Python + NumPy/SciPy.
 
-推荐来源与许可证：
+They are original synthetic works authored by this project and released
+under the same **MIT License** as the rest of the codebase.
 
-| 来源 | 许可证 | 商业打包分发 | 署名 |
-|------|--------|-------------|------|
-| [Pixabay](https://pixabay.com/sound-effects/) | [Pixabay Content License](https://pixabay.com/service/license-summary/) | ✅ 允许 | 不需要 |
-| [Freesound](https://freesound.org/)（仅 CC0 标记） | CC0 1.0 公有领域 | ✅ 允许 | 不需要 |
+No third-party samples, loops, or recordings are used.
 
-⚠️ 禁止入库：BBC Sound Effects（RemArc 许可禁止商用）、任何 CC-BY-NC（禁商用）内容。
+---
 
-## 文件登记（入库时逐条填写）
+| File | Description | Generation method |
+|------|-------------|-------------------|
+| `white.mp3`   | White noise           | Gaussian random noise, 0.5× gain |
+| `rain.mp3`    | Rain                  | Pink noise (Voss-McCartney), lowpass @ 4 kHz, slow AM |
+| `thunder.mp3` | Thunderstorm          | Pink rain + two low-freq rumble bursts (< 120 Hz) |
+| `ocean.mp3`   | Ocean waves           | Pink noise bandpass 80–2500 Hz, 12-sec wave envelope |
+| `forest.mp3`  | Forest / birds        | Lowpass wind + synthetic chirp bursts 2.8–5 kHz |
+| `cafe.mp3`    | Café ambience         | Bandpass hum 300–2000 Hz + brief cutlery transients |
+| `fire.mp3`    | Fireplace crackling   | Bandpass 200–3000 Hz + random crackle transients |
+| `stream.mp3`  | Creek / stream        | Bandpass 400–5000 Hz shimmer + 0.3 Hz AM |
 
-| 文件 | 名称 | 来源页面 URL | 作者 | 许可证 | 入库日期 |
-|------|------|-------------|------|--------|---------|
-| rain.mp3 | 雨声 | _待填_ | _待填_ | Pixabay License | _待填_ |
-| thunder.mp3 | 雷雨 | _待填_ | _待填_ | Pixabay License | _待填_ |
-| ocean.mp3 | 海浪 | _待填_ | _待填_ | Pixabay License | _待填_ |
-| forest.mp3 | 森林鸟鸣 | _待填_ | _待填_ | Pixabay License | _待填_ |
-| cafe.mp3 | 咖啡馆 | _待填_ | _待填_ | Pixabay License | _待填_ |
-| fire.mp3 | 篝火 | _待填_ | _待填_ | Pixabay License | _待填_ |
-| stream.mp3 | 溪流 | _待填_ | _待填_ | Pixabay License | _待填_ |
-| white.mp3 | 白噪音 | _待填_ | _待填_ | Pixabay License | _待填_ |
-
-获取方式：在项目根目录运行 `node scripts/fetch-sounds.mjs`，按提示挑选下载。
+All files: 44100 Hz, mono, 96 kbps MP3, ~30-second seamless loop.
