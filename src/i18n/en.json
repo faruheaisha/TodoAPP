@@ -63,6 +63,8 @@
     "navAppearance": "Appearance",
     "navShortcut": "Shortcuts",
     "navPath": "Storage Path",
+    "navAI": "AI Lab",
+    "groupAI": "Intelligence",
     "navExport": "Export",
     "navImport": "Import",
     "navAbout": "About",
@@ -143,6 +145,21 @@
     "notes": "Notes",
     "matrix": "Matrix",
     "soundscape": "Sounds"
+  },
+  "ai": {
+    "enableTitle": "Enable AI features",
+    "enableDesc": "Unlocks Asha assistant & smart breakdown. Keys stay on this device",
+    "providers": "Model Providers",
+    "configured": "Configured",
+    "setActive": "Set as active",
+    "keyPlaceholder": "Paste your API key…",
+    "model": "Model",
+    "customModel": "Custom model…",
+    "testConnection": "Test connection",
+    "testOk": "Connected ({{ms}}ms)",
+    "testFail": "Failed",
+    "getKey": "Get a key",
+    "privacyNote": "Privacy: your API keys and conversations never leave this device except going directly to the provider you choose. Reachable domains are strictly allow-listed."
   },
   "soundscape": {
     "master": "Master volume",
