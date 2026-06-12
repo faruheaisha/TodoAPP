@@ -26,6 +26,9 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        // HTTP 客户端：前端经此 fetch 调用 LLM 厂商 API（绕过 WebView CORS），
+        // 可访问域名由 capabilities/default.json 的 http 权限白名单约束
+        .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_sql::Builder::default().build())
         .setup(move |app| {
             let app_handle = app.handle().clone();

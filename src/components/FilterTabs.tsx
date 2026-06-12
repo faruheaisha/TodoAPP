@@ -1,9 +1,12 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { ArrowDownWideNarrow, GripVertical } from 'lucide-react';
 import { useTodoStore } from '../store/todoStore';
+import { useSettingsStore } from '../store/settingsStore';
+import { isInTodayView } from '../lib/utils';
 import { useIsTouch } from '../lib/responsive';
 
-export type FilterType = 'all' | 'active' | 'completed';
+export type FilterType = 'today' | 'all' | 'active' | 'completed';
 
 interface FilterTabsProps {
   activeFilter?: FilterType;
@@ -17,8 +20,10 @@ export default function FilterTabs({ activeFilter: externalFilter, onFilterChang
 
   const activeCount = todos.filter((t) => !t.completed).length;
   const completedCount = todos.filter((t) => t.completed).length;
+  const todayCount = todos.filter(isInTodayView).length;
 
   const filters: { key: FilterType; label: string; count: number }[] = [
+    { key: 'today', label: t('app.filterToday'), count: todayCount },
     { key: 'all', label: t('app.filterAll'), count: todos.length },
     { key: 'active', label: t('app.filterActive'), count: activeCount },
     { key: 'completed', label: t('app.filterCompleted'), count: completedCount },
@@ -27,6 +32,10 @@ export default function FilterTabs({ activeFilter: externalFilter, onFilterChang
   const [internalFilter, setInternalFilter] = React.useState<FilterType>('all');
   const activeFilter = externalFilter ?? internalFilter;
   const setFilter = onFilterChange ?? setInternalFilter;
+
+  const sortMode = useSettingsStore((s) => s.sortMode);
+  const setSortMode = useSettingsStore((s) => s.setSortMode);
+  const isManual = sortMode === 'manual';
 
   return (
     <div
@@ -70,6 +79,25 @@ export default function FilterTabs({ activeFilter: externalFilter, onFilterChang
           </button>
         );
       })}
+
+      {/* 排序模式切换：智能（优先级+截止）/ 手动（拖拽） */}
+      <button
+        onClick={() => setSortMode(isManual ? 'smart' : 'manual')}
+        className="text-xs font-medium transition-colors cursor-pointer flex items-center ml-auto"
+        title={isManual ? t('app.sortManualHint') : t('app.sortSmartHint')}
+        style={{
+          gap: '4px',
+          padding: isTouch ? '6px 12px' : '2px 8px',
+          borderRadius: isTouch ? '6px' : '4px',
+          border: '0.5px solid',
+          borderColor: isManual ? 'var(--clay)' : 'var(--color-border)',
+          color: isManual ? 'var(--clay)' : 'var(--color-text-tertiary)',
+          backgroundColor: isManual ? 'var(--clay-light)' : 'transparent',
+        }}
+      >
+        {isManual ? <GripVertical size={11} /> : <ArrowDownWideNarrow size={11} />}
+        {isManual ? t('app.sortManual') : t('app.sortSmart')}
+      </button>
     </div>
   );
 }

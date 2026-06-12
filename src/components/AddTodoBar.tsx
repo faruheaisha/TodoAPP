@@ -1,13 +1,14 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useTodoStore } from '../store/todoStore';
+import { useTodoStore, type Priority } from '../store/todoStore';
 import { useRecurrenceStore, RECURRENCE_OPTIONS, type RecurrenceType } from '../store/recurrenceStore';
 import { useTagStore, TAG_PALETTE } from '../store/tagStore';
 import { TagChip } from './TagChip';
 import DatePicker from './DatePicker';
 import { parseNLP } from '../lib/nlpDate';
+import { PRIORITY_META, priorityColor, priorityLabel } from '../lib/priority';
 import { useIsTouch } from '../lib/responsive';
-import { Plus, Calendar, Repeat, Sparkles, Sun, Briefcase, CalendarDays, CalendarRange } from 'lucide-react';
+import { Plus, Calendar, Repeat, Sparkles, Sun, Briefcase, CalendarDays, CalendarRange, Flag } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 
 // 重复类型 → 线性图标映射（替代 store 中的 emoji，保持设计系统统一）
@@ -35,6 +36,8 @@ export default function AddTodoBar() {
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [newTagName, setNewTagName] = useState('');
+  const [priority, setPriority] = useState<Priority>(0);
+  const [showPriorityPicker, setShowPriorityPicker] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
   // EmptyState 的引导按钮触发：聚焦标题输入框
@@ -82,7 +85,7 @@ export default function AddTodoBar() {
       finalTitle = result.title;
       finalDeadline = nlpDeadline;
     }
-    await addTodo(finalTitle, finalDeadline ? 'longterm' : todoType, finalDeadline).catch(console.error);
+    await addTodo(finalTitle, finalDeadline ? 'longterm' : todoType, finalDeadline, priority).catch(console.error);
     const { useTodoStore: store } = await import('../store/todoStore');
     const todos = store.getState().todos;
     const latest = [...todos].sort((a, b) =>
@@ -96,12 +99,14 @@ export default function AddTodoBar() {
     setDeadline('');
     setRecurrence('');
     setSelectedTagIds([]);
+    setPriority(0);
     setShowRecurrencePicker(false);
     setShowTagPicker(false);
+    setShowPriorityPicker(false);
     setShowDatePicker(false);
     setNlpHint(null);
     setNlpDeadline(null);
-  }, [title, todoType, deadline, recurrence, selectedTagIds, nlpDeadline, addTodo, setRule, addTagToTodo]);
+  }, [title, todoType, deadline, recurrence, selectedTagIds, priority, nlpDeadline, addTodo, setRule, addTagToTodo]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -256,12 +261,45 @@ export default function AddTodoBar() {
         </div>
       )}
 
-      {/* 底部工具栏：重复规则 + 标签 */}
+      {/* 底部工具栏：优先级 + 重复规则 + 标签 */}
       <div className="mt-1.5 flex items-center flex-wrap" style={{ gap: '6px', position: 'relative' }}>
+        {/* 优先级 */}
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => { setShowPriorityPicker((v) => !v); setShowRecurrencePicker(false); setShowTagPicker(false); }}
+            className="flex items-center transition-colors cursor-pointer"
+            style={{
+              height: isTouch ? '36px' : '24px', padding: isTouch ? '0 14px' : '0 9px', gap: '5px', borderRadius: '5px',
+              border: '0.5px solid', borderColor: priority > 0 ? priorityColor(priority) : 'var(--color-border)',
+              backgroundColor: priority > 0 ? 'transparent' : 'transparent',
+              fontSize: isTouch ? '12px' : '10px',
+              color: priority > 0 ? priorityColor(priority) : 'var(--color-text-tertiary)',
+            }}
+          >
+            <Flag size={10} strokeWidth={2} style={priority > 0 ? { fill: 'currentColor' } : undefined} />
+            {priority > 0 ? priorityLabel(priority, lang) : (lang === 'zh' ? '优先级' : 'Priority')}
+          </button>
+          {showPriorityPicker && (
+            <div className="absolute flex flex-col overflow-hidden" style={{ top: '26px', left: 0, zIndex: 100, borderRadius: '7px', border: '0.5px solid var(--color-border)', backgroundColor: 'var(--color-bg-primary)', boxShadow: 'var(--shadow-md)', minWidth: '120px', padding: '2px' }}>
+              {PRIORITY_META.map(meta => (
+                <button key={meta.value} onClick={() => { setPriority(meta.value); setShowPriorityPicker(false); }}
+                  className="flex items-center gap-2 px-2.5 py-1.5 text-xs cursor-pointer"
+                  style={{ borderRadius: '5px', color: priority === meta.value ? 'var(--color-text-primary)' : 'var(--color-text-secondary)', backgroundColor: priority === meta.value ? 'var(--color-bg-tertiary)' : 'transparent', border: 'none', textAlign: 'left' }}
+                  onMouseEnter={e => { if (priority !== meta.value) (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-bg-tertiary)'; }}
+                  onMouseLeave={e => { if (priority !== meta.value) (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
+                >
+                  <Flag size={12} strokeWidth={2} style={{ color: meta.color, fill: meta.value > 0 ? meta.color : 'none', flexShrink: 0 }} />
+                  {lang === 'zh' ? meta.labelZh : meta.labelEn}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* 重复规则 */}
         <div style={{ position: 'relative' }}>
           <button
-            onClick={() => { setShowRecurrencePicker((v) => !v); setShowTagPicker(false); }}
+            onClick={() => { setShowRecurrencePicker((v) => !v); setShowTagPicker(false); setShowPriorityPicker(false); }}
             className="flex items-center transition-colors cursor-pointer"
             style={{
               height: isTouch ? '36px' : '24px', padding: isTouch ? '0 14px' : '0 9px', gap: '5px', borderRadius: '5px',
@@ -304,7 +342,7 @@ export default function AddTodoBar() {
         {/* 标签选择器 */}
         <div style={{ position: 'relative' }}>
           <button
-            onClick={() => { setShowTagPicker((v) => !v); setShowRecurrencePicker(false); }}
+            onClick={() => { setShowTagPicker((v) => !v); setShowRecurrencePicker(false); setShowPriorityPicker(false); }}
             className="flex items-center transition-colors cursor-pointer"
             style={{
               height: isTouch ? '36px' : '24px', padding: isTouch ? '0 14px' : '0 9px', gap: '5px', borderRadius: '5px',

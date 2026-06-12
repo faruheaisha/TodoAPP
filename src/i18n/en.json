@@ -16,10 +16,18 @@
     "emptyCta": "Add your first todo",
     "deadline": "Deadline",
     "noDeadline": "No deadline",
+    "filterToday": "Today",
     "filterAll": "All",
     "filterActive": "Active",
     "filterCompleted": "Completed",
     "noActiveTasks": "No active tasks",
+    "todayOverdue": "Overdue",
+    "todayDue": "Due Today",
+    "todayEmpty": "Nothing due or overdue today 🎉",
+    "sortSmart": "Smart sort",
+    "sortManual": "Manual sort",
+    "sortSmartHint": "Sorted by priority & deadline. Click to switch to drag-and-drop",
+    "sortManualHint": "Manual drag-and-drop order. Click to switch back to smart sort",
     "addSubtask": "Add subtask",
     "subtaskPlaceholder": "Add subtask…"
   },
@@ -55,6 +63,8 @@
     "navAppearance": "Appearance",
     "navShortcut": "Shortcuts",
     "navPath": "Storage Path",
+    "navAI": "AI Lab",
+    "groupAI": "Intelligence",
     "navExport": "Export",
     "navImport": "Import",
     "navAbout": "About",
@@ -132,7 +142,58 @@
     "moreSoon": "More tools coming soon",
     "insights": "Insights",
     "timer": "Timers",
-    "notes": "Notes"
+    "notes": "Notes",
+    "matrix": "Matrix",
+    "soundscape": "Sounds"
+  },
+  "ai": {
+    "enableTitle": "Enable AI features",
+    "enableDesc": "Unlocks Asha assistant & smart breakdown. Keys stay on this device",
+    "providers": "Model Providers",
+    "configured": "Configured",
+    "setActive": "Set as active",
+    "keyPlaceholder": "Paste your API key…",
+    "model": "Model",
+    "customModel": "Custom model…",
+    "testConnection": "Test connection",
+    "testOk": "Connected ({{ms}}ms)",
+    "testFail": "Failed",
+    "getKey": "Get a key",
+    "privacyNote": "Privacy: your API keys and conversations never leave this device except going directly to the provider you choose. Reachable domains are strictly allow-listed."
+  },
+  "chat": {
+    "greeting": "Hi, I'm Asha 🐾 — a little snow leopard living inside TodoApp. Ask me anything about the app, or switch to cowork mode and I'll help organize your tasks.",
+    "newChat": "New chat",
+    "untitled": "Untitled",
+    "modeChat": "Chat",
+    "modeCowork": "Cowork",
+    "modeChatHint": "Conversation only — never reads or touches your tasks",
+    "modeCoworkHint": "Cowork: Asha can list/create todos, add subtasks, set priority. Writes need your approval",
+    "placeholder": "Talk to Asha… (Enter to send, Shift+Enter for newline)",
+    "placeholderCowork": "Ask Asha to organize your tasks… (writes need approval)",
+    "thinking": "Asha is thinking…",
+    "confirmTitle": "Asha wants to perform these actions. Allow?",
+    "approve": "Allow",
+    "decline": "Decline",
+    "send": "Send",
+    "stop": "Stop",
+    "noProvider": "No model configured. Go to Settings → AI Lab and add any provider's API key.",
+    "noProviderShort": "No model"
+  },
+  "breakdown": {
+    "title": "AI Breakdown",
+    "thinking": "Asha is thinking…",
+    "noKey": "No model configured yet. Add any provider's API key in AI Lab to use this.",
+    "goSettings": "Configure",
+    "retry": "Regenerate",
+    "confirm": "Add {{count}} subtasks"
+  },
+  "soundscape": {
+    "master": "Master volume",
+    "stopAll": "Stop all",
+    "missing": "Not installed",
+    "missingHint": "Some sound files are not installed yet. Run the command below and follow the prompts to pick sounds from Pixabay (license allows commercial bundling):",
+    "licenseNote": "Built-in soundscapes are Pixabay License / CC0 resources, commercial use allowed. See sounds/LICENSES.md"
   },
   "habits": {
     "subtitle": "Last 7 Days",
@@ -166,6 +227,7 @@
     "unlink": "Unlink"
   },
   "insights": {
+    "trendTitle": "Completion Trend (Last 14 Days)",
     "focusTitle": "Focus Time (Last 7 Days)",
     "habitTitle": "Habit Heatmap (Last 5 Weeks)",
     "statsTitle": "Quick Stats"

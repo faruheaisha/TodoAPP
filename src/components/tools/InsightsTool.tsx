@@ -12,10 +12,11 @@
  */
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Flame, Clock, CheckCircle2, Target } from 'lucide-react';
+import { Flame, Clock, CheckCircle2, Target, TrendingUp } from 'lucide-react';
 import { useFocusStore } from '../../store/focusStore';
 import { useHabitStore, toDateKey, calcStreak, HABIT_COLORS } from '../../store/habitStore';
 import { useTodoStore } from '../../store/todoStore';
+import { useCompletionStore } from '../../store/completionStore';
 
 // ─── 工具函数 ─────────────────────────────────────────────────────────────────
 function dateKey(offsetDays: number): string {
@@ -26,6 +27,87 @@ function dateKey(offsetDays: number): string {
 
 function shortWeekday(dateStr: string, locale: string): string {
   return new Date(dateStr + 'T12:00:00').toLocaleDateString(locale, { weekday: 'short' });
+}
+
+// ─── 14日完成趋势折线图 ────────────────────────────────────────────────────────
+function CompletionTrendChart({ lang }: { lang: string }) {
+  const { t } = useTranslation();
+  const completionTimes = useCompletionStore((s) => s.completionTimes);
+
+  const DAYS = 14;
+  const data = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const iso of Object.values(completionTimes)) {
+      const key = iso.slice(0, 10);
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    return Array.from({ length: DAYS }, (_, i) => {
+      const key = dateKey(i - (DAYS - 1));
+      return { key, count: counts[key] ?? 0 };
+    });
+  }, [completionTimes]);
+
+  const max = Math.max(...data.map((d) => d.count), 1);
+  const total = data.reduce((a, d) => a + d.count, 0);
+
+  // 几何布局（viewBox 坐标，宽度由 CSS 100% 自适应）
+  const W = 280, H = 72, padX = 5, padTop = 8, padBottom = 6;
+  const innerW = W - padX * 2;
+  const innerH = H - padTop - padBottom;
+  const pts = data.map((d, i) => {
+    const x = padX + (innerW * i) / (DAYS - 1);
+    const y = padTop + innerH * (1 - d.count / max);
+    return { x, y, ...d };
+  });
+  const baseline = padTop + innerH;
+  const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+  const area = `${line} L${pts[pts.length - 1].x.toFixed(1)} ${baseline} L${pts[0].x.toFixed(1)} ${baseline} Z`;
+
+  return (
+    <div style={{ marginBottom: '20px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <TrendingUp size={12} style={{ color: 'var(--color-accent)' }} />
+          <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--color-text-primary)' }}>
+            {t('insights.trendTitle')}
+          </span>
+        </div>
+        <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>
+          {lang === 'zh' ? `共 ${total} 项` : `${total} done`}
+        </span>
+      </div>
+
+      {total === 0 ? (
+        <p style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>
+          {lang === 'zh' ? '近两周还没有完成记录，完成一个任务就能看到趋势。' : 'No completions in the last 14 days yet.'}
+        </p>
+      ) : (
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" style={{ display: 'block', overflow: 'visible' }}>
+          <defs>
+            <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.22" />
+              <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <path d={area} fill="url(#trendFill)" />
+          <path d={line} fill="none" stroke="var(--color-accent)" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+          {pts.map((p, i) => (
+            <circle
+              key={p.key}
+              cx={p.x} cy={p.y}
+              r={i === DAYS - 1 ? 3 : (p.count > 0 ? 1.8 : 0)}
+              fill={i === DAYS - 1 ? 'var(--color-accent)' : 'var(--color-bg-secondary)'}
+              stroke="var(--color-accent)"
+              strokeWidth={p.count > 0 || i === DAYS - 1 ? 1.2 : 0}
+              vectorEffect="non-scaling-stroke"
+            >
+              <title>{`${p.key}: ${p.count}`}</title>
+            </circle>
+          ))}
+        </svg>
+      )}
+    </div>
+  );
 }
 
 // ─── 7日专注柱状图 ─────────────────────────────────────────────────────────────
@@ -321,6 +403,8 @@ export function InsightsTool() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
       {/* 分隔线样式的区块 */}
+      <CompletionTrendChart lang={lang} />
+      <div style={{ height: '0.5px', background: 'var(--color-border)', margin: '4px 0' }} />
       <FocusBarChart lang={lang} />
       <div style={{ height: '0.5px', background: 'var(--color-border)', margin: '4px 0' }} />
       <HabitHeatmap lang={lang} />

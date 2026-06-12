@@ -7,6 +7,7 @@ import { useCompletionStore } from './store/completionStore';
 import { useHabitStore } from './store/habitStore';
 import { calcWeeklyStats, buildReportText, msUntilNext } from './lib/weeklyReport';
 import { useOverlayStore } from './store/overlayStore';
+import { useAIStore } from './store/aiStore';
 import { usePrefersDark } from './lib/responsive';
 
 const FocusLockScreen = lazy(() => import('./windows/FocusLockScreen'));
@@ -17,6 +18,9 @@ const ToolsPanel = lazy(() => import('./components/ToolsPanel'));
 const DailyAchievementModal = lazy(() =>
   import('./components/DailyAchievementModal').then((m) => ({ default: m.DailyAchievementModal }))
 );
+// AI 生态入口（aiEnabled 才挂载，保持纯本地模式零开销）
+const PetWidget = lazy(() => import('./components/pet/PetWidget'));
+const ChatPanel = lazy(() => import('./components/chat/ChatPanel'));
 import { TagChip } from './components/TagChip';
 import { initDB, loadTodos } from './lib/tauri';
 
@@ -42,6 +46,7 @@ function App() {
   const completionTimes = useCompletionStore((s) => s.completionTimes);
   const habits = useHabitStore((s) => s.habits);
   const { focusLock, clock } = useOverlayStore();
+  const aiEnabled = useAIStore((s) => s.aiEnabled);
   const [filter, setFilter] = useState<FilterType>('all');
   const [activeTag, setActiveTag] = useState<string | null>(null);
 
@@ -372,6 +377,9 @@ function App() {
         <SettingsDrawer />
         <ToolsPanel />
         <DailyAchievementModal />
+        {/* AI 生态：Asha 宠物 + 聊天面板（aiEnabled 才挂载） */}
+        {aiEnabled && <PetWidget />}
+        {aiEnabled && <ChatPanel />}
         {/* Full-screen overlays */}
         {focusLock && <FocusLockScreen />}
         {clock && <ClockScreen />}

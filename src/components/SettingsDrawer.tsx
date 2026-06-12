@@ -7,9 +7,10 @@ import { X, FolderOpen, Save, Upload, FileText, FileJson, FileSpreadsheet } from
 import { todosToCSV, saveFileWithDialog } from '../lib/csv-export';
 import { useSheet } from '../lib/responsive';
 import { useToast } from './Toast';
+import AISettings from './settings/AISettings';
 
-type NavSection = 'appearance' | 'shortcut' | 'path' | 'export' | 'import' | 'about';
-type NavGroup = 'general' | 'data' | 'about';
+type NavSection = 'appearance' | 'shortcut' | 'path' | 'ai' | 'export' | 'import' | 'about';
+type NavGroup = 'general' | 'ai' | 'data' | 'about';
 
 interface NavItem {
   key: NavSection;
@@ -21,6 +22,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'appearance', label: 'settings.navAppearance', group: 'general' },
   { key: 'shortcut', label: 'settings.navShortcut', group: 'general' },
   { key: 'path', label: 'settings.navPath', group: 'general' },
+  { key: 'ai', label: 'settings.navAI', group: 'ai' },
   { key: 'export', label: 'settings.navExport', group: 'data' },
   { key: 'import', label: 'settings.navImport', group: 'data' },
   { key: 'about', label: 'settings.navAbout', group: 'about' },
@@ -29,12 +31,14 @@ const NAV_ITEMS: NavItem[] = [
 // 分组强调色 — 仅用于分组标签文字本身的着色，不再使用色点装饰
 const GROUP_ACCENT: Record<NavGroup, string> = {
   general: 'var(--clay)',
+  ai: 'var(--fig, #c46686)',
   data: 'var(--sky)',
   about: 'var(--olive)',
 };
 
 const GROUP_LABEL_KEY: Record<NavGroup, string> = {
   general: 'settings.groupGeneral',
+  ai: 'settings.groupAI',
   data: 'settings.groupData',
   about: 'settings.groupAbout',
 };
@@ -177,6 +181,16 @@ export default function SettingsDrawer() {
   const sheet = useSheet();
 
   const [activeNav, setActiveNav] = React.useState<NavSection>('appearance');
+
+  // 外部直达指定设置页（如拆解弹层的「去配置」→ AI 实验室）
+  React.useEffect(() => {
+    const handler = (e: Event) => {
+      const nav = (e as CustomEvent).detail as NavSection;
+      if (nav) setActiveNav(nav);
+    };
+    window.addEventListener('open-settings-nav', handler);
+    return () => window.removeEventListener('open-settings-nav', handler);
+  }, []);
   const [recording, setRecording] = React.useState(false);
   const [showPdfPicker, setShowPdfPicker] = React.useState(false);
   const [selectedTemplate, setSelectedTemplate] = React.useState<PdfTemplateId>('classic');
@@ -229,7 +243,13 @@ export default function SettingsDrawer() {
         const raw = JSON.parse(evt.target?.result as string);
         const imported = raw.todos ?? raw;
         if (Array.isArray(imported) && imported.length > 0) {
-          setTodos(imported);
+          // 兼容旧备份：补齐新增字段默认值，避免缺字段导致排序异常
+          const normalized = imported.map((it, i) => ({
+            ...it,
+            priority: typeof it.priority === 'number' ? it.priority : 0,
+            sortOrder: typeof it.sortOrder === 'number' ? it.sortOrder : i + 1,
+          }));
+          setTodos(normalized);
           show(t('settings.importSuccess') + ' ' + imported.length + ' ' + t('app.items'));
         } else {
           show(t('settings.importInvalid'));
@@ -545,6 +565,8 @@ export default function SettingsDrawer() {
                     </button>
                   </SettingRow>
                 )}
+
+                {activeNav === 'ai' && <AISettings />}
 
                 {activeNav === 'path' && (
                   <SettingRow label={t('settings.downloadPath')}>

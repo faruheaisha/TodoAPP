@@ -16,10 +16,18 @@
     "emptyCta": "添加第一个待办",
     "deadline": "截止时间",
     "noDeadline": "无截止时间",
+    "filterToday": "今日",
     "filterAll": "全部",
     "filterActive": "进行中",
     "filterCompleted": "已完成",
     "noActiveTasks": "无进行中",
+    "todayOverdue": "已逾期",
+    "todayDue": "今天到期",
+    "todayEmpty": "今天没有到期或逾期的任务 🎉",
+    "sortSmart": "智能排序",
+    "sortManual": "手动排序",
+    "sortSmartHint": "当前按优先级与截止时间自动排序，点击切换为手动拖拽",
+    "sortManualHint": "当前为手动拖拽排序，点击切换回智能排序",
     "addSubtask": "添加子任务",
     "subtaskPlaceholder": "添加子任务…"
   },
@@ -55,6 +63,8 @@
     "navAppearance": "外观与语言",
     "navShortcut": "快捷键",
     "navPath": "存储路径",
+    "navAI": "AI 实验室",
+    "groupAI": "智能",
     "navExport": "导出数据",
     "navImport": "导入备份",
     "navAbout": "关于",
@@ -132,7 +142,58 @@
     "moreSoon": "更多工具即将上线",
     "insights": "数据洞察",
     "timer": "计时器",
-    "notes": "笔记"
+    "notes": "笔记",
+    "matrix": "四象限",
+    "soundscape": "音景"
+  },
+  "ai": {
+    "enableTitle": "启用 AI 能力",
+    "enableDesc": "开启后出现 Asha 助手与智能拆解入口，密钥仅存本机",
+    "providers": "模型厂商",
+    "configured": "已配置",
+    "setActive": "设为当前使用",
+    "keyPlaceholder": "粘贴你的 API Key…",
+    "model": "模型",
+    "customModel": "自定义模型名…",
+    "testConnection": "测试连接",
+    "testOk": "连接成功（{{ms}}ms）",
+    "testFail": "连接失败",
+    "getKey": "获取 Key",
+    "privacyNote": "隐私说明：API Key 与对话内容仅保存在本机，请求直接发送至你选择的厂商，不经任何中转服务器。可访问域名由系统白名单严格限定。"
+  },
+  "chat": {
+    "greeting": "你好，我是 Asha（阿夏）🐾 一只住在 TodoApp 里的小雪豹。问我怎么用这个应用，或者切到 cowork 模式，我可以帮你整理任务。",
+    "newChat": "新对话",
+    "untitled": "未命名对话",
+    "modeChat": "聊天",
+    "modeCowork": "协作",
+    "modeChatHint": "纯对话模式，不会读取或修改你的任务",
+    "modeCoworkHint": "协作模式：Asha 可查看/创建任务、添加子任务、调优先级，写操作需你确认",
+    "placeholder": "和 Asha 聊聊…（Enter 发送，Shift+Enter 换行）",
+    "placeholderCowork": "让 Asha 帮你整理任务…（写操作会先征求确认）",
+    "thinking": "Asha 正在思考…",
+    "confirmTitle": "Asha 想执行以下操作，是否允许？",
+    "approve": "允许",
+    "decline": "拒绝",
+    "send": "发送",
+    "stop": "停止生成",
+    "noProvider": "还没有可用的模型。去 设置 → AI 实验室 配置任一厂商的 API Key。",
+    "noProviderShort": "未配置模型"
+  },
+  "breakdown": {
+    "title": "AI 拆解任务",
+    "thinking": "Asha 正在思考…",
+    "noKey": "还没有配置可用的模型。去 AI 实验室填入任一厂商的 API Key 即可使用。",
+    "goSettings": "去配置",
+    "retry": "重新生成",
+    "confirm": "添加 {{count}} 个子任务"
+  },
+  "soundscape": {
+    "master": "主音量",
+    "stopAll": "全部停止",
+    "missing": "未安装",
+    "missingHint": "部分音景文件尚未安装。在项目目录运行下方命令，按提示从 Pixabay 挑选下载（许可证允许商业打包）：",
+    "licenseNote": "内置音景均来自 Pixabay License / CC0 资源，允许商业使用，详见 sounds/LICENSES.md"
   },
   "habits": {
     "subtitle": "最近 7 天",
@@ -166,6 +227,7 @@
     "unlink": "取消关联"
   },
   "insights": {
+    "trendTitle": "完成趋势（近14天）",
     "focusTitle": "专注时长（近7天）",
     "habitTitle": "习惯热力图（近5周）",
     "statsTitle": "数据速览"

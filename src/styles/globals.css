@@ -311,3 +311,12 @@ body {
   --color-accent-hover: #a84e6c;
   --color-accent-light: rgba(196, 102, 134, 0.12);
 }
+
+/* ═══════════════════════════════════════════════════════════
+   音景滑杆 — accent-color 方案，自动跟随主题色
+   ═══════════════════════════════════════════════════════════ */
+.soundscape-slider {
+  accent-color: var(--clay);
+  height: 4px;
+  cursor: pointer;
+}
