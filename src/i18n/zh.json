@@ -161,6 +161,14 @@
     "getKey": "获取 Key",
     "privacyNote": "隐私说明：API Key 与对话内容仅保存在本机，请求直接发送至你选择的厂商，不经任何中转服务器。可访问域名由系统白名单严格限定。"
   },
+  "breakdown": {
+    "title": "AI 拆解任务",
+    "thinking": "Asha 正在思考…",
+    "noKey": "还没有配置可用的模型。去 AI 实验室填入任一厂商的 API Key 即可使用。",
+    "goSettings": "去配置",
+    "retry": "重新生成",
+    "confirm": "添加 {{count}} 个子任务"
+  },
   "soundscape": {
     "master": "主音量",
     "stopAll": "全部停止",

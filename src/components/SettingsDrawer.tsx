@@ -181,6 +181,16 @@ export default function SettingsDrawer() {
   const sheet = useSheet();
 
   const [activeNav, setActiveNav] = React.useState<NavSection>('appearance');
+
+  // 外部直达指定设置页（如拆解弹层的「去配置」→ AI 实验室）
+  React.useEffect(() => {
+    const handler = (e: Event) => {
+      const nav = (e as CustomEvent).detail as NavSection;
+      if (nav) setActiveNav(nav);
+    };
+    window.addEventListener('open-settings-nav', handler);
+    return () => window.removeEventListener('open-settings-nav', handler);
+  }, []);
   const [recording, setRecording] = React.useState(false);
   const [showPdfPicker, setShowPdfPicker] = React.useState(false);
   const [selectedTemplate, setSelectedTemplate] = React.useState<PdfTemplateId>('classic');

@@ -161,6 +161,14 @@
     "getKey": "Get a key",
     "privacyNote": "Privacy: your API keys and conversations never leave this device except going directly to the provider you choose. Reachable domains are strictly allow-listed."
   },
+  "breakdown": {
+    "title": "AI Breakdown",
+    "thinking": "Asha is thinking…",
+    "noKey": "No model configured yet. Add any provider's API key in AI Lab to use this.",
+    "goSettings": "Configure",
+    "retry": "Regenerate",
+    "confirm": "Add {{count}} subtasks"
+  },
   "soundscape": {
     "master": "Master volume",
     "stopAll": "Stop all",

@@ -13,8 +13,10 @@ import { TagChip } from './TagChip';
 import { formatDeadline, isUrgent, isOverdue } from '../lib/utils';
 import { PRIORITY_META, priorityColor } from '../lib/priority';
 import { useIsTouch } from '../lib/responsive';
+import { useAIStore } from '../store/aiStore';
+import { BreakdownPopover } from './BreakdownPopover';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronDown, ChevronRight, Plus, Repeat, Flag } from 'lucide-react';
+import { X, ChevronDown, ChevronRight, Plus, Repeat, Flag, Sparkles } from 'lucide-react';
 
 interface TodoCardProps {
   todo: Todo;
@@ -42,6 +44,8 @@ export function TodoCard({ todo }: TodoCardProps) {
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [showPriorityPicker, setShowPriorityPicker] = useState(false);
+  const [showBreakdown, setShowBreakdown] = useState(false);
+  const aiEnabled = useAIStore((s) => s.aiEnabled);
   const [newTagName, setNewTagName] = useState('');
   const subtaskInputRef = useRef<HTMLInputElement>(null);
 
@@ -232,9 +236,26 @@ export function TodoCard({ todo }: TodoCardProps) {
               className="flex items-center flex-shrink-0"
               style={{ gap: '2px' }}
             >
+              {/* AI 拆解（aiEnabled 才显示，且仅未完成任务） */}
+              {aiEnabled && !todo.completed && (
+                <button
+                  onClick={() => { setShowBreakdown(v => !v); setShowTagPicker(false); setShowPriorityPicker(false); }}
+                  className="flex items-center justify-center transition-colors cursor-pointer"
+                  style={{
+                    width: isTouch ? '34px' : '18px', height: isTouch ? '34px' : '18px', borderRadius: '6px',
+                    color: showBreakdown ? 'var(--clay)' : 'var(--color-text-tertiary)',
+                    border: 'none', backgroundColor: 'transparent',
+                  }}
+                  title={t('breakdown.title')}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--clay)'; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = showBreakdown ? 'var(--clay)' : 'var(--color-text-tertiary)'; }}
+                >
+                  <Sparkles size={11} />
+                </button>
+              )}
               {/* 优先级 */}
               <button
-                onClick={() => { setShowPriorityPicker(v => !v); setShowTagPicker(false); }}
+                onClick={() => { setShowPriorityPicker(v => !v); setShowTagPicker(false); setShowBreakdown(false); }}
                 className="flex items-center justify-center transition-colors cursor-pointer"
                 style={{
                   width: isTouch ? '34px' : '18px', height: isTouch ? '34px' : '18px', borderRadius: '6px',
@@ -302,6 +323,17 @@ export function TodoCard({ todo }: TodoCardProps) {
           )}
         </AnimatePresence>
       </motion.div>
+
+      {/* AI 拆解弹出层 */}
+      {showBreakdown && (
+        <div onMouseEnter={() => setIsHovered(true)}>
+          <BreakdownPopover
+            todoId={todo.id}
+            title={todo.title}
+            onClose={() => setShowBreakdown(false)}
+          />
+        </div>
+      )}
 
       {/* 优先级选择弹出层 */}
       {showPriorityPicker && (
