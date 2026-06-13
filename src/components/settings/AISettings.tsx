@@ -146,14 +146,51 @@ export default function AISettings() {
               </button>
             </div>
 
-            {providers.map((p) => (
-              <ProviderCard
-                key={p.id}
-                provider={p}
-                active={p.id === activeChatProviderId}
-                onEdit={() => { setEditingId(p.id); setShowAddForm(true); }}
-              />
-            ))}
+            {providers.length === 0 ? (
+              <div className="flex flex-col items-center justify-center" style={{
+                padding: '40px 20px', borderRadius: '12px',
+                border: '1px dashed var(--color-border)',
+                backgroundColor: 'var(--color-bg-tertiary)',
+                gap: '12px', marginTop: '8px',
+              }}>
+                <div style={{
+                  width: 44, height: 44, borderRadius: '12px',
+                  border: '1.5px dashed var(--color-border)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: 'var(--color-text-tertiary)',
+                }}>
+                  <Plus size={20} />
+                </div>
+                <div className="flex flex-col items-center" style={{ gap: '4px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-primary)' }}>
+                    {t('ai.noProviders', '还没有供应商')}
+                  </span>
+                  <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', textAlign: 'center' }}>
+                    {t('ai.noProvidersHint', '添加第一个 API 供应商开始使用 AI 功能')}
+                  </span>
+                </div>
+                <button
+                  onClick={() => { setShowAddForm(true); setEditingId(null); }}
+                  style={{
+                    padding: '8px 20px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
+                    border: 'none', backgroundColor: 'var(--clay)', color: '#fff', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                  }}
+                >
+                  <Plus size={12} />
+                  {t('ai.addFirstProvider', '添加第一个供应商')}
+                </button>
+              </div>
+            ) : (
+              providers.map((p) => (
+                <ProviderCard
+                  key={p.id}
+                  provider={p}
+                  active={p.id === activeChatProviderId}
+                  onEdit={() => { setEditingId(p.id); setShowAddForm(true); }}
+                />
+              ))
+            )}
 
             <p style={{ fontSize: '9px', lineHeight: 1.7, color: 'var(--color-text-tertiary)', opacity: 0.8, marginTop: '8px' }}>
               {t('ai.privacyNote')}
@@ -354,7 +391,7 @@ function ProviderForm({
   };
 
   const del = () => {
-    if (initial && !initial.isPreset) {
+    if (initial) {
       deleteProvider(initial.id);
       onClose();
     }
@@ -526,7 +563,7 @@ function ProviderForm({
 
         {/* 底部按钮 */}
         <div className="flex items-center justify-between" style={{ marginTop: '8px' }}>
-          {isEdit && !initial?.isPreset ? (
+          {isEdit ? (
             <button
               onClick={del}
               className="flex items-center cursor-pointer"
@@ -573,7 +610,7 @@ function RoutingTab({
   providers, activeChatProviderId,
 }: { providers: AIProvider[]; activeChatProviderId: string }) {
   const { t } = useTranslation();
-  const { setActiveProvider, updateProvider } = useAIStore();
+  const { setActiveProvider, updateProvider, tierModels, setTierModel } = useAIStore();
   const active = providers.find((p) => p.id === activeChatProviderId);
   const configured = providers.filter((p) => !!p.apiKey);
 
@@ -662,6 +699,58 @@ function RoutingTab({
           {t('ai.getKey')} · {active.name}
         </a>
       )}
+
+      {/* ── 三级模型映射 ── */}
+      <div className="flex flex-col" style={{ gap: '10px', paddingTop: '6px', borderTop: '0.5px solid var(--color-border)' }}>
+        <div>
+          <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+            {t('ai.tierMapping', '模型层级映射')}
+          </span>
+          <p style={{ fontSize: '10px', color: 'var(--color-text-tertiary)', margin: '3px 0 0' }}>
+            {t('ai.tierMappingHint', '为不同复杂度的任务指定最合适的模型')}
+          </p>
+        </div>
+        {([
+          { tier: 'light'   as const, label: t('ai.tierLight',   '轻量日常'),     hint: t('ai.tierLightHint',   '适合 Haiku 类快速模型')      },
+          { tier: 'medium'  as const, label: t('ai.tierMedium',  '中量级'),       hint: t('ai.tierMediumHint',  '适合 Sonnet 类均衡模型')     },
+          { tier: 'complex' as const, label: t('ai.tierComplex', '复杂任务处理'), hint: t('ai.tierComplexHint', '适合 DeepSeek 类深度推理模型') },
+        ]).map(({ tier, label, hint }) => (
+          <div key={tier} className="flex flex-col" style={{ gap: '4px' }}>
+            <div>
+              <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-primary)' }}>{label}</span>
+              <span style={{ fontSize: '9px', color: 'var(--color-text-tertiary)', marginLeft: '6px' }}>{hint}</span>
+            </div>
+            <select
+              value={tierModels[tier]}
+              onChange={(e) => setTierModel(tier, e.target.value)}
+              style={{
+                padding: '6px 10px', borderRadius: '7px', fontSize: '11px',
+                border: '0.5px solid ' + (tierModels[tier] ? 'var(--clay)' : 'var(--color-border)'),
+                backgroundColor: 'var(--color-bg-input, var(--color-bg-tertiary))',
+                color: tierModels[tier] ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)',
+                width: '100%', boxSizing: 'border-box', cursor: 'pointer',
+              }}
+            >
+              <option value="">{t('ai.tierUnset', '— 未设置 —')}</option>
+              {configured.flatMap((p) => {
+                const models = p.fetchedModels.length > 0
+                  ? p.fetchedModels
+                  : (p.activeModel ? [p.activeModel] : []);
+                return models.map((m) => (
+                  <option key={`${p.id}::${m}`} value={`${p.id}::${m}`}>
+                    {p.name} / {m}
+                  </option>
+                ));
+              })}
+            </select>
+          </div>
+        ))}
+        {configured.length === 0 && (
+          <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', fontStyle: 'italic' }}>
+            {t('ai.tierNeedProvider', '请先在「供应商」标签配置 API Key 并获取模型列表')}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

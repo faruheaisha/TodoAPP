@@ -1,40 +1,79 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { getProvider } from '../lib/ai/providers';
 
-/**
- * aiStore — AI 能力配置
- *
- * aiEnabled 是「自我升级」总开关：默认关闭，app 表现为纯本地待办工具；
- * 用户在 设置→AI 实验室 开启并配好任一厂商 key 后，
- * 界面才出现任务拆解等 AI 入口。
- *
- * petVisible 独立于 aiEnabled，默认 true，无需 API key 即可显示 Asha 宠物。
- *
- * 隐私边界：API key 仅存本机 localStorage（zustand persist），
- * 不上传任何服务器；请求直连用户所选厂商。
- */
+// ── 数据模型 ──────────────────────────────────────────────────────────
 
-export interface ProviderConfig {
+export interface AIProvider {
+  id: string;
+  name: string;
+  /** OpenAI 兼容端点 base（不含 /chat/completions，不以 / 结尾） */
+  baseUrl: string;
   apiKey: string;
-  model: string;
+  /** 从 GET /v1/models 获取的模型列表；未获取时为空数组 */
+  fetchedModels: string[];
+  /** 当前选中的模型 */
+  activeModel: string;
+  enabled: boolean;
+  /** kind: 'anthropic' 启用原生 Messages API；其余走 OpenAI 兼容 */
+  kind: 'openai' | 'anthropic';
+  notes?: string;
+  consoleUrl?: string;
+  /** 是否为内置预设（不可删除） */
+  isPreset: boolean;
+  lastTestMs?: number;
+  lastTestOk?: boolean;
 }
+
+export interface DailyUsage {
+  /** YYYY-MM-DD */
+  date: string;
+  providerId: string;
+  requests: number;
+  inputTokens: number;
+  outputTokens: number;
+  cachedTokens: number;
+}
+
+// ── 三级模型映射 ──────────────────────────────────────────────────────
+// light=轻量日常(Haiku类), medium=中量级(Sonnet类), complex=复杂任务(DeepSeek类)
+// 值格式: "providerId::modelName"，空字符串表示未设置
+export interface TierModelMap {
+  light: string;    // 轻量日常
+  medium: string;   // 中量级
+  complex: string;  // 复杂任务处理
+}
+
+// ── Store ─────────────────────────────────────────────────────────────
 
 interface AIState {
   aiEnabled: boolean;
-  /** 宠物 Asha 独立开关：默认开，不依赖 AI API */
   petVisible: boolean;
-  /** 宠物拖拽偏移量（framer-motion x/y），供 ChatPanel 跟随定位用；不持久化 */
+  /** 运行时拖拽偏移，不持久化 */
   petOffset: { x: number; y: number };
-  /** providerId → 用户配置 */
-  configs: Record<string, ProviderConfig>;
-  activeProviderId: string;
 
+  providers: AIProvider[];
+  activeChatProviderId: string;
+
+  /** 三级模型映射（不含硬编码 ID，用户自己配置） */
+  tierModels: TierModelMap;
+
+  /** 近 30 天每日用量（每次 chat() 后写入） */
+  usageRecords: DailyUsage[];
+
+  // ── actions ──
   setAiEnabled: (v: boolean) => void;
   setPetVisible: (v: boolean) => void;
-  setPetOffset: (offset: { x: number; y: number }) => void;
-  setProviderConfig: (id: string, config: Partial<ProviderConfig>) => void;
+  setPetOffset: (o: { x: number; y: number }) => void;
+
+  addProvider: (p: Omit<AIProvider, 'id'>) => string;
+  updateProvider: (id: string, patch: Partial<AIProvider>) => void;
+  deleteProvider: (id: string) => void;
+  /** 选择当前激活供应商（旧名 setActiveProvider 保持兼容） */
   setActiveProvider: (id: string) => void;
+
+  setTierModel: (tier: keyof TierModelMap, value: string) => void;
+
+  recordUsage: (providerId: string, input: number, output: number, cached: number) => void;
 }
 
 export const useAIStore = create<AIState>()(
@@ -43,50 +82,145 @@ export const useAIStore = create<AIState>()(
       aiEnabled: false,
       petVisible: true,
       petOffset: { x: 0, y: 0 },
-      configs: {},
-      activeProviderId: 'deepseek',
+
+      // 初始空列表 — 用户自己添加，无内置预设
+      providers: [],
+      activeChatProviderId: '',
+
+      tierModels: { light: '', medium: '', complex: '' },
+
+      usageRecords: [],
 
       setAiEnabled: (aiEnabled) => set({ aiEnabled }),
       setPetVisible: (petVisible) => set({ petVisible }),
       setPetOffset: (petOffset) => set({ petOffset }),
 
-      setProviderConfig: (id, config) =>
+      addProvider: (p) => {
+        const id = 'custom_' + Date.now().toString(36);
+        set((s) => ({ providers: [...s.providers, { ...p, id }] }));
+        return id;
+      },
+
+      updateProvider: (id, patch) =>
+        set((s) => ({
+          providers: s.providers.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+        })),
+
+      deleteProvider: (id) =>
         set((s) => {
-          const prev = s.configs[id] ?? { apiKey: '', model: getProvider(id)?.presetModels[0] ?? '' };
-          return { configs: { ...s.configs, [id]: { ...prev, ...config } } };
+          const remaining = s.providers.filter((p) => p.id !== id);
+          // 清理三级映射中引用了该 providerId 的条目
+          const clearTier = (v: string) => v.startsWith(id + '::') ? '' : v;
+          return {
+            providers: remaining,
+            activeChatProviderId:
+              s.activeChatProviderId === id
+                ? (remaining[0]?.id ?? '')
+                : s.activeChatProviderId,
+            tierModels: {
+              light: clearTier(s.tierModels.light),
+              medium: clearTier(s.tierModels.medium),
+              complex: clearTier(s.tierModels.complex),
+            },
+          };
         }),
 
-      setActiveProvider: (activeProviderId) => set({ activeProviderId }),
+      setActiveProvider: (activeChatProviderId) => set({ activeChatProviderId }),
+
+      setTierModel: (tier, value) =>
+        set((s) => ({ tierModels: { ...s.tierModels, [tier]: value } })),
+
+      recordUsage: (providerId, inputTokens, outputTokens, cachedTokens) =>
+        set((s) => {
+          const date = new Date().toISOString().slice(0, 10);
+          const idx = s.usageRecords.findIndex(
+            (r) => r.date === date && r.providerId === providerId
+          );
+          let records: DailyUsage[];
+          if (idx >= 0) {
+            records = s.usageRecords.map((r, i) =>
+              i === idx
+                ? {
+                    ...r,
+                    requests: r.requests + 1,
+                    inputTokens: r.inputTokens + inputTokens,
+                    outputTokens: r.outputTokens + outputTokens,
+                    cachedTokens: r.cachedTokens + cachedTokens,
+                  }
+                : r
+            );
+          } else {
+            records = [
+              ...s.usageRecords,
+              { date, providerId, requests: 1, inputTokens, outputTokens, cachedTokens },
+            ];
+          }
+          // 只保留最近 30 天
+          const cutoff = new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10);
+          return { usageRecords: records.filter((r) => r.date >= cutoff) };
+        }),
     }),
     {
       name: 'todoapp-ai',
-      version: 1,
-      // petOffset 是运行时状态，不需要持久化
+      version: 2,
       partialize: (s) => ({
         aiEnabled: s.aiEnabled,
         petVisible: s.petVisible,
-        configs: s.configs,
-        activeProviderId: s.activeProviderId,
+        providers: s.providers,
+        activeChatProviderId: s.activeChatProviderId,
+        tierModels: s.tierModels,
+        usageRecords: s.usageRecords,
       }),
+      migrate: (persisted: unknown, version: number) => {
+        const p = persisted as Record<string, unknown> | null;
+        if (!p) return persisted;
+        // v1 → v2: 旧格式有 configs: Record<string,{apiKey,model}>
+        if (version < 2 && p.configs && typeof p.configs === 'object') {
+          return {
+            ...p,
+            providers: [],
+            activeChatProviderId: '',
+            tierModels: { light: '', medium: '', complex: '' },
+            usageRecords: [],
+          };
+        }
+        // 确保 tierModels 字段存在（旧版本升级）
+        if (!p.tierModels) {
+          return { ...p, tierModels: { light: '', medium: '', complex: '' } };
+        }
+        return persisted;
+      },
     }
   )
 );
 
-/** 当前激活厂商的可用配置；未配 key 时返回 null（调用方据此引导去设置） */
-export function getActiveAIConfig(): { providerId: string; model: string; apiKey: string } | null {
-  const { configs, activeProviderId, aiEnabled } = useAIStore.getState();
+// ── 向下兼容辅助（ChatPanel / workflows 直接调用） ─────────────────────
+
+/** 当前激活供应商完整配置；未启用 AI 或未配 key 返回 null */
+export function getActiveAIConfig(): {
+  providerId: string;
+  model: string;
+  apiKey: string;
+  baseUrl: string;
+  kind: 'openai' | 'anthropic';
+} | null {
+  const { providers, activeChatProviderId, aiEnabled } = useAIStore.getState();
   if (!aiEnabled) return null;
-  const cfg = configs[activeProviderId];
-  if (!cfg?.apiKey) return null;
-  const model = cfg.model || getProvider(activeProviderId)?.presetModels[0] || '';
+  const p = providers.find((x) => x.id === activeChatProviderId);
+  if (!p?.apiKey || !p.enabled) return null;
+  const model = p.activeModel || p.fetchedModels[0] || '';
   if (!model) return null;
-  return { providerId: activeProviderId, model, apiKey: cfg.apiKey };
+  return { providerId: p.id, model, apiKey: p.apiKey, baseUrl: p.baseUrl, kind: p.kind };
 }
 
-/** 已填 key 的厂商列表（聊天面板模型切换下拉用） */
-export function getConfiguredProviders(): { providerId: string; model: string }[] {
-  const { configs } = useAIStore.getState();
-  return Object.entries(configs)
-    .filter(([, c]) => !!c.apiKey)
-    .map(([id, c]) => ({ providerId: id, model: c.model || getProvider(id)?.presetModels[0] || '' }));
+/** 已配 key 的供应商列表（ChatPanel 模型切换下拉用） */
+export function getConfiguredProviders(): { providerId: string; model: string; name: string }[] {
+  const { providers } = useAIStore.getState();
+  return providers
+    .filter((p) => !!p.apiKey && p.enabled)
+    .map((p) => ({
+      providerId: p.id,
+      model: p.activeModel || p.fetchedModels[0] || '',
+      name: p.name,
+    }));
 }
