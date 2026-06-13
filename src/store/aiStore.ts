@@ -24,12 +24,15 @@ interface AIState {
   aiEnabled: boolean;
   /** 宠物 Asha 独立开关：默认开，不依赖 AI API */
   petVisible: boolean;
+  /** 宠物拖拽偏移量（framer-motion x/y），供 ChatPanel 跟随定位用；不持久化 */
+  petOffset: { x: number; y: number };
   /** providerId → 用户配置 */
   configs: Record<string, ProviderConfig>;
   activeProviderId: string;
 
   setAiEnabled: (v: boolean) => void;
   setPetVisible: (v: boolean) => void;
+  setPetOffset: (offset: { x: number; y: number }) => void;
   setProviderConfig: (id: string, config: Partial<ProviderConfig>) => void;
   setActiveProvider: (id: string) => void;
 }
@@ -39,11 +42,13 @@ export const useAIStore = create<AIState>()(
     (set) => ({
       aiEnabled: false,
       petVisible: true,
+      petOffset: { x: 0, y: 0 },
       configs: {},
       activeProviderId: 'deepseek',
 
       setAiEnabled: (aiEnabled) => set({ aiEnabled }),
       setPetVisible: (petVisible) => set({ petVisible }),
+      setPetOffset: (petOffset) => set({ petOffset }),
 
       setProviderConfig: (id, config) =>
         set((s) => {
@@ -53,7 +58,17 @@ export const useAIStore = create<AIState>()(
 
       setActiveProvider: (activeProviderId) => set({ activeProviderId }),
     }),
-    { name: 'todoapp-ai', version: 1 }
+    {
+      name: 'todoapp-ai',
+      version: 1,
+      // petOffset 是运行时状态，不需要持久化
+      partialize: (s) => ({
+        aiEnabled: s.aiEnabled,
+        petVisible: s.petVisible,
+        configs: s.configs,
+        activeProviderId: s.activeProviderId,
+      }),
+    }
   )
 );
 

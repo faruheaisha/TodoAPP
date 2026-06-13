@@ -6,21 +6,26 @@
  * - 左侧会话历史：新建/切换/删除，自动标题
  * - 流式性能：delta 累积在本组件局部 state，完成后一次性落 chatStore
  *
- * 视觉复用模态体系（--shadow-lg / 0.5px 边框 / CSS 变量），
- * 右下角浮动卡片（GitHub Copilot Chat 的入口模式），不打断主界面。
+ * 位置跟随：与 PetWidget 共享 aiStore.petOffset，
+ * 通过动态 right/bottom 偏移实现宠物拖拽时面板同步移动。
+ *
+ * 视觉：玻璃拟态（--glass-bg / backdropFilter blur），无硬边框感。
  */
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  X, Plus, Send, Square, Trash2, MessageCircle, Wrench, Check, Loader2,
+  X, Plus, Send, Square, Trash2, MessageCircle, Wrench, Check, Loader2, Settings,
 } from 'lucide-react';
 import { chat, type ChatMessage, type ToolCall } from '../../lib/ai/client';
 import { buildSystemPrompt } from '../../lib/ai/appContext';
 import { TOOL_REGISTRY, coworkToolDefs } from '../../lib/ai/tools';
 import { useChatStore, type ChatMode } from '../../store/chatStore';
 import { useAIStore, getActiveAIConfig, getConfiguredProviders } from '../../store/aiStore';
+import { useSettingsStore } from '../../store/settingsStore';
 import { getProvider } from '../../lib/ai/providers';
+
+
 
 interface PendingConfirm {
   calls: ToolCall[];
@@ -30,12 +35,14 @@ interface PendingConfirm {
 export default function ChatPanel() {
   const { t, i18n } = useTranslation();
   const lang = i18n.language.startsWith('zh') ? 'zh' : 'en';
+
   const {
     sessions, activeSessionId, isOpen,
     setIsOpen, newSession, switchSession, deleteSession, setSessionMode,
     appendMessage, markUnread, setAssistantBusy,
   } = useChatStore();
-  const { activeProviderId, setActiveProvider } = useAIStore();
+
+  const { activeProviderId, setActiveProvider, aiEnabled, petOffset } = useAIStore();
 
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -47,6 +54,9 @@ export default function ChatPanel() {
 
   const session = sessions.find((s) => s.id === activeSessionId) ?? null;
   const configured = getConfiguredProviders();
+
+  // 语言感知宠物名
+  const petName = lang === 'zh' ? '阿夏' : 'Asha';
 
   // 首次打开：建会话 + Asha 自我介绍
   useEffect(() => {
@@ -66,7 +76,6 @@ export default function ChatPanel() {
   }, [session?.messages.length, streamText, pending]);
 
   const stop = () => {
-    // 确认卡片挂起时先释放 Promise，避免循环死等
     pending?.resolve(false);
     abortRef.current?.abort();
   };
@@ -87,7 +96,6 @@ export default function ChatPanel() {
     const sid = session.id;
 
     try {
-      // 取最新会话内容构造上下文（system + 近 20 条）
       const live = useChatStore.getState().sessions.find((s) => s.id === sid)!;
       const history: ChatMessage[] = [
         { role: 'system', content: buildSystemPrompt(live.mode, lang) },
@@ -95,7 +103,6 @@ export default function ChatPanel() {
       ];
 
       if (live.mode === 'chat') {
-        // 纯对话：流式
         setStreamText('');
         let acc = '';
         const { text: full } = await chat(history, {
@@ -106,7 +113,6 @@ export default function ChatPanel() {
         appendMessage(sid, { role: 'assistant', content: full || acc });
         markUnread();
       } else {
-        // cowork：工具循环（≤5 轮），写操作确认
         const working = [...history];
         const trace: { name: string; summary: string }[] = [];
         for (let round = 0; round < 5; round++) {
@@ -124,7 +130,6 @@ export default function ChatPanel() {
           }
           working.push({ role: 'assistant', content: res.text, toolCalls: res.toolCalls });
 
-          // 写操作 → 确认卡片
           const writes = res.toolCalls.filter((tc) => TOOL_REGISTRY[tc.name]?.isWrite);
           let approved = true;
           if (writes.length > 0) {
@@ -151,7 +156,6 @@ export default function ChatPanel() {
       }
     } catch (e) {
       if (controller.signal.aborted) {
-        // 中断：保留已生成的部分
         const partial = streamRefSnapshot();
         if (partial) appendMessage(sid, { role: 'assistant', content: partial });
       } else {
@@ -166,7 +170,6 @@ export default function ChatPanel() {
     }
   };
 
-  // 中断时读取当前流式快照（streamText 闭包可能滞后，从 DOM 状态外置一个 ref 更稳）
   const streamSnapshot = useRef('');
   useEffect(() => { streamSnapshot.current = streamText; }, [streamText]);
   const streamRefSnapshot = () => streamSnapshot.current;
@@ -178,33 +181,52 @@ export default function ChatPanel() {
     }
   };
 
+  // 面板位置：基础 right/bottom + petOffset 偏移（与宠物同步移动）
+  const panelRight  = 18 - petOffset.x;
+  const panelBottom = 96 - petOffset.y;
+
   return (
     <AnimatePresence>
       {isOpen && (
         <motion.div
+          key="chat-panel"
           initial={{ opacity: 0, y: 16, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 12, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0,  scale: 1 }}
+          exit={{    opacity: 0, y: 12, scale: 0.98 }}
           transition={{ duration: 0.18, ease: [0, 0, 0.2, 1] }}
           className="fixed flex overflow-hidden"
           style={{
-            right: '18px', bottom: '96px', zIndex: 40,
+            right:  `${panelRight}px`,
+            bottom: `${panelBottom}px`,
+            zIndex: 40,
             width: 'min(460px, calc(100vw - 36px))',
             height: 'min(540px, calc(100vh - 130px))',
-            borderRadius: '14px',
-            border: '0.5px solid var(--color-border)',
-            backgroundColor: 'var(--color-bg-secondary)',
-            boxShadow: 'var(--shadow-lg)',
+            borderRadius: '16px',
+            // 玻璃拟态：无硬边框，渐变透明
+            border: '0.5px solid var(--glass-border)',
+            backgroundColor: 'var(--glass-bg)',
+            backdropFilter: 'blur(22px)',
+            WebkitBackdropFilter: 'blur(22px)',
+            boxShadow: 'var(--shadow-float)',
           }}
         >
           {/* ── 左侧会话历史 ── */}
-          <div className="flex-shrink-0 flex flex-col border-r" style={{ width: '128px', borderColor: 'var(--color-border)' }}>
+          <div
+            className="flex-shrink-0 flex flex-col"
+            style={{
+              width: '128px',
+              borderRight: '0.5px solid var(--glass-border)',
+            }}
+          >
             <button
-              onClick={() => { const id = newSession('chat'); appendMessage(id, { role: 'assistant', content: t('chat.greeting') }); }}
+              onClick={() => {
+                const id = newSession('chat');
+                appendMessage(id, { role: 'assistant', content: t('chat.greeting') });
+              }}
               className="flex items-center justify-center cursor-pointer transition-colors flex-shrink-0"
               style={{
                 margin: '8px', gap: '4px', height: '26px', borderRadius: '7px', fontSize: '10px', fontWeight: 500,
-                border: '0.5px dashed var(--color-border)', backgroundColor: 'transparent', color: 'var(--color-text-secondary)',
+                border: '0.5px dashed var(--glass-border)', backgroundColor: 'transparent', color: 'var(--color-text-secondary)',
               }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-bg-tertiary)'; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
@@ -248,14 +270,36 @@ export default function ChatPanel() {
           {/* ── 右侧主区 ── */}
           <div className="flex-1 flex flex-col min-w-0">
             {/* 头部 */}
-            <div className="flex items-center flex-shrink-0 border-b" style={{ borderColor: 'var(--color-border)', padding: '8px 10px', gap: '8px' }}>
+            <div
+              className="flex items-center flex-shrink-0"
+              style={{
+                borderBottom: '0.5px solid var(--glass-border)',
+                padding: '8px 10px', gap: '8px',
+              }}
+            >
               <MiniAsha />
-              <span className="text-xs font-semibold flex-shrink-0" style={{ color: 'var(--color-text-primary)' }}>
-                Asha · 阿夏
+              {/* 语言感知名称 + 渐变字体，无边框 */}
+              <span
+                className="flex-shrink-0"
+                style={{
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  fontStyle: 'italic',
+                  letterSpacing: '0.01em',
+                  background: 'linear-gradient(135deg, var(--clay) 20%, var(--fig, #c46686) 110%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}
+              >
+                {petName}
               </span>
               {/* 模式切换 */}
               {session && (
-                <div className="flex rounded-md overflow-hidden border flex-shrink-0" style={{ borderColor: 'var(--color-border)' }}>
+                <div
+                  className="flex rounded-md overflow-hidden flex-shrink-0"
+                  style={{ border: '0.5px solid var(--glass-border)' }}
+                >
                   {(['chat', 'cowork'] as ChatMode[]).map((m) => (
                     <button
                       key={m}
@@ -282,8 +326,8 @@ export default function ChatPanel() {
                 style={{
                   marginLeft: 'auto', maxWidth: '110px',
                   padding: '3px 5px', borderRadius: '5px',
-                  border: '0.5px solid var(--color-border)',
-                  backgroundColor: 'var(--color-bg-tertiary)',
+                  border: '0.5px solid var(--glass-border)',
+                  backgroundColor: 'transparent',
                   color: 'var(--color-text-secondary)',
                 }}
               >
@@ -296,103 +340,120 @@ export default function ChatPanel() {
               </select>
               <button
                 onClick={() => setIsOpen(false)}
-                className="w-5 h-5 rounded flex items-center justify-center hover:bg-[var(--color-bg-tertiary)] transition-colors cursor-pointer flex-shrink-0"
+                className="w-5 h-5 rounded flex items-center justify-center cursor-pointer flex-shrink-0 transition-colors"
                 style={{ color: 'var(--color-text-tertiary)', border: 'none', background: 'transparent' }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--color-bg-tertiary)'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
               >
                 <X size={12} />
               </button>
             </div>
 
-            {/* 消息区 */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto tools-scroll" style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {session?.messages.map((m) => (
-                <MessageBubble key={m.id} role={m.role} content={m.content} toolTrace={m.toolTrace} />
-              ))}
-              {/* 流式中的临时气泡 */}
-              {busy && streamText && (
-                <MessageBubble role="assistant" content={streamText} streaming />
-              )}
-              {busy && !streamText && !pending && (
-                <div className="flex items-center" style={{ gap: '6px', color: 'var(--color-text-tertiary)', fontSize: '10px' }}>
-                  <Loader2 size={11} className="animate-spin" style={{ color: 'var(--clay)' }} />
-                  {t('chat.thinking')}
-                </div>
-              )}
-              {/* 写操作确认卡片 */}
-              {pending && (
+            {/* AI 未启用时展示引导卡片 */}
+            {!aiEnabled ? (
+              <SetupPromptCard lang={lang} t={t} />
+            ) : (
+              <>
+                {/* 消息区 */}
                 <div
+                  ref={scrollRef}
+                  className="flex-1 overflow-y-auto tools-scroll"
+                  style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}
+                >
+                  {session?.messages.map((m) => (
+                    <MessageBubble key={m.id} role={m.role} content={m.content} toolTrace={m.toolTrace} />
+                  ))}
+                  {busy && streamText && (
+                    <MessageBubble role="assistant" content={streamText} streaming />
+                  )}
+                  {busy && !streamText && !pending && (
+                    <div className="flex items-center" style={{ gap: '6px', color: 'var(--color-text-tertiary)', fontSize: '10px' }}>
+                      <Loader2 size={11} className="animate-spin" style={{ color: 'var(--clay)' }} />
+                      {t('chat.thinking')}
+                    </div>
+                  )}
+                  {pending && (
+                    <div
+                      style={{
+                        borderRadius: '10px', border: '0.5px solid var(--clay)',
+                        backgroundColor: 'var(--clay-light)', padding: '10px 12px',
+                        display: 'flex', flexDirection: 'column', gap: '7px',
+                      }}
+                    >
+                      <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--clay)' }}>
+                        {t('chat.confirmTitle')}
+                      </span>
+                      {pending.calls.map((tc) => (
+                        <div key={tc.id} className="flex items-center" style={{ gap: '6px', fontSize: '11px', color: 'var(--color-text-primary)' }}>
+                          <Wrench size={10} style={{ color: 'var(--clay)', flexShrink: 0 }} />
+                          {TOOL_REGISTRY[tc.name]?.summarize(safeParse(tc.arguments), lang) ?? tc.name}
+                        </div>
+                      ))}
+                      <div className="flex items-center" style={{ gap: '6px', marginTop: '2px' }}>
+                        <button
+                          onClick={() => pending.resolve(true)}
+                          className="flex items-center cursor-pointer"
+                          style={{ gap: '4px', padding: '4px 14px', borderRadius: '6px', fontSize: '10px', fontWeight: 600, border: 'none', backgroundColor: 'var(--clay)', color: 'var(--ivory-light, #fff)' }}
+                        >
+                          <Check size={10} />
+                          {t('chat.approve')}
+                        </button>
+                        <button
+                          onClick={() => pending.resolve(false)}
+                          className="cursor-pointer"
+                          style={{ padding: '4px 12px', borderRadius: '6px', fontSize: '10px', border: '0.5px solid var(--glass-border)', backgroundColor: 'transparent', color: 'var(--color-text-secondary)' }}
+                        >
+                          {t('chat.decline')}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {error && (
+                    <span style={{ fontSize: '10px', color: '#e5484d', lineHeight: 1.5, wordBreak: 'break-all' }}>{error}</span>
+                  )}
+                </div>
+
+                {/* 输入区 */}
+                <div
+                  className="flex items-end flex-shrink-0"
                   style={{
-                    borderRadius: '10px', border: '0.5px solid var(--clay)',
-                    backgroundColor: 'var(--clay-light)', padding: '10px 12px',
-                    display: 'flex', flexDirection: 'column', gap: '7px',
+                    borderTop: '0.5px solid var(--glass-border)',
+                    padding: '9px 10px', gap: '7px',
                   }}
                 >
-                  <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--clay)' }}>
-                    {t('chat.confirmTitle')}
-                  </span>
-                  {pending.calls.map((tc) => (
-                    <div key={tc.id} className="flex items-center" style={{ gap: '6px', fontSize: '11px', color: 'var(--color-text-primary)' }}>
-                      <Wrench size={10} style={{ color: 'var(--clay)', flexShrink: 0 }} />
-                      {TOOL_REGISTRY[tc.name]?.summarize(safeParse(tc.arguments), lang) ?? tc.name}
-                    </div>
-                  ))}
-                  <div className="flex items-center" style={{ gap: '6px', marginTop: '2px' }}>
-                    <button
-                      onClick={() => pending.resolve(true)}
-                      className="flex items-center cursor-pointer"
-                      style={{ gap: '4px', padding: '4px 14px', borderRadius: '6px', fontSize: '10px', fontWeight: 600, border: 'none', backgroundColor: 'var(--clay)', color: 'var(--ivory-light, #fff)' }}
-                    >
-                      <Check size={10} />
-                      {t('chat.approve')}
-                    </button>
-                    <button
-                      onClick={() => pending.resolve(false)}
-                      className="cursor-pointer"
-                      style={{ padding: '4px 12px', borderRadius: '6px', fontSize: '10px', border: '0.5px solid var(--color-border)', backgroundColor: 'transparent', color: 'var(--color-text-secondary)' }}
-                    >
-                      {t('chat.decline')}
-                    </button>
-                  </div>
+                  <textarea
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKey}
+                    placeholder={session?.mode === 'cowork' ? t('chat.placeholderCowork') : t('chat.placeholder')}
+                    rows={Math.min(3, Math.max(1, input.split('\n').length))}
+                    className="flex-1 text-xs outline-none resize-none"
+                    style={{
+                      padding: '7px 10px', borderRadius: '9px',
+                      border: '0.5px solid var(--glass-border)',
+                      backgroundColor: 'var(--color-bg-input)',
+                      color: 'var(--color-text-primary)',
+                      lineHeight: 1.5,
+                      fontFamily: 'var(--font-family)',
+                    }}
+                  />
+                  <button
+                    onClick={busy ? stop : send}
+                    disabled={!busy && !input.trim()}
+                    className="flex items-center justify-center flex-shrink-0 cursor-pointer transition-all"
+                    title={busy ? t('chat.stop') : t('chat.send')}
+                    style={{
+                      width: '30px', height: '30px', borderRadius: '9px', border: 'none',
+                      backgroundColor: busy ? 'var(--color-bg-tertiary)' : 'var(--clay)',
+                      color: busy ? 'var(--color-text-secondary)' : 'var(--ivory-light, #fff)',
+                      opacity: !busy && !input.trim() ? 0.45 : 1,
+                    }}
+                  >
+                    {busy ? <Square size={11} /> : <Send size={12} style={{ marginLeft: '-1px' }} />}
+                  </button>
                 </div>
-              )}
-              {error && (
-                <span style={{ fontSize: '10px', color: '#e5484d', lineHeight: 1.5, wordBreak: 'break-all' }}>{error}</span>
-              )}
-            </div>
-
-            {/* 输入区 */}
-            <div className="flex items-end flex-shrink-0 border-t" style={{ borderColor: 'var(--color-border)', padding: '9px 10px', gap: '7px' }}>
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKey}
-                placeholder={session?.mode === 'cowork' ? t('chat.placeholderCowork') : t('chat.placeholder')}
-                rows={Math.min(3, Math.max(1, input.split('\n').length))}
-                className="flex-1 text-xs outline-none resize-none"
-                style={{
-                  padding: '7px 10px', borderRadius: '9px',
-                  border: '0.5px solid var(--color-border)',
-                  backgroundColor: 'var(--color-bg-input)',
-                  color: 'var(--color-text-primary)',
-                  lineHeight: 1.5,
-                  fontFamily: 'var(--font-family)',
-                }}
-              />
-              <button
-                onClick={busy ? stop : send}
-                disabled={!busy && !input.trim()}
-                className="flex items-center justify-center flex-shrink-0 cursor-pointer transition-all"
-                title={busy ? t('chat.stop') : t('chat.send')}
-                style={{
-                  width: '30px', height: '30px', borderRadius: '9px', border: 'none',
-                  backgroundColor: busy ? 'var(--color-bg-tertiary)' : 'var(--clay)',
-                  color: busy ? 'var(--color-text-secondary)' : 'var(--ivory-light, #fff)',
-                  opacity: !busy && !input.trim() ? 0.45 : 1,
-                }}
-              >
-                {busy ? <Square size={11} /> : <Send size={12} style={{ marginLeft: '-1px' }} />}
-              </button>
-            </div>
+              </>
+            )}
           </div>
         </motion.div>
       )}
@@ -401,6 +462,49 @@ export default function ChatPanel() {
 }
 
 // ── 子组件 ────────────────────────────────────────────────────────────
+
+/** AI 未启用时的设置引导卡片 */
+function SetupPromptCard({ lang, t }: { lang: string; t: (k: string) => string }) {
+  const { setIsOpen: setSettingsOpen } = useSettingsStore();
+  return (
+    <div
+      className="flex-1 flex flex-col items-center justify-center"
+      style={{ padding: '24px 20px', gap: '16px', textAlign: 'center' }}
+    >
+      <MiniAsha size={36} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <span
+          style={{
+            fontSize: '13px', fontWeight: 700, fontStyle: 'italic',
+            background: 'linear-gradient(135deg, var(--clay) 20%, var(--fig, #c46686) 110%)',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+          }}
+        >
+          {lang === 'zh' ? '嗨，我是阿夏 ✨' : 'Hi, I\'m Asha ✨'}
+        </span>
+        <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', lineHeight: 1.65 }}>
+          {lang === 'zh'
+            ? '配置一个 AI 接口后，我就能帮你拆解任务、规划时间啦～'
+            : 'Set up an AI provider and I\'ll help you break down tasks and plan your time!'}
+        </span>
+      </div>
+      <button
+        onClick={() => setSettingsOpen(true)}
+        className="flex items-center cursor-pointer transition-all"
+        style={{
+          gap: '6px', padding: '8px 18px', borderRadius: '10px', fontSize: '11px', fontWeight: 600,
+          border: 'none', backgroundColor: 'var(--clay)', color: 'var(--ivory-light, #fff)',
+          boxShadow: '0 2px 10px rgba(217, 119, 87, 0.30)',
+        }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.88'; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
+      >
+        <Settings size={12} />
+        {lang === 'zh' ? '前往设置' : 'Open Settings'}
+      </button>
+    </div>
+  );
+}
 
 function MessageBubble({ role, content, toolTrace, streaming }: {
   role: 'user' | 'assistant';
@@ -413,7 +517,6 @@ function MessageBubble({ role, content, toolTrace, streaming }: {
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`} style={{ gap: '7px' }}>
       {!isUser && <MiniAsha />}
       <div className="flex flex-col" style={{ maxWidth: '82%', gap: '4px' }}>
-        {/* 工具痕迹 */}
         {toolTrace && toolTrace.length > 0 && (
           <div className="flex flex-col" style={{ gap: '2px' }}>
             {toolTrace.map((tr, i) => (
@@ -444,10 +547,10 @@ function MessageBubble({ role, content, toolTrace, streaming }: {
   );
 }
 
-/** 轻量静态 Asha 头像（不带动画定时器，消息列表批量渲染友好） */
-function MiniAsha() {
+/** 轻量静态 Asha 头像 */
+function MiniAsha({ size = 22 }: { size?: number }) {
   return (
-    <svg width="22" height="22" viewBox="0 0 120 124" fill="none" style={{ flexShrink: 0, marginTop: '2px' }}>
+    <svg width={size} height={size} viewBox="0 0 120 124" fill="none" style={{ flexShrink: 0, marginTop: '2px' }}>
       <path d="M24 34 Q 26 12, 44 18 Q 36 26, 33 38 Z" fill="#ECE8E1" />
       <path d="M96 34 Q 94 12, 76 18 Q 84 26, 87 38 Z" fill="#ECE8E1" />
       <circle cx="60" cy="56" r="36" fill="#ECE8E1" />

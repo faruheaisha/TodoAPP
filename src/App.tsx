@@ -380,8 +380,8 @@ function App() {
         <DailyAchievementModal />
         {/* Asha 宠物（独立开关，默认开） */}
         {petVisible && <PetWidget />}
-        {/* 聊天面板（需要 AI API key 才有意义） */}
-        {aiEnabled && <ChatPanel />}
+        {/* 聊天面板：只要宠物可见就挂载（面板内部处理 API 未配置状态） */}
+        {petVisible && <ChatPanel />}
         {/* Full-screen overlays */}
         {focusLock && <FocusLockScreen />}
         {clock && <ClockScreen />}

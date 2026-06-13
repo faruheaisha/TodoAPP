@@ -4,11 +4,13 @@
  * 右下角浮动，可拖拽换位（offset 持久化），点击打开聊天面板。
  * 悬停时显示时段化话语气泡（framer-motion 淡入上浮）。
  * 宠物情绪随时间段自动切换（晨/午/傍晚/深夜）。
+ * 拖拽结束后同步 aiStore.petOffset，供 ChatPanel 跟随定位。
  */
 import { useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useChatStore } from '../../store/chatStore';
+import { useAIStore } from '../../store/aiStore';
 import AshaPet, { type AshaState } from './AshaPet';
 import { getRandomPhrase, getPeriodMood } from '../../lib/petPhrases';
 
@@ -30,6 +32,7 @@ export default function PetWidget() {
   const lang = i18n.language.startsWith('zh') ? 'zh' : 'en';
 
   const { isOpen, setIsOpen, hasUnread, assistantBusy } = useChatStore();
+  const setPetOffset = useAIStore((s) => s.setPetOffset);
   const [hovered,  setHovered]  = useState(false);
   const [dragging, setDragging] = useState(false);
   const [phrase,   setPhrase]   = useState<string | null>(null);
@@ -43,7 +46,6 @@ export default function PetWidget() {
 
   const handleHoverEnd = useCallback(() => {
     setHovered(false);
-    // 300ms 延迟再隐藏，避免鼠标轻扫导致气泡闪烁
     setTimeout(() => setPhrase(null), 300);
   }, []);
 
@@ -58,6 +60,9 @@ export default function PetWidget() {
         : baseMood;
 
   const showBubble = hovered && !dragging && phrase !== null;
+
+  // 语言感知名字
+  const petName = lang === 'zh' ? '阿夏' : 'Asha';
 
   return (
     <div
@@ -85,9 +90,11 @@ export default function PetWidget() {
               minWidth: '100px',
               padding: '9px 13px',
               borderRadius: '14px',
-              background: 'var(--color-bg-primary)',
-              border: '1.5px solid var(--clay)',
+              background: 'var(--glass-bg)',
+              border: '1px solid var(--glass-border)',
               boxShadow: '0 6px 20px rgba(0,0,0,0.13), 0 1px 4px rgba(0,0,0,0.08)',
+              backdropFilter: 'blur(14px)',
+              WebkitBackdropFilter: 'blur(14px)',
               fontSize: '11.5px',
               lineHeight: '1.55',
               color: 'var(--color-text-primary)',
@@ -108,10 +115,9 @@ export default function PetWidget() {
                 height: 0,
                 borderLeft: '7px solid transparent',
                 borderRight: '7px solid transparent',
-                borderTop: '8px solid var(--clay)',
+                borderTop: '8px solid var(--glass-border)',
               }}
             />
-            {/* 三角内填充（遮住border） */}
             <span
               style={{
                 position: 'absolute',
@@ -121,7 +127,7 @@ export default function PetWidget() {
                 height: 0,
                 borderLeft: '6px solid transparent',
                 borderRight: '6px solid transparent',
-                borderTop: '7px solid var(--color-bg-primary)',
+                borderTop: '7px solid var(--glass-bg)',
               }}
             />
           </motion.div>
@@ -136,11 +142,14 @@ export default function PetWidget() {
         onDragStart={() => setDragging(true)}
         onDragEnd={(_, info) => {
           setDragging(false);
-          posRef.current = {
+          const newPos = {
             x: posRef.current.x + info.offset.x,
             y: posRef.current.y + info.offset.y,
           };
-          try { localStorage.setItem(POS_KEY, JSON.stringify(posRef.current)); } catch { /* 配额满忽略 */ }
+          posRef.current = newPos;
+          // 同步到 aiStore，供 ChatPanel 跟随定位
+          setPetOffset(newPos);
+          try { localStorage.setItem(POS_KEY, JSON.stringify(newPos)); } catch { /* 配额满忽略 */ }
         }}
         onTap={() => { if (!dragging) setIsOpen(!isOpen); }}
         onHoverStart={handleHoverStart}
@@ -152,9 +161,46 @@ export default function PetWidget() {
           cursor: 'pointer',
           filter: 'drop-shadow(0 4px 10px rgba(20, 20, 19, 0.18))',
         }}
-        title="Asha · 阿夏"
       >
         <AshaPet state={state} size={68} />
+
+        {/* 名字标签 — 悬停时渐显 */}
+        <AnimatePresence>
+          {hovered && !dragging && (
+            <motion.div
+              key="name-tag"
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{    opacity: 0, y: 2 }}
+              transition={{ duration: 0.18, delay: 0.05 }}
+              style={{
+                position: 'absolute',
+                bottom: '-18px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                whiteSpace: 'nowrap',
+                pointerEvents: 'none',
+                userSelect: 'none',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  fontStyle: 'italic',
+                  letterSpacing: '0.02em',
+                  background: 'linear-gradient(135deg, var(--clay) 20%, var(--fig, #c46686) 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}
+              >
+                {petName}
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* 未读小红点 */}
         {hasUnread && !isOpen && (
           <span
