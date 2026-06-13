@@ -315,7 +315,7 @@ export default function SettingsDrawer() {
             {...sheet.motion}
             className={`${sheet.isPhone ? 'flex-col' : ''} flex overflow-hidden pointer-events-auto`}
             style={{
-              ...sheet.panelStyle({ width: 'min(760px, 92vw)', height: 'min(560px, 88vh)' }),
+              ...sheet.panelStyle({ width: 'min(820px, 94vw)', height: 'min(600px, 90vh)' }),
               ...(sheet.isPhone ? { height: 'min(85dvh, 640px)' } : null),
               backgroundColor: 'var(--color-bg-secondary)',
               border: '0.5px solid var(--color-border)',
@@ -357,7 +357,7 @@ export default function SettingsDrawer() {
                 </span>
               </div>
               <div className="flex-1 overflow-y-auto py-1.5">
-                {(['general', 'data', 'about'] as const).map((group, gi) => {
+                {(['general', 'ai', 'data', 'about'] as const).map((group, gi) => {
                   const items = NAV_ITEMS.filter((item) => item.group === group);
                   // "关于" 分组下只有一个同名条目，单独显示分组标题会造成「关于」标题重复，因此跳过
                   const showGroupLabel = !(items.length === 1 && GROUP_LABEL_KEY[group] === items[0].label);
@@ -418,7 +418,7 @@ export default function SettingsDrawer() {
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto" style={{ padding: sheet.isPhone ? '20px 16px' : '28px 32px' }}>
+              <div className="flex-1 overflow-y-auto" style={{ padding: sheet.isPhone ? '20px 18px' : '36px 44px' }}>
                 {activeNav === 'appearance' && (
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <SettingRow label={t('settings.language')}>
@@ -854,5 +854,5 @@ export default function SettingsDrawer() {
         </>
       )}
     </AnimatePresence>
-  );
+   );
 }

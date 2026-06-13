@@ -3,8 +3,8 @@
  *
  * 右下角浮动，可拖拽换位（offset 持久化），点击打开聊天面板。
  * 悬停时显示时段化话语气泡（framer-motion 淡入上浮）。
- * 宠物情绪随时间段自动切换（晨/午/傍晚/深夜）。
- * 拖拽结束后同步 aiStore.petOffset，供 ChatPanel 跟随定位。
+ * 气泡在 draggable motion.div 内部，随宠物拖拽位置同步移动。
+ * 聊天面板打开时话语气泡自动隐藏，避免重叠。
  */
 import { useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -38,7 +38,6 @@ export default function PetWidget() {
   const [phrase,   setPhrase]   = useState<string | null>(null);
   const posRef = useRef(loadPos());
 
-  // 悬停开始：抽话语
   const handleHoverStart = useCallback(() => {
     setHovered(true);
     setPhrase(getRandomPhrase(lang));
@@ -49,7 +48,6 @@ export default function PetWidget() {
     setTimeout(() => setPhrase(null), 300);
   }, []);
 
-  // 宠物动画状态优先级：dragging > thinking > speaking(hover) > 时段情绪
   const baseMood   = getPeriodMood();
   const state: AshaState = dragging
     ? 'dragging'
@@ -59,9 +57,9 @@ export default function PetWidget() {
         ? 'speaking'
         : baseMood;
 
-  const showBubble = hovered && !dragging && phrase !== null;
+  // 聊天面板打开时不显示话语气泡（避免与面板重叠）
+  const showBubble = hovered && !dragging && !isOpen && phrase !== null;
 
-  // 语言感知名字
   const petName = lang === 'zh' ? '阿夏' : 'Asha';
 
   return (
@@ -73,68 +71,7 @@ export default function PetWidget() {
         zIndex: 30,
       }}
     >
-      {/* 话语气泡（悬停时出现，宠物上方） */}
-      <AnimatePresence>
-        {showBubble && (
-          <motion.div
-            key="phrase-bubble"
-            initial={{ opacity: 0, y: 8, scale: 0.92 }}
-            animate={{ opacity: 1, y: 0,  scale: 1    }}
-            exit={{    opacity: 0, y: 5,  scale: 0.95 }}
-            transition={{ duration: 0.22, ease: 'easeOut' }}
-            style={{
-              position: 'absolute',
-              bottom: '82px',
-              right: '0px',
-              maxWidth: '168px',
-              minWidth: '100px',
-              padding: '9px 13px',
-              borderRadius: '14px',
-              background: 'var(--glass-bg)',
-              border: '1px solid var(--glass-border)',
-              boxShadow: '0 6px 20px rgba(0,0,0,0.13), 0 1px 4px rgba(0,0,0,0.08)',
-              backdropFilter: 'blur(14px)',
-              WebkitBackdropFilter: 'blur(14px)',
-              fontSize: '11.5px',
-              lineHeight: '1.55',
-              color: 'var(--color-text-primary)',
-              pointerEvents: 'none',
-              userSelect: 'none',
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-            }}
-          >
-            {phrase}
-            {/* 小三角 —— 指向宠物 */}
-            <span
-              style={{
-                position: 'absolute',
-                bottom: '-8px',
-                right: '26px',
-                width: 0,
-                height: 0,
-                borderLeft: '7px solid transparent',
-                borderRight: '7px solid transparent',
-                borderTop: '8px solid var(--glass-border)',
-              }}
-            />
-            <span
-              style={{
-                position: 'absolute',
-                bottom: '-6px',
-                right: '27px',
-                width: 0,
-                height: 0,
-                borderLeft: '6px solid transparent',
-                borderRight: '6px solid transparent',
-                borderTop: '7px solid var(--glass-bg)',
-              }}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* 宠物本体 */}
+      {/* 宠物本体（可拖拽） — 气泡放在 motion.div 内部，跟随拖拽位置 */}
       <motion.div
         drag
         dragMomentum={false}
@@ -147,7 +84,6 @@ export default function PetWidget() {
             y: posRef.current.y + info.offset.y,
           };
           posRef.current = newPos;
-          // 同步到 aiStore，供 ChatPanel 跟随定位
           setPetOffset(newPos);
           try { localStorage.setItem(POS_KEY, JSON.stringify(newPos)); } catch { /* 配额满忽略 */ }
         }}
@@ -159,14 +95,77 @@ export default function PetWidget() {
         className="select-none"
         style={{
           cursor: 'pointer',
+          position: 'relative',
           filter: 'drop-shadow(0 4px 10px rgba(20, 20, 19, 0.18))',
         }}
       >
+        {/* 话语气泡 — 在 motion.div 内部，随宠物位置变化 */}
+        <AnimatePresence>
+          {showBubble && (
+            <motion.div
+              key="phrase-bubble"
+              initial={{ opacity: 0, y: 8, scale: 0.92 }}
+              animate={{ opacity: 1, y: 0,  scale: 1    }}
+              exit={{    opacity: 0, y: 5,  scale: 0.95 }}
+              transition={{ duration: 0.22, ease: 'easeOut' }}
+              style={{
+                position: 'absolute',
+                bottom: '82px',
+                right: '0px',
+                maxWidth: '168px',
+                minWidth: '100px',
+                padding: '9px 13px',
+                borderRadius: '14px',
+                background: 'var(--glass-bg)',
+                border: '1px solid var(--glass-border)',
+                boxShadow: '0 6px 20px rgba(0,0,0,0.13), 0 1px 4px rgba(0,0,0,0.08)',
+                backdropFilter: 'blur(14px)',
+                WebkitBackdropFilter: 'blur(14px)',
+                fontSize: '11.5px',
+                lineHeight: '1.55',
+                color: 'var(--color-text-primary)',
+                pointerEvents: 'none',
+                userSelect: 'none',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                zIndex: 1,
+              }}
+            >
+              {phrase}
+              {/* 小三角 —— 指向宠物 */}
+              <span
+                style={{
+                  position: 'absolute',
+                  bottom: '-8px',
+                  right: '26px',
+                  width: 0,
+                  height: 0,
+                  borderLeft: '7px solid transparent',
+                  borderRight: '7px solid transparent',
+                  borderTop: '8px solid var(--glass-border)',
+                }}
+              />
+              <span
+                style={{
+                  position: 'absolute',
+                  bottom: '-6px',
+                  right: '27px',
+                  width: 0,
+                  height: 0,
+                  borderLeft: '6px solid transparent',
+                  borderRight: '6px solid transparent',
+                  borderTop: '7px solid var(--glass-bg)',
+                }}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <AshaPet state={state} size={68} />
 
-        {/* 名字标签 — 悬停时渐显 */}
+        {/* 名字标签 — 悬停时渐显，聊天关闭时显示 */}
         <AnimatePresence>
-          {hovered && !dragging && (
+          {hovered && !dragging && !isOpen && (
             <motion.div
               key="name-tag"
               initial={{ opacity: 0, y: 4 }}
