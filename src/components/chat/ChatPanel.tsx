@@ -42,7 +42,7 @@ export default function ChatPanel() {
     appendMessage, markUnread, setAssistantBusy,
   } = useChatStore();
 
-  const { activeProviderId, setActiveProvider, aiEnabled, petOffset } = useAIStore();
+  const { activeChatProviderId: activeProviderId, setActiveProvider, aiEnabled, petOffset } = useAIStore();
 
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
