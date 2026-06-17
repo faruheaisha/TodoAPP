@@ -1,14 +1,25 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useFocusStore, focusDurationFor } from '../store/focusStore';
+import React, { useEffect, useState, useRef, useCallback } from 'react';import { motion, AnimatePresence } from 'framer-motion';
+import { useFocusStore, focusDurationFor, type FocusMode } from '../store/focusStore';
 import { useTodoStore } from '../store/todoStore';
 import { useOverlayStore } from '../store/overlayStore';
 import '@fontsource/dm-mono/300.css';
 import '@fontsource/dm-mono/400.css';
 
+/* 各阶段颜色 — 与 PomodoroTool MODE_META 一致 */
+const MODE_COLORS: Record<FocusMode, string> = {
+  work: '#D97757',
+  shortBreak: '#5B9E78',
+  longBreak: '#5E8BC0',
+};
+
+const MODE_LABELS: Record<FocusMode, string> = {
+  work: '专注中',
+  shortBreak: '短休息',
+  longBreak: '长休息',
+};
+
 const RING_R    = 344;
 const RING_CIRC = 2 * Math.PI * RING_R;
-const ACCENT    = '#D97757';
 const SVG_SIZE  = 820;
 const CX        = SVG_SIZE / 2;
 
@@ -99,6 +110,18 @@ export default function FocusLockScreen() {
   const linkedTodo = todos.find((t) => t.id === linkedTodoId) ?? null;
   const [clockStr, setClockStr] = useState(nowTime);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [hintVisible, setHintVisible] = useState(true);
+
+  /* 初始显示 6s 后淡出，单击重新显示 */
+  useEffect(() => {
+    const t = setTimeout(() => setHintVisible(false), 6000);
+    return () => clearTimeout(t);
+  }, []);
+
+  const handleClick = useCallback(() => {
+    setHintVisible(true);
+    setTimeout(() => setHintVisible(false), 6000);
+  }, []);
 
   useEffect(() => {
     setWindowFullscreen(true);
@@ -126,7 +149,8 @@ export default function FocusLockScreen() {
   const total        = focusDurationFor(mode, settings);
   const progress     = total > 0 ? (total - remainingSeconds) / total : 0;
   const strokeOffset = RING_CIRC * progress;
-  const modeLabel    = mode === 'work' ? '专注中' : mode === 'shortBreak' ? '短休息' : '长休息';
+  const accent       = MODE_COLORS[mode];
+  const modeLabel    = MODE_LABELS[mode];
   const progressPct  = Math.round(progress * 100);
 
   const mm = String(Math.floor(remainingSeconds / 60)).padStart(2, '0');
@@ -139,6 +163,7 @@ export default function FocusLockScreen() {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.6 }}
       onDoubleClick={closeFocusLock}
+      onClick={handleClick}
       style={{
         position: 'fixed', inset: 0, zIndex: 9999,
         background: '#000',
@@ -151,7 +176,7 @@ export default function FocusLockScreen() {
       <div style={{
         position: 'absolute', top: 32, right: 40,
         fontFamily: "'DM Mono', 'Cascadia Code', monospace",
-        fontSize: 13, color: 'rgba(255,255,255,0.38)', letterSpacing: '0.1em',
+        fontSize: 26, fontWeight: 700, color: 'rgba(255,255,255,0.50)', letterSpacing: '0.1em',
       }}>
         {clockStr}
       </div>
@@ -159,31 +184,41 @@ export default function FocusLockScreen() {
       <div style={{
         position: 'absolute', top: 32, left: 40,
         fontFamily: "'DM Mono', 'Cascadia Code', monospace",
-        fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.12em',
+        fontSize: 22, fontWeight: 700, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.12em',
       }}>
         {progressPct}%
       </div>
 
-      <div style={{
-        position: 'absolute', bottom: 32, left: '50%', transform: 'translateX(-50%)',
-        fontFamily: "'DM Mono', 'Cascadia Code', monospace",
-        fontSize: 11, color: 'rgba(255,255,255,0.30)',
-        letterSpacing: '0.1em', whiteSpace: 'nowrap',
-      }}>
-        双击任意位置 · ESC 退出专注锁屏
-      </div>
+      {/* 底部提示 — 6s 淡出，单击重新显示 */}
+      <AnimatePresence>
+        {hintVisible && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, transition: { duration: 1.2, ease: 'easeInOut' } }}
+            style={{
+              position: 'absolute', bottom: 36, left: '50%', transform: 'translateX(-50%)',
+              fontFamily: "'DM Mono', 'Cascadia Code', monospace",
+              fontSize: 24, fontWeight: 700, color: 'rgba(255,255,255,0.35)',
+              letterSpacing: '0.1em', whiteSpace: 'nowrap', pointerEvents: 'none',
+            }}
+          >
+            双击任意位置 · ESC 退出专注锁屏
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div style={{ position: 'relative', width: SVG_SIZE, height: SVG_SIZE }}>
         <svg width={SVG_SIZE} height={SVG_SIZE} viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`}>
           {isRunning && (
             <>
               <motion.circle cx={CX} cy={CX} r={RING_R + 48}
-                fill="none" stroke={ACCENT} strokeWidth={1} opacity={0}
+                fill="none" stroke={accent} strokeWidth={1} opacity={0}
                 animate={{ opacity: [0, 0.08, 0] }}
                 transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
               />
               <motion.circle cx={CX} cy={CX} r={RING_R + 26}
-                fill="none" stroke={ACCENT} strokeWidth={2} opacity={0}
+                fill="none" stroke={accent} strokeWidth={2} opacity={0}
                 animate={{ opacity: [0, 0.16, 0] }}
                 transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut', delay: 0.4 }}
               />
@@ -192,22 +227,16 @@ export default function FocusLockScreen() {
           <circle cx={CX} cy={CX} r={RING_R}
             fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={36} />
           <circle cx={CX} cy={CX} r={RING_R}
-            fill="none" stroke="rgba(217,119,87,0.07)" strokeWidth={36} />
+            fill="none" stroke={accent} strokeWidth={36} opacity={0.07} />
           <motion.circle
             cx={CX} cy={CX} r={RING_R}
-            fill="none" stroke="url(#ringGrad)"
+            fill="none" stroke={accent}
             strokeWidth={36} strokeLinecap="round"
             strokeDasharray={RING_CIRC}
             animate={{ strokeDashoffset: strokeOffset }}
             transition={{ duration: 0.3, ease: 'linear' }}
             transform={`rotate(-90 ${CX} ${CX})`}
           />
-          <defs>
-            <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#E8956A" />
-              <stop offset="100%" stopColor="#D97757" />
-            </linearGradient>
-          </defs>
         </svg>
 
         <div style={{
@@ -224,8 +253,8 @@ export default function FocusLockScreen() {
           </div>
           <span style={{
             fontFamily: "'DM Mono', 'Cascadia Code', monospace",
-            fontSize: 13, fontWeight: 400,
-            color: 'rgba(255,255,255,0.40)',
+            fontSize: 28, fontWeight: 600,
+            color: 'rgba(255,255,255,0.50)',
             letterSpacing: '0.22em',
             textTransform: 'uppercase',
           }}>
@@ -249,8 +278,8 @@ export default function FocusLockScreen() {
           >
             <div style={{
               width: 6, height: 6, borderRadius: '50%',
-              backgroundColor: ACCENT, flexShrink: 0,
-              boxShadow: `0 0 8px ${ACCENT}`,
+              backgroundColor: accent, flexShrink: 0,
+              boxShadow: `0 0 8px ${accent}`,
             }} />
             <span style={{
               fontFamily: "'DM Mono', 'Cascadia Code', monospace",

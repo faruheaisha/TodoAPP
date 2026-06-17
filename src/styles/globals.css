@@ -65,6 +65,11 @@
   --shadow-sm:  0 2px 8px rgba(20, 20, 19, 0.08);    /* hover 浮起、小弹层 */
   --shadow-md:  0 8px 24px rgba(20, 20, 19, 0.12);   /* 下拉、popover */
   --shadow-lg:  0 16px 48px rgba(20, 20, 19, 0.16);  /* 模态、sheet */
+  --shadow-float: 0 24px 64px rgba(20,20,19,0.18), 0 6px 20px rgba(20,20,19,0.10); /* 浮动面板 */
+
+  /* ── Glass 面板（无硬边框，半透明磨砂）── */
+  --glass-bg:     rgba(255, 255, 255, 0.92);
+  --glass-border: rgba(210, 204, 194, 0.5);
 
   /* ── 字体 ── */
   --font-family: 'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -87,6 +92,12 @@
   --tracking-tight:  -0.02em;
   --tracking-normal: -0.005em;
   --tracking-loose:  -0.002em;
+
+  /* ── Linear 风格 token ── */
+  --ink:        #141413;       /* 等价 --slate */
+  --ink-2:      #6b6b67;       /* Linear 次级灰 — 二级文字/ghost 默认 */
+  --ink-4:      #a0a09c;       /* Linear 第三灰 — badge 计数 */
+  --card-hover: rgba(0,0,0,0.06); /* ghost hover 背景 */
 
   /* ── 间距 token（统一 14px 水平内边距体系）─ */
   --pad-x: 14px;               /* 全局统一水平内边距 */
@@ -144,6 +155,17 @@
   --shadow-sm:  0 2px 8px rgba(0, 0, 0, 0.28);
   --shadow-md:  0 8px 24px rgba(0, 0, 0, 0.38);
   --shadow-lg:  0 16px 48px rgba(0, 0, 0, 0.5);
+  --shadow-float: 0 24px 64px rgba(0,0,0,0.45), 0 6px 20px rgba(0,0,0,0.28);
+
+  /* Glass 深色变体 */
+  --glass-bg:     rgba(30, 30, 28, 0.92);
+  --glass-border: rgba(60, 58, 54, 0.55);
+
+  /* ── Linear 风格 token — 深色 ── */
+  --ink:        #f0efec;
+  --ink-2:      #9a9995;
+  --ink-4:      #6b6a66;
+  --card-hover: rgba(255,255,255,0.08);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -191,6 +213,10 @@ body {
 ::-webkit-scrollbar-thumb:hover { background: var(--color-text-tertiary); }
 .scroll-visible:hover::-webkit-scrollbar-thumb,
 .scroll-visible:focus-within::-webkit-scrollbar-thumb { background: var(--color-border); }
+.scroll-hidden { scrollbar-width: none; -ms-overflow-style: none; }
+.scroll-hidden::-webkit-scrollbar { width: 0; height: 0; display: none; }
+.scroll-hidden-x { scrollbar-width: none; -ms-overflow-style: none; }
+.scroll-hidden-x::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
 /* ── Todo 行完成 flash — CSS keyframes，避免 JS 内联 bg 覆盖 hover ── */
 @keyframes todo-flash {
@@ -203,11 +229,10 @@ body {
 /* ── Todo 行 hover 质感 — 仅真实悬停设备（桌面鼠标），触屏不闪烁 ── */
 @media (hover: hover) and (pointer: fine) {
   .todo-row {
-    transition: background-color var(--motion-enter), box-shadow var(--motion-enter);
+    transition: background-color var(--motion-enter);
   }
   .todo-row:hover {
-    background-color: var(--color-bg-secondary);
-    box-shadow: var(--shadow-sm);
+    background-color: var(--color-bg-tertiary);
   }
 }
 
@@ -223,6 +248,27 @@ body {
 .pdf-picker-scroll::-webkit-scrollbar-thumb { background: transparent; border-radius: 2px; transition: background 0.2s; }
 .pdf-picker-scroll:hover::-webkit-scrollbar-thumb { background: var(--color-border); }
 .pdf-picker-scroll::-webkit-scrollbar-thumb:active { background: var(--color-text-tertiary); }
+
+/* About 页面横向 snap 滚动与响应式栅格 */
+.scroll-x-snap {
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+.scroll-x-snap:hover { scrollbar-color: var(--color-border) transparent; }
+.scroll-x-snap::-webkit-scrollbar { height: 3px; }
+.scroll-x-snap::-webkit-scrollbar-track { background: transparent; }
+.scroll-x-snap::-webkit-scrollbar-thumb { background: transparent; border-radius: 2px; }
+.scroll-x-snap:hover::-webkit-scrollbar-thumb { background: var(--color-border); }
+
+@media (max-width: 720px) {
+  .about-grid-3,
+  .about-grid-2 { grid-template-columns: 1fr !important; }
+  .about-modal { border-radius: 18px !important; height: 94dvh !important; }
+  .about-hero { padding-left: 20px !important; padding-right: 20px !important; }
+  .about-content { padding-left: 20px !important; padding-right: 20px !important; }
+}
 
 /* ═══════════════════════════════════════════════════════════
    响应式断点 — 桌面应用
@@ -320,3 +366,102 @@ body {
   height: 4px;
   cursor: pointer;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   动画 keyframes — ToolsPanel 运行点 + 聊天输入中点
+   ═══════════════════════════════════════════════════════════ */
+@keyframes asha-pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1);    }
+  50%       { opacity: 0.45; transform: scale(0.7); }
+}
+
+@keyframes pcspin {
+  to { transform: rotate(360deg); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* ToolsPanel detail 滑入 */
+@keyframes asha-slideIn {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.slide-in { animation: asha-slideIn .28s cubic-bezier(.2,.7,.3,1) both; }
+
+@keyframes asha-dotJump {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40%           { transform: translateY(-4px); opacity: 1; }
+}
+
+@keyframes asha-flip {
+  0%   { transform: rotateX(0deg);   opacity: 1; }
+  45%  { transform: rotateX(90deg);  opacity: 0; }
+  55%  { transform: rotateX(-90deg); opacity: 0; }
+  100% { transform: rotateX(0deg);   opacity: 1; }
+}
+
+/* ChatPanel bubble entrance — staggered from below */
+@keyframes asha-msgIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ChatPanel unconfigured card entrance */
+@keyframes asha-fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Pomodoro ring bounce on session end */
+@keyframes ringBounce {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.04); }
+  60%  { transform: scale(0.97); }
+  100% { transform: scale(1); }
+}
+
+/* ═══════════════════════════════════════════════
+   Linear 风格 — 入场 / 退场 / 按钮 / badge
+   ═══════════════════════════════════════════════ */
+@keyframes linear-fadeInUp{
+  from{opacity:0;transform:translateY(20px);}
+  to{opacity:1;transform:translateY(0);}
+}
+@keyframes linear-rowFadeOut{
+  from{opacity:1;transform:translateX(0);}
+  to{opacity:0;transform:translateX(8px);}
+}
+@keyframes linear-checkPop{
+  0%{transform:scale(1);}
+  45%{transform:scale(1.18);}
+  100%{transform:scale(1);}
+}
+@keyframes linear-drawCheck{
+  from{stroke-dashoffset:18;}
+  to{stroke-dashoffset:0;}
+}
+
+.linear-row-enter{animation:linear-fadeInUp .42s cubic-bezier(.22,.61,.36,1) backwards;}
+@media (prefers-reduced-motion: reduce){ .linear-row-enter{animation:none;} }
+.linear-row-leaving{animation:linear-rowFadeOut .32s ease forwards;pointer-events:none;}
+
+.linear-ghost-btn{
+  appearance:none;border:none;background:transparent;cursor:pointer;
+  font:inherit;color:var(--ink-2);
+  display:inline-flex;align-items:center;gap:6px;
+  padding:5px 10px;border-radius:7px;
+  transition:background .14s ease,color .14s ease;
+  white-space:nowrap;line-height:1;
+}
+.linear-ghost-btn:hover{background:var(--card-hover);color:var(--ink);}
+.linear-ghost-btn.active{background:var(--ink);color:#fff;}
+.linear-ghost-btn.active:hover{background:var(--ink);color:#fff;}
+
+.linear-count-badge{
+  color:var(--ink-4);font-variant-numeric:tabular-nums;font-weight:500;
+}
+.linear-ghost-btn.active .linear-count-badge{color:rgba(255,255,255,.6);}
+
+.linear-disclosure-body{overflow:hidden;}

@@ -3,6 +3,8 @@ import {
   createTodoInDB,
   updateTodoInDB,
   deleteTodoInDB,
+  deleteAllTodosInDB,
+  bulkInsertTodosInDB,
   updateSortOrdersInDB,
   clearReminders,
 } from '../lib/tauri';
@@ -41,6 +43,14 @@ interface TodoStore {
   reorderTodos: (orderedIds: string[]) => Promise<void>;
   setTodos: (todos: Todo[]) => void;
   clearReminderFlags: () => Promise<void>;
+  /** 将截止日期已过的未完成任务自动标记为已完成（App 启动时调用） */
+  autoCompleteExpired: () => Promise<void>;
+  /** 清理超过 6 个月的已完成任务（按 createdAt 计算），App 启动时调用 */
+  cleanupOldCompleted: () => Promise<void>;
+  /** 删除所有 todos（全量替换导入时使用），同步清空 SQLite + 内存 */
+  deleteAllTodos: () => Promise<void>;
+  /** 批量插入 todos（导入用），写入 SQLite + 追加内存 */
+  bulkImportTodos: (todos: Todo[]) => Promise<void>;
 }
 
 export const useTodoStore = create<TodoStore>()((set, get) => ({
@@ -152,5 +162,79 @@ export const useTodoStore = create<TodoStore>()((set, get) => ({
         reminderSent: false,
       })),
     }));
+  },
+
+  autoCompleteExpired: async () => {
+    const now = new Date();
+    // 以今天凌晨为基准：只有截止日整天结束（即昨天及更早到期）才算过期，
+    // 今天稍晚到期的任务不应在启动时被误判完成
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const { todos } = get();
+    const expired = todos.filter((t) => {
+      if (t.completed || !t.deadline) return false;
+      try {
+        const dl = new Date(t.deadline);
+        return dl < todayStart && !isNaN(dl.getTime());
+      } catch { return false; }
+    });
+    for (const todo of expired) {
+      await updateTodoInDB(todo.id, { completed: true });
+      useCompletionStore.getState().setCompletionTime(todo.id, new Date().toISOString());
+    }
+    if (expired.length > 0) {
+      const expiredIds = new Set(expired.map((t) => t.id));
+      set((state) => ({
+        todos: state.todos.map((t) =>
+          expiredIds.has(t.id) ? { ...t, completed: true } : t
+        ),
+      }));
+    }
+  },
+
+  cleanupOldCompleted: async () => {
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    const { todos } = get();
+    const stale = todos.filter((t) => {
+      if (!t.completed) return false;
+      try {
+        const created = new Date(t.createdAt);
+        return created < sixMonthsAgo && !isNaN(created.getTime());
+      } catch { return false; }
+    });
+    for (const todo of stale) {
+      await deleteTodoInDB(todo.id);
+      useCompletionStore.getState().removeCompletionTime(todo.id);
+      useSubtaskStore.getState().deleteAllForTodo(todo.id);
+      useRecurrenceStore.getState().removeRule(todo.id);
+      useTagStore.getState().removeAllForTodo(todo.id);
+    }
+    if (stale.length > 0) {
+      const staleIds = new Set(stale.map((t) => t.id));
+      set((state) => ({
+        todos: state.todos.filter((t) => !staleIds.has(t.id)),
+      }));
+    }
+  },
+
+  deleteAllTodos: async () => {
+    const { todos } = get();
+    await deleteAllTodosInDB();
+    for (const todo of todos) {
+      useCompletionStore.getState().removeCompletionTime(todo.id);
+      useSubtaskStore.getState().deleteAllForTodo(todo.id);
+      useRecurrenceStore.getState().removeRule(todo.id);
+      useTagStore.getState().removeAllForTodo(todo.id);
+    }
+    const { useNotesStore } = await import('./notesStore');
+    for (const todo of todos) {
+      useNotesStore.getState().removeTodoNote(todo.id);
+    }
+    set({ todos: [] });
+  },
+
+  bulkImportTodos: async (todos) => {
+    await bulkInsertTodosInDB(todos);
+    set((state) => ({ todos: [...state.todos, ...todos] }));
   },
 }));

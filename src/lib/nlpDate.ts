@@ -285,6 +285,25 @@ export function parseNLP(input: string, now = new Date()): ParseResult {
   return { title: title || input.trim(), deadline: toISO(date), hint };
 }
 
+/**
+ * classifyTodo — 根据截止时间对任务分类
+ * 返回: 'overdue' | 'due_today' | 'due_soon' | 'upcoming' | 'no_deadline'
+ */
+export function classifyTodo(title: string, deadline: string | null): 'overdue' | 'due_today' | 'due_soon' | 'upcoming' | 'no_deadline' {
+  if (!deadline) return 'no_deadline';
+  const now = new Date();
+  const d = new Date(deadline);
+  if (d < now) return 'overdue';
+  if (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  ) return 'due_today';
+  const diff = d.getTime() - now.getTime();
+  if (diff <= 48 * 60 * 60 * 1000) return 'due_soon';
+  return 'upcoming';
+}
+
 function buildHint(d: Date, zh: boolean): string {
   const now = new Date();
   const today = now.toDateString();

@@ -34,7 +34,9 @@ export function timerCurrentSec(item: TimerItem, now = Date.now()): number {
 
 interface TimerState {
   timers: TimerItem[];
+  sectionsReversed: boolean;
   addTimer: (mode: TimerMode, durationSec: number, label?: string) => void;
+  setSectionsReversed: (v: boolean) => void;
   removeTimer: (id: string) => void;
   startTimer: (id: string) => void;
   pauseTimer: (id: string) => void;
@@ -47,6 +49,9 @@ export const useTimerStore = create<TimerState>()(
   persist(
     (set) => ({
       timers: [],
+      sectionsReversed: false,
+
+      setSectionsReversed: (v) => set({ sectionsReversed: v }),
 
       addTimer: (mode, durationSec, label = '') =>
         set((s) => ({

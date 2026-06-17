@@ -58,7 +58,7 @@ export function CalendarTool() {
     for (const todo of todos) {
       if (todo.completed) {
         const ts = completionTimes[todo.id];
-        if (ts) bucket(ts.slice(0, 10)).done.push(todo);
+        if (ts) bucket(format(new Date(ts), 'yyyy-MM-dd')).done.push(todo);
       } else if (todo.deadline) {
         bucket(format(new Date(todo.deadline), 'yyyy-MM-dd')).due.push(todo);
       }
@@ -72,13 +72,13 @@ export function CalendarTool() {
 
   const monthLabel = lang === 'zh' ? format(viewMonth, 'yyyy年M月') : format(viewMonth, 'MMMM yyyy');
   const weekdays = lang === 'zh' ? WEEKDAYS_ZH : WEEKDAYS_EN;
-  const cell = isTouch ? 44 : 38;
+  const cell = isTouch ? 48 : 44;
 
   return (
     <div className="flex flex-col" style={{ gap: '14px' }}>
       {/* 月份导航 */}
       <div className="flex items-center justify-between">
-        <span style={{ fontSize: '14px', fontWeight: 650, color: 'var(--color-text-primary)', letterSpacing: 'var(--tracking-tight)' }}>
+        <span style={{ fontSize: '16px', fontWeight: 650, color: 'var(--color-text-primary)', letterSpacing: 'var(--tracking-tight)' }}>
           {monthLabel}
         </span>
         <div className="flex items-center" style={{ gap: '4px' }}>
@@ -104,7 +104,7 @@ export function CalendarTool() {
       <div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: '4px' }}>
           {weekdays.map((w) => (
-            <span key={w} className="text-center" style={{ fontSize: '9px', fontWeight: 500, color: 'var(--color-text-tertiary)' }}>
+            <span key={w} className="text-center" style={{ fontSize: '11px', fontWeight: 500, color: 'var(--color-text-tertiary)' }}>
               {w}
             </span>
           ))}
@@ -132,7 +132,7 @@ export function CalendarTool() {
                 onMouseLeave={(e) => { if (!isSel) e.currentTarget.style.backgroundColor = 'transparent'; }}
               >
                 <span style={{
-                  fontSize: '12px',
+                  fontSize: '14px',
                   fontWeight: isSel || today ? 600 : 400,
                   lineHeight: 1,
                   color: isSel
@@ -152,7 +152,7 @@ export function CalendarTool() {
                     ...b.done.slice(0, 1).map((_, i) => <Dot key={`c${i}`} color="var(--olive)" inverted={isSel} />),
                   ]}
                   {b && b.due.length + b.done.length > 3 && (
-                    <span style={{ fontSize: '7px', lineHeight: 1, color: isSel ? 'var(--color-fill-text)' : 'var(--color-text-tertiary)' }}>+</span>
+                    <span style={{ fontSize: '9px', lineHeight: 1, color: isSel ? 'var(--color-fill-text)' : 'var(--color-text-tertiary)' }}>+</span>
                   )}
                 </span>
               </button>
@@ -162,8 +162,8 @@ export function CalendarTool() {
       </div>
 
       {/* 当日任务清单 */}
-      <div className="flex flex-col" style={{ gap: '2px', borderTop: '0.5px solid var(--color-separator)', paddingTop: '12px' }}>
-        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-tertiary)', marginBottom: '6px', letterSpacing: '0.04em' }}>
+      <div className="flex flex-col" style={{ gap: '2px', borderTop: '0.5px solid var(--color-separator)', paddingTop: '12px', maxHeight: '280px', overflowY: 'auto' }}>
+        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-tertiary)', marginBottom: '6px', letterSpacing: '0.04em' }}>
           {selectedDay.toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-US', { month: 'long', day: 'numeric', weekday: lang === 'zh' ? 'short' : 'long' })}
           {selList.length > 0 && (
             <span style={{ fontWeight: 400, marginLeft: '6px' }}>· {selList.length}</span>
@@ -173,7 +173,7 @@ export function CalendarTool() {
         {selList.length === 0 ? (
           <div className="flex flex-col items-center" style={{ padding: '18px 0', gap: '6px' }}>
             <CalendarDays size={18} strokeWidth={1.5} style={{ color: 'var(--color-text-placeholder)' }} />
-            <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>{t('calendar.noTasks')}</span>
+            <span style={{ fontSize: '13px', color: 'var(--color-text-tertiary)' }}>{t('calendar.noTasks')}</span>
           </div>
         ) : (
           <AnimatePresence initial={false}>
@@ -187,9 +187,9 @@ export function CalendarTool() {
                 transition={{ duration: 0.15, ease: 'easeOut' }}
                 className="flex items-center"
                 style={{
-                  minHeight: isTouch ? '40px' : '30px',
-                  gap: '8px',
-                  padding: '4px 8px',
+                  minHeight: isTouch ? '44px' : '36px',
+                  gap: '10px',
+                  padding: '6px 10px',
                   borderRadius: '7px',
                 }}
               >
@@ -197,22 +197,23 @@ export function CalendarTool() {
                   onClick={() => toggleComplete(todo.id).catch(console.error)}
                   className="flex items-center justify-center flex-shrink-0 cursor-pointer"
                   style={{
-                    width: '14px', height: '14px', borderRadius: '50%',
-                    border: '1.5px solid',
+                    width: '18px', height: '18px', borderRadius: '50%',
+                    border: '2px solid',
                     borderColor: todo.completed ? 'var(--clay)' : 'var(--color-checkbox-border)',
                     backgroundColor: todo.completed ? 'var(--clay)' : 'transparent',
                     transition: 'background-color var(--transition-fast), border-color var(--transition-fast)',
                   }}
                 >
                   {todo.completed && (
-                    <svg width="8" height="6" viewBox="0 0 9 7" fill="none">
+                    <svg width="10" height="8" viewBox="0 0 9 7" fill="none">
                       <path d="M1 3.5L3.2 5.8L8 1" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   )}
                 </button>
                 <span
-                  className="text-xs flex-1"
+                  className="flex-1"
                   style={{
+                    fontSize: '13.5px',
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     color: todo.completed ? 'var(--color-text-done)' : 'var(--color-text-primary)',
                     textDecoration: todo.completed ? 'line-through' : 'none',
@@ -222,7 +223,7 @@ export function CalendarTool() {
                 </span>
                 {todo.deadline && !todo.completed && (
                   <span style={{
-                    fontSize: '10px', color: 'var(--color-text-tertiary)', flexShrink: 0,
+                    fontSize: '12px', color: 'var(--color-text-tertiary)', flexShrink: 0,
                     fontVariantNumeric: 'tabular-nums',
                   }}>
                     {format(new Date(todo.deadline), 'HH:mm')}
@@ -240,7 +241,7 @@ export function CalendarTool() {
 function Dot({ color, inverted }: { color: string; inverted: boolean }) {
   return (
     <span style={{
-      width: '4px', height: '4px', borderRadius: '50%',
+      width: '5px', height: '5px', borderRadius: '50%',
       backgroundColor: inverted ? 'var(--color-fill-text)' : color,
       display: 'inline-block',
     }} />

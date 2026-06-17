@@ -196,6 +196,43 @@ export async function updateSortOrdersInDB(pairs: { id: string; sortOrder: numbe
   }
 }
 
+// Delete all todos at once (used by full-replace import)
+export async function deleteAllTodosInDB(): Promise<void> {
+  try {
+    const database = await getDB();
+    await database.execute('DELETE FROM todos');
+  } catch (e) {
+    console.error('Failed to delete all todos:', e);
+  }
+}
+
+// Bulk-insert todos from an import (preserves id/createdAt/completed)
+export async function bulkInsertTodosInDB(todos: Todo[]): Promise<void> {
+  if (todos.length === 0) return;
+  try {
+    const database = await getDB();
+    for (const todo of todos) {
+      await database.execute(
+        `INSERT OR IGNORE INTO todos
+         (id, title, todo_type, deadline, completed, created_at, reminder_sent, priority, sort_order)
+         VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+        [
+          todo.id,
+          todo.title,
+          todo.todoType,
+          todo.deadline ?? null,
+          todo.completed ? 1 : 0,
+          todo.createdAt,
+          todo.priority,
+          todo.sortOrder,
+        ]
+      );
+    }
+  } catch (e) {
+    console.error('Failed to bulk-insert todos:', e);
+  }
+}
+
 // Delete a todo
 export async function deleteTodoInDB(id: string): Promise<void> {
   try {

@@ -18,11 +18,13 @@ const ToolsPanel = lazy(() => import('./components/ToolsPanel'));
 const DailyAchievementModal = lazy(() =>
   import('./components/DailyAchievementModal').then((m) => ({ default: m.DailyAchievementModal }))
 );
+const StartupPromptModal = lazy(() => import('./components/StartupPromptModal').then((m) => ({ default: m.StartupPromptModal })));
 // AI 生态入口（aiEnabled 才挂载，保持纯本地模式零开销）
 const PetWidget = lazy(() => import('./components/pet/PetWidget'));
 const ChatPanel = lazy(() => import('./components/chat/ChatPanel'));
 import { TagChip } from './components/TagChip';
 import { initDB, loadTodos } from './lib/tauri';
+import { localDateKey } from './lib/utils';
 
 import './i18n';
 import './styles/globals.css';
@@ -38,10 +40,11 @@ function App() {
   const {
     theme, language, accentColor, hotkey,
     startupDelay, reminderIgnored, lastPromptDate, setLastPromptDate,
+    startupReminder,
     achievementTime, achievementLastDate, setAchievementLastDate,
     weeklyReportEnabled, weeklyReportDay, weeklyReportTime, weeklyReportLastDate, setWeeklyReportLastDate,
   } = useSettingsStore();
-  const { todos, isLoading, setTodos } = useTodoStore();
+  const { todos, isLoading, setTodos, autoCompleteExpired, cleanupOldCompleted } = useTodoStore();
   const { tags } = useTagStore();
   const completionTimes = useCompletionStore((s) => s.completionTimes);
   const habits = useHabitStore((s) => s.habits);
@@ -51,7 +54,20 @@ function App() {
   const [filter, setFilter] = useState<FilterType>('all');
   const [activeTag, setActiveTag] = useState<string | null>(null);
 
-  // 主题解析：theme='system' 时跟随系统/手机日夜模式实时切换
+  // ── 开机弹窗：dispatch 今日待办预览弹窗 ──
+  useEffect(() => {
+    if (reminderIgnored) return;
+    if (!startupReminder) return;
+    const todayStr = localDateKey();
+    if (lastPromptDate === todayStr) return;
+
+    const delayMs = Math.max(1, startupDelay) * 60 * 1000;
+    const timer = setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('show-startup-prompt'));
+      setLastPromptDate(todayStr);
+    }, delayMs);
+    return () => clearTimeout(timer);
+  }, [startupDelay, reminderIgnored, startupReminder, lastPromptDate, setLastPromptDate]);
   const prefersDark = usePrefersDark();
   const resolvedTheme = theme === 'system' ? (prefersDark ? 'dark' : 'light') : theme;
 
@@ -81,7 +97,8 @@ function App() {
   // 开机弹窗提醒
   useEffect(() => {
     if (reminderIgnored) return;
-    const todayStr = new Date().toISOString().split('T')[0];
+    if (!startupReminder) return;
+    const todayStr = localDateKey();
     if (lastPromptDate === todayStr) return;
 
     const delayMs = Math.max(1, startupDelay) * 60 * 1000;
@@ -106,12 +123,12 @@ function App() {
       }
     }, delayMs);
     return () => clearTimeout(timer);
-  }, [startupDelay, reminderIgnored, lastPromptDate, setLastPromptDate, t]);
+  }, [startupDelay, reminderIgnored, startupReminder, lastPromptDate, setLastPromptDate, t]);
 
   // 每日成就弹窗调度
   useEffect(() => {
     if (!achievementTime) return;
-    const todayKey = new Date().toISOString().slice(0, 10);
+    const todayKey = localDateKey();
     if (achievementLastDate === todayKey) return;
 
     const [hh, mm] = achievementTime.split(':').map(Number);
@@ -179,7 +196,7 @@ function App() {
 
   useEffect(() => {
     const scan = async () => {
-      const todayKey = new Date().toISOString().slice(0, 10);
+      const todayKey = localDateKey();
       const now = new Date();
 
       // 找出需要提醒的 todos
@@ -239,13 +256,17 @@ function App() {
     return () => clearInterval(interval);
   }, [todos, i18n.language]);
 
-  // Load todos on mount
+  // Load todos on mount，加载后自动处理过期任务 + 清理旧缓存
   useEffect(() => {
     async function init() {
       try {
         await initDB();
         const data = await loadTodos();
         setTodos(data);
+        // 过期未完成任务归入已完成
+        await autoCompleteExpired();
+        // 半年一次：清理超过 6 个月的已完成任务（静默后台操作）
+        await cleanupOldCompleted();
       } catch (e) {
         console.error('Failed to initialize app:', e);
       }
@@ -317,71 +338,86 @@ function App() {
   const hasTodos = todos.length > 0;
 
   return (
-    <div className="app-shell flex flex-col overflow-hidden" style={{
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
       backgroundColor: 'var(--color-bg-primary)',
       color: 'var(--color-text-primary)',
     }}>
-      <Header />
-      <AddTodoBar />
-      {hasTodos && (
-        <FilterTabs activeFilter={filter} onFilterChange={setFilter} />
-      )}
+      {/* 85% 内容包裹器：所有行内容宽度占视窗 85%，两端等距居中 */}
+      <div style={{
+        width: '85%',
+        maxWidth: 960,
+        margin: '0 auto',
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
+      }}>
+        <Header />
+        <AddTodoBar />
+        {hasTodos && (
+          <FilterTabs activeFilter={filter} onFilterChange={setFilter} />
+        )}
 
-      {/* 标签过滤栏 — 有标签时显示 */}
-      {tags.length > 0 && (
-        <div
-          className="flex-shrink-0 flex items-center flex-wrap"
-          style={{
-            padding: '5px var(--pad-x)',
-            gap: '5px',
-            borderBottom: '0.5px solid var(--color-separator)',
-            backgroundColor: 'var(--color-bg-primary)',
-          }}
-        >
-          {/* 全部 chip */}
-          <button
-            onClick={() => setActiveTag(null)}
-            className="flex items-center transition-colors cursor-pointer"
+        {/* 标签过滤栏 — 有标签时显示 */}
+        {hasTodos && tags.length > 0 && (
+          <div
+            className="flex-shrink-0 flex items-center flex-wrap"
             style={{
-              height: '20px', padding: '0 8px', borderRadius: '10px', fontSize: '10px',
-              border: '0.5px solid', fontWeight: 500,
-              borderColor: activeTag === null ? 'var(--clay)' : 'var(--color-border)',
-              backgroundColor: activeTag === null ? 'var(--clay-light)' : 'transparent',
-              color: activeTag === null ? 'var(--clay)' : 'var(--color-text-tertiary)',
+              padding: '5px 0',
+              gap: '5px',
+              borderBottom: '0.5px solid var(--color-separator)',
+              backgroundColor: 'var(--color-bg-primary)',
             }}
           >
-            {t('app.filterAll')}
-          </button>
-          {tags.map(tag => (
-            <TagChip
-              key={tag.id}
-              tag={tag}
-              size="xs"
-              active={activeTag === tag.id}
-              onClick={() => setActiveTag(activeTag === tag.id ? null : tag.id)}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* 内容区 */}
-      <div className="flex-1 overflow-y-auto">
-        {!hasTodos && !isLoading ? (
-          <EmptyState />
-        ) : (
-          <div className="px-5 pt-2 pb-6">
-            <TodoSection filter={filter} tagFilter={activeTag} />
+            {/* 全部 chip */}
+            <button
+              onClick={() => setActiveTag(null)}
+              className="flex items-center transition-colors cursor-pointer"
+              style={{
+                height: '20px', padding: '0 8px', borderRadius: '10px', fontSize: '10px',
+                border: '0.5px solid', fontWeight: 500,
+                borderColor: activeTag === null ? 'var(--clay)' : 'var(--color-border)',
+                backgroundColor: activeTag === null ? 'var(--clay-light)' : 'transparent',
+                color: activeTag === null ? 'var(--clay)' : 'var(--color-text-tertiary)',
+              }}
+            >
+              {t('app.filterAll')}
+            </button>
+            {tags.map(tag => (
+              <TagChip
+                key={tag.id}
+                tag={tag}
+                size="xs"
+                active={activeTag === tag.id}
+                onClick={() => setActiveTag(activeTag === tag.id ? null : tag.id)}
+              />
+            ))}
           </div>
         )}
+
+        {/* 内容区 — Linear-style scroll container */}
+        <main className="scroll" style={{ flex: 1, overflowY: 'auto' }}>
+          {!hasTodos && !isLoading ? (
+            <EmptyState />
+          ) : (
+            <div style={{ padding: '24px 0 80px' }}>
+              <TodoSection filter={filter} tagFilter={activeTag} />
+            </div>
+          )}
+        </main>
       </div>
       <Suspense fallback={null}>
         <SettingsDrawer />
         <ToolsPanel />
         <DailyAchievementModal />
+        <StartupPromptModal />
         {/* Asha 宠物（独立开关，默认开） */}
         {petVisible && <PetWidget />}
-        {/* 聊天面板（需要 AI API key 才有意义） */}
-        {aiEnabled && <ChatPanel />}
+        {/* 聊天面板：只要宠物可见就挂载（面板内部处理 API 未配置状态） */}
+        {petVisible && <ChatPanel />}
         {/* Full-screen overlays */}
         {focusLock && <FocusLockScreen />}
         {clock && <ClockScreen />}

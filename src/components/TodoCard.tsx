@@ -1,8 +1,8 @@
 /**
- * TodoCard — 单条 Todo 卡片
- * v4: 标签系统 (#46) + 重复 badge (#45) + 子任务 (#44)
+ * TodoCard — Linear 风格单条 Todo 行
+ * Preserves all existing features: subtasks, tags, priorities, recurrence, AI breakdown, dnd-kit
  */
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTodoStore, type Todo } from '../store/todoStore';
 import { useSettingsStore } from '../store/settingsStore';
@@ -10,40 +10,136 @@ import { useSubtaskStore } from '../store/subtaskStore';
 import { useRecurrenceStore, RECURRENCE_OPTIONS } from '../store/recurrenceStore';
 import { useTagStore, TAG_PALETTE, type Tag } from '../store/tagStore';
 import { TagChip } from './TagChip';
-import { formatDeadline, isUrgent, isOverdue } from '../lib/utils';
+import { formatDeadline, isUrgent, isOverdue, classifyTodo } from '../lib/utils';
 import { PRIORITY_META, priorityColor } from '../lib/priority';
 import { useIsTouch } from '../lib/responsive';
 import { useAIStore } from '../store/aiStore';
+import DatePicker from './DatePicker';
 import { BreakdownPopover } from './BreakdownPopover';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronDown, ChevronRight, Plus, Repeat, Flag, Sparkles } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 
 interface TodoCardProps {
   todo: Todo;
 }
 
+/* ─── 内联 SVG 图标 ─── */
+function CheckMarkSvg() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.4"
+      strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+      <path d="M5 12.5l4.2 4.5L19 7" strokeDasharray="18"
+        style={{ strokeDashoffset: 0, animation: 'linear-drawCheck .26s ease forwards' }} />
+    </svg>
+  );
+}
+
+function FlagSvg({ filled, color }: { filled?: boolean; color?: string }) {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill={filled ? (color || 'currentColor') : 'none'}
+      stroke={color || 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block', flexShrink: 0 }}>
+      <path d="M5 21V4" /><path d="M5 4h11l-2 3.5L16 11H5" />
+    </svg>
+  );
+}
+
+function ChevronRightSvg() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+      <path d="M9 6l6 6-6 6" />
+    </svg>
+  );
+}
+
+function ChevronDownSvg() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
+}
+
+function PlusSvg() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+      <path d="M12 5v14" /><path d="M5 12h14" />
+    </svg>
+  );
+}
+
+function XSvg() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+      <path d="M18 6L6 18" /><path d="M6 6l12 12" />
+    </svg>
+  );
+}
+
+function SparklesSvg() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+      <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z" />
+      <path d="M18.5 16l-.8 2.3L20 19l-2.3.8L18 22l-.8-2.3L15 19l2.3-.8z" />
+    </svg>
+  );
+}
+
+function RepeatSvg() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+      <path d="M17 2l3 3-3 3" /><path d="M20 5H8a4 4 0 0 0-4 4" /><path d="M7 22l-3-3 3-3" /><path d="M4 19h12a4 4 0 0 0 4-4" />
+    </svg>
+  );
+}
+
+function TagGridSvg() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3">
+      <rect x="1" y="1" width="5" height="5" rx="1.5" /><rect x="8" y="1" width="5" height="5" rx="1.5" />
+      <rect x="1" y="8" width="5" height="5" rx="1.5" /><rect x="8" y="8" width="5" height="5" rx="1.5" />
+    </svg>
+  );
+}
+
+function CalendarSvg() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <path d="M16 2v4M8 2v4M3 10h18" />
+    </svg>
+  );
+}
+
+/* ─── 主组件 ─── */
+
 export function TodoCard({ todo }: TodoCardProps) {
   const { t, i18n } = useTranslation();
   const lang = i18n.language.startsWith('zh') ? 'zh' : 'en';
-  const { toggleComplete, deleteTodo, setPriority } = useTodoStore();
+  const { toggleComplete, deleteTodo, setPriority, updateTodo } = useTodoStore();
   const { addSubtask, toggleSubtask, deleteSubtask, getSubtasks } = useSubtaskStore();
   const recurrenceRule = useRecurrenceStore((s) => s.rules[todo.id] ?? null);
   const { tags, todoTags, addTag, addTagToTodo, removeTagFromTodo, getTodoTags } = useTagStore();
   const todoTagList: Tag[] = getTodoTags(todo.id);
 
   const isTouch = useIsTouch();
-  // manual 拖拽模式下关闭 framer 的 layout/位移动画，避免与 dnd-kit transform 互搏
   const sortMode = useSettingsStore((s) => s.sortMode);
   const isManual = sortMode === 'manual';
-  const [isHovered, setIsHovered] = useState(false);
-  // 触屏无 hover 概念：操作区常驻显示，保证删除/标签/子任务可达
-  const showActions = isHovered || isTouch;
+  const [hovered, setHovered] = useState(false);
+  const showActions = hovered || isTouch;
   const [flash, setFlash] = useState(false);
+  const [checkPop, setCheckPop] = useState(false);
   const [subtasksOpen, setSubtasksOpen] = useState(false);
   const [addingSubtask, setAddingSubtask] = useState(false);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [showPriorityPicker, setShowPriorityPicker] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [showBreakdown, setShowBreakdown] = useState(false);
   const aiEnabled = useAIStore((s) => s.aiEnabled);
   const [newTagName, setNewTagName] = useState('');
@@ -54,13 +150,14 @@ export function TodoCard({ todo }: TodoCardProps) {
   const doneCount = subtasks.filter((s) => s.completed).length;
   const hasSubtasks = subtaskCount > 0;
 
-  const handleToggle = async () => {
+  const handleToggle = useCallback(async () => {
     if (!todo.completed) {
       setFlash(true);
-      setTimeout(() => setFlash(false), 600);
+      setCheckPop(true);
+      setTimeout(() => { setFlash(false); setCheckPop(false); }, 600);
     }
     await toggleComplete(todo.id).catch(console.error);
-  };
+  }, [todo.id, todo.completed, toggleComplete]);
 
   const handleAddSubtask = () => {
     if (!newSubtaskTitle.trim()) { setAddingSubtask(false); return; }
@@ -78,275 +175,217 @@ export function TodoCard({ todo }: TodoCardProps) {
   const urgent = isUrgent(todo);
   const overdue = isOverdue(todo);
   const hasAlert = urgent || overdue;
+  const classification = classifyTodo(todo);
 
   return (
     <div
-      style={{ position: 'relative' }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => { setIsHovered(false); setShowTagPicker(false); setShowPriorityPicker(false); setShowBreakdown(false); }}
+      className="linear-row-enter"
+      style={{ animationDelay: '0ms', position: 'relative' }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => { setHovered(false); setShowTagPicker(false); setShowPriorityPicker(false); setShowBreakdown(false); setShowDatePicker(false); }}
     >
-      {/* 主行 */}
-      <motion.div
-        layout={!isManual}
-        initial={isManual ? false : { opacity: 0, x: -12 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={isManual ? undefined : { opacity: 0, x: 12 }}
-        transition={{ duration: 0.55, ease: 'easeOut' }}
-        className={`todo-row flex items-center ${flash ? 'todo-flash' : ''}`}
+      <div
+        className={flash ? 'todo-flash' : ''}
         style={{
-          minHeight: 'var(--todo-row-h)',
-          padding: '7px var(--pad-x)',
-          gap: '8px',
-          borderTop: '0.5px solid var(--color-separator)',
+          display: 'flex', alignItems: 'flex-start', gap: 12,
+          padding: '9px var(--pad-x)', borderRadius: 9,
+          transition: 'background .14s ease',
+          background: hovered ? 'var(--card-hover)' : 'transparent',
           cursor: 'default',
+          position: 'relative',
         }}
       >
         {/* Checkbox */}
-        <motion.button
+        <button
           onClick={handleToggle}
-          whileTap={{ scale: 0.82 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-          className="flex items-center justify-center flex-shrink-0"
+          aria-pressed={todo.completed}
           style={{
-            width: '16px', height: '16px', borderRadius: '50%',
-            border: '1.5px solid',
-            borderColor: todo.completed ? 'var(--clay)' : 'var(--color-checkbox-border)',
-            backgroundColor: todo.completed ? 'var(--clay)' : 'transparent',
-            cursor: 'pointer', flexShrink: 0,
-            transition: 'background-color 0.18s, border-color 0.18s',
+            flex: '0 0 auto', width: 18, height: 18, marginTop: 1, borderRadius: '50%',
+            border: `1.6px solid ${todo.completed ? 'var(--clay)' : 'var(--ink-4)'}`,
+            background: todo.completed ? 'var(--clay)' : 'transparent',
+            display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0,
+            transition: 'border-color .16s, background .16s',
+            animation: checkPop && todo.completed ? 'linear-checkPop .28s ease' : 'none',
           }}
+          onMouseEnter={(e) => { if (!todo.completed) e.currentTarget.style.borderColor = 'var(--clay)'; }}
+          onMouseLeave={(e) => { if (!todo.completed) e.currentTarget.style.borderColor = 'var(--ink-4)'; }}
         >
-          <AnimatePresence>
-            {todo.completed && (
-              <motion.svg key="checkmark" width="9" height="7" viewBox="0 0 9 7" fill="none"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              >
-                <motion.path d="M1 3.5L3.2 5.8L8 1" stroke="white" strokeWidth="1.6"
-                  strokeLinecap="round" strokeLinejoin="round"
-                  initial={{ pathLength: 0 }} animate={{ pathLength: 1 }}
-                  transition={{ duration: 0.22, ease: 'easeOut' }}
-                />
-              </motion.svg>
-            )}
-          </AnimatePresence>
-        </motion.button>
+          {todo.completed && <CheckMarkSvg />}
+        </button>
 
-        {/* 子任务折叠按钮 */}
+        {/* Subtask expand button */}
         {hasSubtasks && (
           <button
             onClick={() => setSubtasksOpen((v) => !v)}
-            className="flex items-center justify-center flex-shrink-0 transition-colors cursor-pointer"
-            style={{ width: '14px', height: '14px', background: 'none', border: 'none', color: 'var(--color-text-tertiary)', padding: 0 }}
+            style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--ink-4)', marginTop: 2 }}
           >
-            {subtasksOpen ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+            {subtasksOpen ? <ChevronDownSvg /> : <ChevronRightSvg />}
           </button>
         )}
 
-        {/* 优先级旗标 — 仅 priority>0 且未完成时常驻显示 */}
+        {/* Priority flag */}
         {todo.priority > 0 && !todo.completed && (
-          <Flag
-            size={11}
-            strokeWidth={2}
-            style={{ flexShrink: 0, color: priorityColor(todo.priority), fill: priorityColor(todo.priority) }}
-          />
+          <FlagSvg filled color={priorityColor(todo.priority)} />
         )}
 
         {/* Title */}
-        <span
-          className="text-sm select-none"
-          style={{
-            position: 'relative', flex: 1, minWidth: 0,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            color: todo.completed ? 'var(--color-text-done)' : 'var(--color-text-primary)',
-            transition: 'color 0.2s',
-          }}
-        >
+        <span style={{
+          fontSize: 14.5, lineHeight: 1.45,
+          color: todo.completed ? 'var(--ink-4)' : 'var(--color-text-primary)',
+          textDecoration: todo.completed ? 'line-through' : 'none',
+          textDecorationColor: 'var(--ink-4)',
+          transition: 'color .2s',
+          flex: '1 1 auto', minWidth: 0, paddingTop: 1,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
           {todo.title}
-          <AnimatePresence>
-            {todo.completed && (
-              <motion.span key="strikethrough"
-                initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} exit={{ scaleX: 0 }}
-                transition={{ duration: 0.25, ease: 'easeInOut' }}
-                style={{
-                  position: 'absolute', top: '50%', left: 0, right: 0,
-                  height: '1px', background: 'var(--color-text-done)',
-                  transformOrigin: 'left center', pointerEvents: 'none',
-                }}
-              />
-            )}
-          </AnimatePresence>
         </span>
 
-        {/* 子任务进度 badge */}
+        {/* Subtask progress badge */}
         {hasSubtasks && (
           <button
             onClick={() => setSubtasksOpen((v) => !v)}
-            className="flex-shrink-0 transition-colors cursor-pointer"
             style={{
-              fontSize: '9px', fontWeight: 600,
-              padding: '1px 6px', borderRadius: '10px',
-              background: doneCount === subtaskCount ? 'var(--clay-light)' : 'var(--color-bg-tertiary)',
-              color: doneCount === subtaskCount ? 'var(--clay)' : 'var(--color-text-tertiary)',
-              border: 'none', fontVariantNumeric: 'tabular-nums',
+              flexShrink: 0, fontSize: 11.5, fontWeight: 500,
+              padding: '2px 7px', borderRadius: 6, lineHeight: 1,
+              background: doneCount === subtaskCount ? 'var(--clay-light)' : '#fff',
+              color: doneCount === subtaskCount ? 'var(--clay)' : 'var(--ink-2)',
+              border: doneCount === subtaskCount ? '0.5px solid var(--clay)' : '0.5px solid var(--color-border)',
+              cursor: 'pointer', fontVariantNumeric: 'tabular-nums',
             }}
           >
             {doneCount}/{subtaskCount}
           </button>
         )}
 
-        {/* 标签 chips */}
-        {todoTagList.map(tag => (
-          <TagChip key={tag.id} tag={tag} size="xs" />
-        ))}
-
-        {/* Deadline badge */}
-        {todo.deadline && (
-          <span
-            className="deadline-label text-xs px-2 py-0.5 rounded font-medium flex-shrink-0"
-            style={{
-              color: hasAlert ? 'var(--clay)' : 'var(--color-text-tertiary)',
-              backgroundColor: hasAlert ? 'var(--clay-light)' : 'var(--color-bg-tertiary)',
-              fontFamily: 'var(--font-mono)', letterSpacing: '0.04em',
-            }}
-          >
-            {overdue ? t('app.overdue') : formatDeadline(todo.deadline, 'zh' as const)}
-          </span>
+        {/* Meta chips: only on hover, slide in from right */}
+        {!todo.completed && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            opacity: hovered ? 1 : 0,
+            transform: hovered ? 'translateX(0)' : 'translateX(6px)',
+            transition: 'opacity .18s ease, transform .18s ease',
+            paddingLeft: 12,
+          }}>
+            {todoTagList.map(tag => (
+              <span key={tag.id} style={{
+                fontSize: 11.5, color: 'var(--ink-2)', background: '#fff',
+                border: '0.5px solid var(--color-border)', borderRadius: 6,
+                padding: '3px 8px', lineHeight: 1, whiteSpace: 'nowrap',
+              }}>
+                {tag.name}
+              </span>
+            ))}
+            {/* Quick action buttons */}
+            {aiEnabled && (
+              <button
+                onClick={() => { setShowBreakdown(v => !v); setShowTagPicker(false); setShowPriorityPicker(false); setShowDatePicker(false); }}
+                className="linear-ghost-btn"
+                style={{ fontSize: 11.5, padding: '2px 6px', color: showBreakdown ? 'var(--clay)' : 'var(--ink-2)' }}
+                title={t('breakdown.title')}
+              >
+                <SparklesSvg />
+              </button>
+            )}
+            <button
+              onClick={() => { setShowPriorityPicker(v => !v); setShowTagPicker(false); setShowBreakdown(false); setShowDatePicker(false); }}
+              className="linear-ghost-btn"
+              style={{ fontSize: 11.5, padding: '2px 6px', color: todo.priority > 0 ? priorityColor(todo.priority) : 'var(--ink-2)' }}
+              title={lang === 'zh' ? '设置优先级' : 'Set priority'}
+            >
+              <FlagSvg />
+            </button>
+            <button
+              onClick={() => { setShowTagPicker(v => !v); setShowPriorityPicker(false); setShowDatePicker(false); }}
+              className="linear-ghost-btn"
+              style={{ fontSize: 11.5, padding: '2px 6px', color: showTagPicker ? 'var(--clay)' : 'var(--ink-2)' }}
+              title={lang === 'zh' ? '添加标签' : 'Add tag'}
+            >
+              <TagGridSvg />
+            </button>
+            <button
+              onClick={() => {
+                setAddingSubtask(true);
+                setSubtasksOpen(true);
+                setTimeout(() => subtaskInputRef.current?.focus(), 60);
+              }}
+              className="linear-ghost-btn"
+              style={{ fontSize: 11.5, padding: '2px 6px', color: 'var(--ink-2)' }}
+              title={t('app.addSubtask')}
+            >
+              <PlusSvg />
+            </button>
+            {/* Deadline button (long-term only) */}
+            {todo.todoType === 'longterm' && (
+              <div style={{ position: 'relative' }}>
+                <button
+                  onClick={() => { setShowDatePicker(v => !v); setShowPriorityPicker(false); setShowTagPicker(false); }}
+                  className="linear-ghost-btn"
+                  style={{
+                    fontSize: 11.5, padding: '2px 6px',
+                    color: todo.deadline ? (overdue ? '#E5484D' : 'var(--clay)') : 'var(--ink-2)',
+                  }}
+                  title={lang === 'zh' ? '设置截止时间' : 'Set deadline'}
+                >
+                  <CalendarSvg />
+                </button>
+                {showDatePicker && (
+                  <div style={{ position: 'absolute', top: '28px', right: 0, zIndex: 200 }}
+                    onClick={e => e.stopPropagation()}>
+                    <DatePicker
+                      value={todo.deadline || ''}
+                      onChange={(v) => { updateTodo(todo.id, { deadline: v || null }); setShowDatePicker(false); }}
+                      onClose={() => setShowDatePicker(false)}
+                      lang={lang}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+            <button
+              onClick={() => deleteTodo(todo.id).catch(console.error)}
+              className="linear-ghost-btn"
+              style={{ fontSize: 11.5, padding: '2px 6px', color: 'var(--ink-2)' }}
+            >
+              <XSvg />
+            </button>
+          </div>
         )}
 
-        {/* 重复规则 badge */}
+        {/* Recurrence badge */}
         {recurrenceRule && (
-          <span
-            className="flex-shrink-0 inline-flex items-center"
-            title={RECURRENCE_OPTIONS.find(o => o.type === recurrenceRule.type)?.[lang === 'zh' ? 'labelZh' : 'labelEn']}
-            style={{
-              fontSize: '9px', padding: '1px 6px', borderRadius: '10px', gap: '3px',
-              backgroundColor: 'var(--color-bg-tertiary)',
-              color: 'var(--color-text-tertiary)',
-            }}
-          >
-            <Repeat size={8} strokeWidth={2} />
+          <span style={{
+            flexShrink: 0, fontSize: 11.5, fontWeight: 500,
+            padding: '2px 7px', borderRadius: 6, lineHeight: 1, gap: 3,
+            display: 'inline-flex', alignItems: 'center',
+            background: '#fff', color: 'var(--ink-2)',
+            border: '0.5px solid var(--color-border)',
+          }}>
+            <RepeatSvg />
             {RECURRENCE_OPTIONS.find(o => o.type === recurrenceRule.type)?.[lang === 'zh' ? 'labelZh' : 'labelEn']}
           </span>
         )}
+      </div>
 
-        {/* 操作区 — 桌面 hover 显现，触屏常驻 */}
-        <AnimatePresence>
-          {showActions && (
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              transition={{ duration: 0.1 }}
-              className="flex items-center flex-shrink-0"
-              style={{ gap: '2px' }}
-            >
-              {/* AI 拆解（aiEnabled 才显示，且仅未完成任务） */}
-              {aiEnabled && !todo.completed && (
-                <button
-                  onClick={() => { setShowBreakdown(v => !v); setShowTagPicker(false); setShowPriorityPicker(false); }}
-                  className="flex items-center justify-center transition-colors cursor-pointer"
-                  style={{
-                    width: isTouch ? '34px' : '18px', height: isTouch ? '34px' : '18px', borderRadius: '6px',
-                    color: showBreakdown ? 'var(--clay)' : 'var(--color-text-tertiary)',
-                    border: 'none', backgroundColor: 'transparent',
-                  }}
-                  title={t('breakdown.title')}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--clay)'; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = showBreakdown ? 'var(--clay)' : 'var(--color-text-tertiary)'; }}
-                >
-                  <Sparkles size={11} />
-                </button>
-              )}
-              {/* 优先级 */}
-              <button
-                onClick={() => { setShowPriorityPicker(v => !v); setShowTagPicker(false); setShowBreakdown(false); }}
-                className="flex items-center justify-center transition-colors cursor-pointer"
-                style={{
-                  width: isTouch ? '34px' : '18px', height: isTouch ? '34px' : '18px', borderRadius: '6px',
-                  color: todo.priority > 0 ? priorityColor(todo.priority) : (showPriorityPicker ? 'var(--clay)' : 'var(--color-text-tertiary)'),
-                  border: 'none', backgroundColor: 'transparent',
-                }}
-                title={lang === 'zh' ? '设置优先级' : 'Set priority'}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--clay)'; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = todo.priority > 0 ? priorityColor(todo.priority) : (showPriorityPicker ? 'var(--clay)' : 'var(--color-text-tertiary)'); }}
-              >
-                <Flag size={11} strokeWidth={2} style={todo.priority > 0 ? { fill: 'currentColor' } : undefined} />
-              </button>
-              {/* 标签 */}
-              <button
-                onClick={() => { setShowTagPicker(v => !v); setShowPriorityPicker(false); }}
-                className="flex items-center justify-center transition-colors cursor-pointer"
-                style={{
-                  width: isTouch ? '34px' : '18px', height: isTouch ? '34px' : '18px', borderRadius: '6px',
-                  color: showTagPicker ? 'var(--clay)' : 'var(--color-text-tertiary)',
-                  border: 'none', backgroundColor: 'transparent',
-                }}
-                title={lang === 'zh' ? '添加标签' : 'Add tag'}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--clay)'; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = showTagPicker ? 'var(--clay)' : 'var(--color-text-tertiary)'; }}
-              >
-                <svg width="11" height="11" viewBox="0 0 14 14" fill="none">
-                  <rect x="1" y="1" width="5" height="5" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
-                  <rect x="8" y="1" width="5" height="5" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
-                  <rect x="1" y="8" width="5" height="5" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
-                  <rect x="8" y="8" width="5" height="5" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
-                </svg>
-              </button>
-              {/* 添加子任务 */}
-              <button
-                onClick={() => {
-                  setAddingSubtask(true);
-                  setSubtasksOpen(true);
-                  setTimeout(() => subtaskInputRef.current?.focus(), 60);
-                }}
-                className="flex items-center justify-center transition-colors cursor-pointer"
-                style={{
-                  width: isTouch ? '34px' : '18px', height: isTouch ? '34px' : '18px', borderRadius: '6px',
-                  color: 'var(--color-text-tertiary)', border: 'none', backgroundColor: 'transparent',
-                }}
-                title={t('app.addSubtask')}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--clay)'; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--color-text-tertiary)'; }}
-              >
-                <Plus size={11} />
-              </button>
-              {/* 删除 */}
-              <button
-                onClick={() => deleteTodo(todo.id).catch(console.error)}
-                className="flex items-center justify-center transition-colors cursor-pointer"
-                style={{
-                  width: isTouch ? '34px' : '18px', height: isTouch ? '34px' : '18px', borderRadius: '6px',
-                  color: 'var(--color-text-tertiary)', border: 'none', backgroundColor: 'transparent',
-                }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--clay)'; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--color-text-tertiary)'; }}
-              >
-                <X size={11} />
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
-
-      {/* AI 拆解弹出层 */}
+      {/* AI breakdown popover */}
       {showBreakdown && (
-        <div>
-          <BreakdownPopover
-            todoId={todo.id}
-            title={todo.title}
-            onClose={() => setShowBreakdown(false)}
-          />
-        </div>
+        <BreakdownPopover
+          todoId={todo.id}
+          title={todo.title}
+          onClose={() => setShowBreakdown(false)}
+        />
       )}
 
-      {/* 优先级选择弹出层 */}
+      {/* Priority picker */}
       {showPriorityPicker && (
         <div
           style={{
-            position: 'absolute', top: '100%', right: 'var(--pad-x)', zIndex: 200,
-            borderRadius: '8px', border: '0.5px solid var(--color-border)',
-            backgroundColor: 'var(--color-bg-primary)',
+            position: 'absolute', top: '100%', right: 12, zIndex: 200,
+            borderRadius: 7, border: '0.5px solid var(--color-border)',
+            background: 'var(--color-bg-primary)',
             boxShadow: 'var(--shadow-md)',
-            minWidth: '130px', padding: '4px',
-            display: 'flex', flexDirection: 'column', gap: '1px',
+            minWidth: 105, padding: 3,
+            display: 'flex', flexDirection: 'column', gap: 1,
           }}
           onClick={e => e.stopPropagation()}
         >
@@ -356,46 +395,48 @@ export function TodoCard({ todo }: TodoCardProps) {
               <button
                 key={meta.value}
                 onClick={() => { setPriority(todo.id, meta.value); setShowPriorityPicker(false); }}
-                className="w-full flex items-center cursor-pointer transition-colors"
                 style={{
-                  gap: '8px', padding: '5px 8px', borderRadius: '5px', border: 'none',
-                  backgroundColor: active ? 'var(--color-bg-tertiary)' : 'transparent',
-                  color: 'var(--color-text-secondary)', fontSize: '11px',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '3px 7px', borderRadius: 4, border: 'none',
+                  background: active ? 'var(--color-bg-tertiary)' : 'transparent',
+                  color: 'var(--color-text-secondary)', fontSize: 8,
+                  cursor: 'pointer', textAlign: 'left', font: 'inherit',
                 }}
-                onMouseEnter={(e) => { if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-bg-tertiary)'; }}
-                onMouseLeave={(e) => { if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
+                onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'var(--color-bg-tertiary)'; }}
+                onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}
               >
-                <Flag size={11} strokeWidth={2} style={{ color: meta.color, fill: meta.value > 0 ? meta.color : 'none', flexShrink: 0 }} />
-                <span className="flex-1 text-left">{lang === 'zh' ? meta.labelZh : meta.labelEn}</span>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill={meta.value > 0 ? meta.color : 'none'}
+                  stroke={meta.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                  style={{ display: 'block', flexShrink: 0 }}>
+                  <path d="M5 21V4" /><path d="M5 4h11l-2 3.5L16 11H5" />
+                </svg>
+                <span style={{ flex: 1, fontSize: 10 }}>{lang === 'zh' ? meta.labelZh : meta.labelEn}</span>
               </button>
             );
           })}
         </div>
       )}
 
-      {/* 标签选择器弹出层（在主行外，避免影响布局）*/}
+      {/* Tag picker */}
       {showTagPicker && (
         <div
           style={{
-            position: 'absolute', top: '100%', right: 'var(--pad-x)', zIndex: 200,
-            borderRadius: '8px', border: '0.5px solid var(--color-border)',
-            backgroundColor: 'var(--color-bg-primary)',
+            position: 'absolute', top: '100%', right: 12, zIndex: 200,
+            borderRadius: 8, border: '0.5px solid var(--color-border)',
+            background: 'var(--color-bg-primary)',
             boxShadow: 'var(--shadow-md)',
-            minWidth: '170px', padding: '8px',
-            display: 'flex', flexDirection: 'column', gap: '6px',
+            minWidth: 170, padding: 8,
+            display: 'flex', flexDirection: 'column', gap: 6,
           }}
           onClick={e => e.stopPropagation()}
         >
-          {/* 已有标签 — 点击切换 */}
           {tags.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
               {tags.map(tag => {
                 const assigned = (todoTags[todo.id] ?? []).includes(tag.id);
                 return (
                   <TagChip
-                    key={tag.id}
-                    tag={tag}
-                    size="sm"
+                    key={tag.id} tag={tag} size="sm"
                     active={assigned}
                     onClick={() => assigned ? removeTagFromTodo(todo.id, tag.id) : addTagToTodo(todo.id, tag.id)}
                   />
@@ -403,11 +444,9 @@ export function TodoCard({ todo }: TodoCardProps) {
               })}
             </div>
           )}
-          {/* 新建标签输入 */}
           <input
             autoFocus={tags.length === 0}
-            type="text"
-            value={newTagName}
+            type="text" value={newTagName}
             onChange={e => setNewTagName(e.target.value)}
             onKeyDown={e => {
               if (e.key === 'Enter' && newTagName.trim()) {
@@ -420,16 +459,16 @@ export function TodoCard({ todo }: TodoCardProps) {
             }}
             placeholder={lang === 'zh' ? '新建标签 Enter 确认…' : 'New tag, Enter to add…'}
             style={{
-              fontSize: '10px', padding: '4px 8px',
+              fontSize: 10, padding: '4px 8px',
               background: 'var(--color-bg-tertiary)',
-              border: '0.5px solid var(--color-border)', borderRadius: '5px',
+              border: '0.5px solid var(--color-border)', borderRadius: 5,
               color: 'var(--color-text-primary)', outline: 'none', width: '100%',
             }}
           />
         </div>
       )}
 
-      {/* 子任务面板 */}
+      {/* Subtask panel */}
       <AnimatePresence>
         {subtasksOpen && (
           <motion.div
@@ -439,21 +478,17 @@ export function TodoCard({ todo }: TodoCardProps) {
             transition={{ duration: 0.2, ease: 'easeInOut' }}
             style={{ overflow: 'hidden' }}
           >
-            <div style={{ padding: '2px var(--pad-x) 6px 38px', display: 'flex', flexDirection: 'column', gap: '1px' }}>
+            <div style={{ padding: '2px var(--pad-x) 6px 42px', display: 'flex', flexDirection: 'column', gap: 1 }}>
               {subtasks.map((sub) => (
-                <div
-                  key={sub.id}
-                  className="flex items-center group"
-                  style={{ gap: '7px', minHeight: '24px', padding: '2px 0' }}
-                >
+                <div key={sub.id} style={{ display: 'flex', alignItems: 'center', gap: 7, minHeight: 24, padding: '2px 0' }}>
                   <button
                     onClick={() => toggleSubtask(todo.id, sub.id)}
-                    className="flex items-center justify-center flex-shrink-0 transition-colors cursor-pointer"
                     style={{
-                      width: '13px', height: '13px', borderRadius: '3px',
+                      flexShrink: 0, width: 13, height: 13, borderRadius: 3,
                       border: '1.5px solid',
-                      borderColor: sub.completed ? 'var(--clay)' : 'var(--color-checkbox-border)',
-                      backgroundColor: sub.completed ? 'var(--clay)' : 'transparent',
+                      borderColor: sub.completed ? 'var(--clay)' : 'var(--ink-4)',
+                      background: sub.completed ? 'var(--clay)' : 'transparent',
+                      cursor: 'pointer', padding: 0, display: 'grid', placeItems: 'center',
                     }}
                   >
                     {sub.completed && (
@@ -462,42 +497,40 @@ export function TodoCard({ todo }: TodoCardProps) {
                       </svg>
                     )}
                   </button>
-                  <span
-                    className="text-xs flex-1"
-                    style={{
-                      color: sub.completed ? 'var(--color-text-done)' : 'var(--color-text-secondary)',
-                      textDecoration: sub.completed ? 'line-through' : 'none',
-                    }}
-                  >
+                  <span style={{
+                    fontSize: 12.5, flex: 1,
+                    color: sub.completed ? 'var(--ink-4)' : 'var(--ink-2)',
+                    textDecoration: sub.completed ? 'line-through' : 'none',
+                  }}>
                     {sub.title}
                   </span>
                   <button
                     onClick={() => deleteSubtask(todo.id, sub.id)}
-                    className={`flex items-center justify-center transition-opacity cursor-pointer ${isTouch ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                    className="linear-ghost-btn"
                     style={{
-                      width: isTouch ? '28px' : '14px', height: isTouch ? '28px' : '14px', borderRadius: '4px',
-                      color: 'var(--color-text-tertiary)', border: 'none', backgroundColor: 'transparent',
+                      fontSize: 11.5, padding: '1px 4px',
+                      opacity: hovered || isTouch ? 1 : 0,
+                      color: 'var(--ink-2)',
                     }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--clay)'; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--color-text-tertiary)'; }}
                   >
-                    <X size={9} />
+                    <XSvg />
                   </button>
                 </div>
               ))}
               {addingSubtask && (
-                <div className="flex items-center" style={{ gap: '7px', minHeight: '24px', padding: '2px 0' }}>
-                  <div style={{ width: '13px', height: '13px', borderRadius: '3px', border: '1.5px dashed var(--color-border)', flexShrink: 0 }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, minHeight: 24, padding: '2px 0' }}>
+                  <div style={{ width: 13, height: 13, borderRadius: 3, border: '1.5px dashed var(--color-border)', flexShrink: 0 }} />
                   <input
                     ref={subtaskInputRef}
-                    type="text"
-                    value={newSubtaskTitle}
+                    type="text" value={newSubtaskTitle}
                     onChange={(e) => setNewSubtaskTitle(e.target.value)}
                     onKeyDown={handleSubtaskKeyDown}
                     onBlur={handleAddSubtask}
                     placeholder={t('app.subtaskPlaceholder')}
-                    className="flex-1 text-xs outline-none bg-transparent"
-                    style={{ color: 'var(--color-text-secondary)', border: 'none' }}
+                    style={{
+                      flex: 1, fontSize: 12.5, border: 'none', outline: 'none',
+                      background: 'transparent', color: 'var(--ink-2)', font: 'inherit',
+                    }}
                   />
                 </div>
               )}

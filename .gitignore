@@ -31,3 +31,10 @@ Thumbs.db
 *.db-shm
 *.sqlite
 *.sqlite3
+*.wav
+
+# npm cache
+npm-cache/
+
+# Build cache
+*.tsbuildinfo

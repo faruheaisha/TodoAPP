@@ -9,6 +9,7 @@
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { localDateKey } from '../lib/utils';
 
 export type HabitColor = 'clay' | 'olive' | 'sky' | 'fig';
 
@@ -94,9 +95,8 @@ export function getNewMilestone(streak: number, shown: number[]): Milestone | nu
   return MILESTONES.find(m => streak >= m.days && !shown.includes(m.days)) ?? null;
 }
 
-export function toDateKey(d: Date): string {
-  return d.toISOString().split('T')[0];
-}
+// 本地时区日期键（复用 utils.localDateKey，全应用单一来源）
+export const toDateKey = localDateKey;
 
 export function suggestReminderTime(name: string): string | null {
   const n = name.toLowerCase();

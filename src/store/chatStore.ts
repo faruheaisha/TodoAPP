@@ -41,6 +41,7 @@ interface ChatState {
   newSession: (mode?: ChatMode) => string;
   switchSession: (id: string) => void;
   deleteSession: (id: string) => void;
+  renameSession: (id: string, title: string) => void;
   setSessionMode: (id: string, mode: ChatMode) => void;
   appendMessage: (sessionId: string, msg: Omit<ChatMsg, 'id' | 'ts'>) => void;
   markUnread: () => void;
@@ -80,6 +81,11 @@ export const useChatStore = create<ChatState>()(
             activeSessionId: s.activeSessionId === id ? (sessions[0]?.id ?? null) : s.activeSessionId,
           };
         }),
+
+      renameSession: (id, title) =>
+        set((s) => ({
+          sessions: s.sessions.map((x) => (x.id === id ? { ...x, title } : x)),
+        })),
 
       setSessionMode: (id, mode) =>
         set((s) => ({

@@ -29,7 +29,7 @@ export function calcWeeklyStats(
 
   // Todo 完成数
   const todosCompleted = Object.values(completionTimes).filter(ts => {
-    const day = ts.slice(0, 10);
+    const day = toDateKey(new Date(ts));
     return keySet.has(day);
   }).length;
 
@@ -59,7 +59,7 @@ export function calcWeeklyStats(
   // 活跃天数：有任何 todo 完成或习惯打卡的天数
   const activeDaySet = new Set<string>();
   for (const ts of Object.values(completionTimes)) {
-    const d = ts.slice(0, 10);
+    const d = toDateKey(new Date(ts));
     if (keySet.has(d)) activeDaySet.add(d);
   }
   for (const h of habits) {

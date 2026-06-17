@@ -4,8 +4,7 @@
  * HTMLAudioElement 单例池：模块级持有，不随组件卸载销毁，
  * 因此工具面板关闭后白噪音继续播放（与 timerStore 的后台运行哲学一致）。
  *
- * 音频文件位于 public/sounds/<id>.mp3（见同目录 manifest 与
- * scripts/fetch-sounds.mjs）。文件缺失时触发 onMissing 回调，
+ * 音频文件位于 public/sounds/<id>.mp3。文件缺失时触发 onMissing 回调，
  * UI 据此显示「未安装」状态而不是静默失败。
  *
  * 沙盒原则：内置音景清单 SOUND_LIBRARY 为系统固定配置，
@@ -27,14 +26,14 @@ export interface SoundDef {
 
 // 8 个内置音景：自然 4 + 环境 2 + 噪音 2
 export const SOUND_LIBRARY: SoundDef[] = [
-  { id: 'rain',    file: 'rain.mp3',    labelZh: '雨声',   labelEn: 'Rain',       category: 'nature',   sourceHint: 'Pixabay: "rain loop"' },
-  { id: 'thunder', file: 'thunder.mp3', labelZh: '雷雨',   labelEn: 'Thunder',    category: 'nature',   sourceHint: 'Pixabay: "thunderstorm ambience"' },
-  { id: 'ocean',   file: 'ocean.mp3',   labelZh: '海浪',   labelEn: 'Ocean',      category: 'nature',   sourceHint: 'Pixabay: "ocean waves loop"' },
-  { id: 'forest',  file: 'forest.mp3',  labelZh: '森林鸟鸣', labelEn: 'Forest',   category: 'nature',   sourceHint: 'Pixabay: "forest birds ambience"' },
-  { id: 'cafe',    file: 'cafe.mp3',    labelZh: '咖啡馆', labelEn: 'Café',       category: 'ambience', sourceHint: 'Pixabay: "coffee shop ambience"' },
-  { id: 'fire',    file: 'fire.mp3',    labelZh: '篝火',   labelEn: 'Fireplace',  category: 'ambience', sourceHint: 'Pixabay: "fireplace crackling loop"' },
-  { id: 'stream',  file: 'stream.mp3',  labelZh: '溪流',   labelEn: 'Stream',     category: 'nature',   sourceHint: 'Pixabay: "creek stream loop"' },
-  { id: 'white',   file: 'white.mp3',   labelZh: '白噪音', labelEn: 'White Noise', category: 'noise',   sourceHint: 'Pixabay: "white noise sleep"' },
+  { id: 'rain',    file: 'rain.mp3',    labelZh: '雨声',   labelEn: 'Rain',       category: 'nature',   sourceHint: 'Pixabay (universfield): "soft rain atmosphere"' },
+  { id: 'thunder', file: 'thunder.mp3', labelZh: '雷雨',   labelEn: 'Thunder',    category: 'nature',   sourceHint: 'Pixabay (freesound_community): "thunder"' },
+  { id: 'ocean',   file: 'ocean.mp3',   labelZh: '海浪',   labelEn: 'Ocean',      category: 'nature',   sourceHint: 'Pixabay (dragon-studio): "gentle ocean waves"' },
+  { id: 'forest',  file: 'forest.mp3',  labelZh: '森林鸟鸣', labelEn: 'Forest',   category: 'nature',   sourceHint: 'Pixabay (audiopapkin): "forest ambience"' },
+  { id: 'cafe',    file: 'cafe.mp3',    labelZh: '咖啡馆', labelEn: 'Café',       category: 'ambience', sourceHint: 'Pixabay (freesound_community): "cafe noise"' },
+  { id: 'fire',    file: 'fire.mp3',    labelZh: '篝火',   labelEn: 'Fireplace',  category: 'ambience', sourceHint: 'Pixabay (king_of_the_christmas): "fireplace loop"' },
+  { id: 'stream',  file: 'stream.mp3',  labelZh: '溪流',   labelEn: 'Stream',     category: 'nature',   sourceHint: 'Pixabay (u_g4b6tnje0y): "water stream"' },
+  { id: 'white',   file: 'white.mp3',   labelZh: '白噪音', labelEn: 'White Noise', category: 'noise',   sourceHint: 'Pixabay (themediaguy): "soft white noise"' },
 ];
 
 // ── 播放引擎（模块级单例池）────────────────────────────────────────────

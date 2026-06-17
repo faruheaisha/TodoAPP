@@ -1,6 +1,45 @@
 import type { Todo } from '../store/todoStore';
 import type { SortMode } from '../store/settingsStore';
 
+/**
+ * localDateKey — 本地时区的 YYYY-MM-DD 日期键
+ *
+ * 统一全应用的「今天」判定：用 Date 的本地分量（自动跟随操作系统当前时区），
+ * 避免 toISOString() 的 UTC 偏移导致跨时区（如 UTC+8）日期边界提前。
+ */
+export function localDateKey(d: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/**
+ * classifyTodo — 根据截止时间对任务分类
+ */
+export function classifyTodo(todo: Todo): 'overdue' | 'due_today' | 'due_soon' | 'upcoming' | 'no_deadline' {
+  if (!todo.deadline || todo.completed) return 'no_deadline';
+  const now = new Date();
+  const d = new Date(todo.deadline);
+  if (d < now) return 'overdue';
+  if (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  ) return 'due_today';
+  const diff = d.getTime() - now.getTime();
+  if (diff <= 48 * 60 * 60 * 1000) return 'due_soon';
+  return 'upcoming';
+}
+
+/** 任务是否应在今日视图中标为过期但今天完成了（应审查） */
+export function isExpiredToday(todo: Todo, completionTimes: Record<string, string>): boolean {
+  if (!todo.completed || !todo.deadline) return false;
+  const completionTime = completionTimes[todo.id];
+  if (!completionTime) return false;
+  const deadline = new Date(todo.deadline);
+  const completed = new Date(completionTime);
+  return deadline < completed && completed.toDateString() === new Date().toDateString();
+}
+
 // Sort todos:
 //  - smart  : longterm 按优先级→截止时间，quick 按优先级→创建时间（默认）
 //  - manual : 未完成任务一律按 sortOrder 升序（用户拖拽决定）

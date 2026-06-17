@@ -134,10 +134,15 @@ export default function ClockScreen() {
     return () => clearInterval(id);
   }, [use24h]);
 
-  // Hide hint after 5s
+  // Hide hint after 6s, click to re-show
   useEffect(() => {
-    const t = setTimeout(() => setHintVisible(false), 5000);
+    const t = setTimeout(() => setHintVisible(false), 6000);
     return () => clearTimeout(t);
+  }, []);
+
+  const handleClick = useCallback(() => {
+    setHintVisible(true);
+    setTimeout(() => setHintVisible(false), 6000);
   }, []);
 
   const toggle = useCallback(() => setUse24h(v => !v), []);
@@ -166,6 +171,7 @@ export default function ClockScreen() {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.6 }}
       onDoubleClick={closeClock}
+      onClick={handleClick}
       style={{
         position: 'fixed', inset: 0, zIndex: 9999,
         background: '#000',
@@ -182,13 +188,13 @@ export default function ClockScreen() {
         onDoubleClick={(e) => e.stopPropagation()}
         onClick={(e) => { e.stopPropagation(); toggle(); }}
         style={{
-          position: 'absolute', top: 32, right: 40,
+          position: 'absolute', top: 40, right: 48,
           fontFamily: "'Inter Variable', Inter, sans-serif",
-          fontSize: 12, letterSpacing: '0.14em',
+          fontSize: 24, fontWeight: 700, letterSpacing: '0.14em',
           color: badgeHover ? 'rgba(255,255,255,0.80)' : 'rgba(255,255,255,0.38)',
           cursor: 'pointer',
-          padding: '5px 10px',
-          borderRadius: 6,
+          padding: '8px 16px',
+          borderRadius: 8,
           border: `1px solid ${badgeHover ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.08)'}`,
           transition: 'color 0.2s, border-color 0.2s',
           userSelect: 'none',
@@ -200,9 +206,9 @@ export default function ClockScreen() {
       {/* Scroll hint beside badge */}
       {badgeHover && (
         <div style={{
-          position: 'absolute', top: 38, right: 116,
+          position: 'absolute', top: 48, right: 140,
           fontFamily: "'Inter Variable', Inter, sans-serif",
-          fontSize: 10, color: 'rgba(255,255,255,0.55)',
+          fontSize: 20, fontWeight: 700, color: 'rgba(255,255,255,0.55)',
           letterSpacing: '0.08em', whiteSpace: 'nowrap',
         }}>
           滚轮 / 点击切换
@@ -227,7 +233,7 @@ export default function ClockScreen() {
             animate={{ opacity: 1 }}
             style={{
               fontFamily: "'Inter Variable', Inter, sans-serif",
-              fontSize: 26, fontWeight: 300,
+              fontSize: 52, fontWeight: 700,
               color: 'rgba(255,255,255,0.62)',
               marginLeft: 24,
               alignSelf: 'flex-end',
@@ -243,9 +249,9 @@ export default function ClockScreen() {
 
       {/* Date */}
       <div style={{
-        marginTop: 20,
+        marginTop: 32,
         fontFamily: "'Inter Variable', Inter, sans-serif",
-        fontSize: 16, fontWeight: 300,
+        fontSize: 32, fontWeight: 700,
         color: 'rgba(255,255,255,0.55)',
         letterSpacing: '0.26em',
         textShadow: '0 1px 4px rgba(0,0,0,0.8)',
@@ -262,10 +268,10 @@ export default function ClockScreen() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.8 }}
             style={{
-              position: 'absolute', bottom: 32,
+              position: 'absolute', bottom: 48,
               left: '50%', transform: 'translateX(-50%)',
               fontFamily: "'Inter Variable', Inter, sans-serif",
-              fontSize: 11, color: 'rgba(255,255,255,0.45)',
+              fontSize: 22, fontWeight: 700, color: 'rgba(255,255,255,0.45)',
               letterSpacing: '0.1em', whiteSpace: 'nowrap',
             }}
           >

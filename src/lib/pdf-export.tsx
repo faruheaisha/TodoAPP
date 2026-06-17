@@ -13,6 +13,7 @@
  */
 import { jsPDF } from 'jspdf';
 import type { Todo } from '../store/todoStore';
+import { localDateKey } from './utils';
 
 // ─── 模板系统（数据驱动，扩展只需增加一条配置）──────────────────────────────
 export type PdfTemplateId = 'classic' | 'slate' | 'editorial' | 'minimal';
@@ -330,7 +331,7 @@ export async function exportTodosPDF(
   doc.addImage(dataUrl, 'PNG', 0, 0, 595.28, 841.89);
 
   // 4. 保存
-  const filename = `TodoApp-Report-${new Date().toISOString().split('T')[0]}.pdf`;
+  const filename = `TodoApp-Report-${localDateKey()}.pdf`;
   try {
     const { save }      = await import('@tauri-apps/plugin-dialog');
     const { writeFile } = await import('@tauri-apps/plugin-fs');

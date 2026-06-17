@@ -7,6 +7,11 @@ use tauri::{
 
 pub fn run() {
     tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![
+            crate::audio_library::import_audio,
+            crate::audio_library::delete_audio,
+            crate::audio_library::download_audio,
+        ])
         // 排除 VISIBLE：窗口以 visible:false 启动，由前端首帧渲染完成后 show()，
         // 避免 window-state 插件提前恢复可见导致白屏闪烁
         .plugin(

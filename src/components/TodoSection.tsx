@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   DndContext, PointerSensor, closestCenter, useSensor, useSensors,
@@ -10,10 +10,8 @@ import { useTodoStore, type Todo } from '../store/todoStore';
 import { useCompletionStore } from '../store/completionStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useTagStore } from '../store/tagStore';
-import { sortTodos, isOverdue, isDueToday } from '../lib/utils';
-import { motion, AnimatePresence } from 'framer-motion';
+import { sortTodos, isOverdue, isDueToday, localDateKey } from '../lib/utils';
 import { TodoCard } from './TodoCard';
-import { ChevronDown, ChevronRight, AlertCircle, CalendarCheck } from 'lucide-react';
 
 /**
  * 已完成任务折叠方案：
@@ -53,18 +51,18 @@ export default function TodoSection({ filter = 'all', tagFilter = null }: TodoSe
     }
 
     return (
-      <div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {overdue.length > 0 && (
-          <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-            <SectionHeader color="#e5484d" label={t('app.todayOverdue')} count={overdue.length} suffix={t('app.items')} icon={<AlertCircle size={11} style={{ color: '#e5484d' }} />} />
+          <section>
+            <TodaySectionHead color="#e5484d" label={t('app.todayOverdue')} count={overdue.length} />
             {overdue.map((todo) => <TodoCard key={todo.id} todo={todo} />)}
-          </motion.section>
+          </section>
         )}
         {dueToday.length > 0 && (
-          <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} style={{ marginTop: overdue.length > 0 ? '6px' : 0 }}>
-            <SectionHeader color="var(--color-accent)" label={t('app.todayDue')} count={dueToday.length} suffix={t('app.items')} icon={<CalendarCheck size={11} style={{ color: 'var(--color-accent)' }} />} />
+          <section>
+            <TodaySectionHead color="var(--color-accent)" label={t('app.todayDue')} count={dueToday.length} />
             {dueToday.map((todo) => <TodoCard key={todo.id} todo={todo} />)}
-          </motion.section>
+          </section>
         )}
       </div>
     );
@@ -89,75 +87,48 @@ export default function TodoSection({ filter = 'all', tagFilter = null }: TodoSe
   const completedGroups = groupByDay(completedTodos, completionTimes);
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* 临时待办 */}
-      <AnimatePresence>
-        {showActive && (
-          <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-            <SectionHeader
-              color="var(--color-text-tertiary)"
-              label={t('app.quick')}
-              count={quickTodos.length}
-              suffix={t('app.items')}
-            />
-            {quickTodos.length > 0 ? (
-              manualEnabled
-                ? <ManualSortableList todos={quickTodos} />
-                : quickTodos.map((todo) => <TodoCard key={todo.id} todo={todo} />)
-            ) : (
-              <EmptyText text={t('app.noActiveTasks')} />
-            )}
-          </motion.section>
-        )}
-      </AnimatePresence>
+      {showActive && (
+        <section>
+          <SectionHead dot="#9C958C" label={t('app.quick')} count={quickTodos.length} />
+          {quickTodos.length > 0 ? (
+            manualEnabled
+              ? <ManualSortableList todos={quickTodos} />
+              : quickTodos.map((todo) => <TodoCard key={todo.id} todo={todo} />)
+          ) : (
+            <div style={{ padding: '14px 0 4px', textAlign: 'center', fontSize: 13, color: 'var(--ink-4)' }}>
+              {t('app.noActiveTasks')}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* 长时待办 */}
-      <AnimatePresence>
-        {showActive && (
-          <motion.section
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            style={{ marginTop: '6px' }}
-          >
-            <SectionHeader
-              color="var(--color-accent)"
-              label={t('app.longterm')}
-              count={longtermTodos.length}
-              suffix={t('app.items') + ' ' + t('app.sortedBy')}
-            />
-            {longtermTodos.length > 0 ? (
-              manualEnabled
-                ? <ManualSortableList todos={longtermTodos} />
-                : longtermTodos.map((todo) => <TodoCard key={todo.id} todo={todo} />)
-            ) : (
-              <EmptyText text={t('app.noActiveTasks')} />
-            )}
-          </motion.section>
-        )}
-      </AnimatePresence>
+      {showActive && (
+        <section>
+          <SectionHead dot="var(--color-accent)" label={t('app.longterm')} count={longtermTodos.length} note={t('app.sortedBy')} />
+          {longtermTodos.length > 0 ? (
+            manualEnabled
+              ? <ManualSortableList todos={longtermTodos} />
+              : longtermTodos.map((todo) => <TodoCard key={todo.id} todo={todo} />)
+          ) : (
+            <div style={{ padding: '14px 0 4px', textAlign: 'center', fontSize: 13, color: 'var(--ink-4)' }}>
+              {t('app.noActiveTasks')}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* 已完成 — 按天折叠展示 */}
-      <AnimatePresence>
-        {showCompleted && completedGroups.length > 0 && (
-          <motion.section
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            style={{ marginTop: showActive ? '10px' : 0 }}
-          >
-            <SectionHeader
-              color="var(--color-text-tertiary)"
-              label={t('app.completed')}
-              count={completedTodos.length}
-              suffix={t('app.items')}
-            />
-            {completedGroups.map((group) => (
-              <DayGroup key={group.dateKey} group={group} />
-            ))}
-          </motion.section>
-        )}
-      </AnimatePresence>
+      {showCompleted && completedGroups.length > 0 && (
+        <section>
+          <SectionHead dot="#6B6B6B" label={t('app.completed')} count={completedTodos.length} />
+          {completedGroups.map((group) => (
+            <DayGroup key={group.dateKey} group={group} />
+          ))}
+        </section>
+      )}
     </div>
   );
 }
@@ -228,12 +199,12 @@ function groupByDay(todos: Todo[], completionTimes: Record<string, string>): Day
   const map: Record<string, Todo[]> = {};
   for (const todo of todos) {
     const ts = completionTimes[todo.id] ?? todo.createdAt;
-    const day = ts.slice(0, 10);
+    const day = localDateKey(new Date(ts));
     if (!map[day]) map[day] = [];
     map[day].push(todo);
   }
-  const today = new Date().toISOString().slice(0, 10);
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const today = localDateKey();
+  const yesterday = localDateKey(new Date(Date.now() - 86400000));
   return Object.keys(map)
     .sort()
     .reverse()
@@ -264,7 +235,7 @@ function DayGroup({ group }: { group: DayGroupData }) {
         onClick={() => setExpanded((v) => !v)}
         className="w-full flex items-center cursor-pointer transition-colors"
         style={{
-          height: '26px', padding: '0 14px', gap: '5px',
+          height: '26px', padding: '0 var(--pad-x)', gap: '5px',
           backgroundColor: 'var(--color-section-bg)', border: 'none',
           borderTop: '0.5px solid var(--color-separator)',
         }}
@@ -272,8 +243,16 @@ function DayGroup({ group }: { group: DayGroupData }) {
         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-section-bg)'; }}
       >
         {expanded
-          ? <ChevronDown size={10} style={{ color: 'var(--color-text-tertiary)', flexShrink: 0 }} />
-          : <ChevronRight size={10} style={{ color: 'var(--color-text-tertiary)', flexShrink: 0 }} />
+          ? (
+            <svg width="10" height="10" viewBox="0 0 10 10" style={{ color: 'var(--color-text-tertiary)', flexShrink: 0, fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' }}>
+              <path d="M3 3.5L5 6l2-2.5" />
+            </svg>
+          )
+          : (
+            <svg width="10" height="10" viewBox="0 0 10 10" style={{ color: 'var(--color-text-tertiary)', flexShrink: 0, fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' }}>
+              <path d="M4 3l2.5 2L4 7" />
+            </svg>
+          )
         }
         <span className="text-[10px] font-medium" style={{ color: 'var(--color-text-tertiary)' }}>
           {group.label}
@@ -283,59 +262,71 @@ function DayGroup({ group }: { group: DayGroupData }) {
         </span>
       </button>
 
-      <AnimatePresence initial={false}>
-        {expanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.18, ease: 'easeInOut' }}
-            style={{ overflow: 'hidden' }}
-          >
-            {visible.map((todo) => <TodoCard key={todo.id} todo={todo} />)}
-            {!showAll && hiddenCount > 0 && (
-              <button
-                onClick={() => setShowAll(true)}
-                className="w-full text-center text-[11px] py-1.5 transition-colors cursor-pointer"
-                style={{
-                  color: 'var(--clay)', backgroundColor: 'transparent', border: 'none',
-                  borderTop: '0.5px solid var(--color-separator)',
-                }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.7'; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
-              >
-                查看更多 {hiddenCount} 项 ↓
-              </button>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {expanded && (
+        <div className="linear-disclosure-body">
+          {visible.map((todo) => <TodoCard key={todo.id} todo={todo} />)}
+          {!showAll && hiddenCount > 0 && (
+            <button
+              onClick={() => setShowAll(true)}
+              className="w-full text-center text-[11px] py-1.5 transition-colors cursor-pointer"
+              style={{
+                color: 'var(--clay)', backgroundColor: 'transparent', border: 'none',
+                borderTop: '0.5px solid var(--color-separator)',
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.7'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
+            >
+              查看更多 {hiddenCount} 项 ↓
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-// ── 通用子组件 ────────────────────────────────────────────────────────
+// ── SectionHead (Linear 风格) ─────────────────────────────────────────
 
-function SectionHeader({ color, label, count, suffix, icon }: { color: string; label: string; count: number; suffix: string; icon?: ReactNode }) {
+function SectionHead({ dot, label, count, note }: { dot: string; label: string; count: number; note?: string }) {
   return (
-    <div
-      className="flex items-center flex-shrink-0"
-      style={{ height: 'var(--section-header-h)', padding: '5px var(--pad-x) 3px', gap: '5px', backgroundColor: 'var(--color-section-bg)' }}
-    >
-      {icon ?? <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: color, flexShrink: 0 }} />}
-      <h2 className="text-[10px] font-medium uppercase tracking-wider select-none" style={{ color: 'var(--color-text-secondary)', letterSpacing: '.03em' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px var(--pad-x)' }}>
+      <span style={{ width: 7, height: 7, borderRadius: '50%', background: dot, flexShrink: 0 }} />
+      <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink-2)', letterSpacing: 0.1, whiteSpace: 'nowrap' }}>
         {label}
-      </h2>
-      <span className="text-[10px] ml-auto select-none" style={{ color: 'var(--color-text-tertiary)' }}>
-        {count} {suffix}
+      </span>
+      <span className="linear-count-badge" style={{ fontSize: 12.5 }}>
+        {count} 项
+      </span>
+      {note && (
+        <span style={{ marginLeft: 'auto', fontSize: 11.5, color: 'var(--ink-4)' }}>
+          {note}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ── Today 子视图 SectionHead ──────────────────────────────────────────
+
+function TodaySectionHead({ color, label, count }: { color: string; label: string; count: number }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px var(--pad-x)' }}>
+      <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0 }} />
+      <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink-2)', letterSpacing: 0.1 }}>
+        {label}
+      </span>
+      <span className="linear-count-badge" style={{ fontSize: 12.5 }}>
+        {count} 项
       </span>
     </div>
   );
 }
 
+// ── 通用空状态 ────────────────────────────────────────────────────────
+
 function EmptyText({ text }: { text: string }) {
   return (
-    <p className="text-center select-none" style={{ padding: '12px var(--pad-x)', fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
+    <p className="text-center select-none" style={{ padding: '12px 0', fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
       {text}
     </p>
   );

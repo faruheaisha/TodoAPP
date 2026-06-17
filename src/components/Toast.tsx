@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, X, Loader } from 'lucide-react';
 
-type ToastType = 'success' | 'loading' | 'info';
+type ToastType = 'success' | 'info' | 'warning';
 
 interface Toast {
   id: string;
@@ -25,55 +24,51 @@ export function useToast() {
 }
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
-  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [toast, setToast] = useState<Toast | null>(null);
 
   const show = useCallback((message: string, type: ToastType = 'success') => {
     const id = Math.random().toString(36).slice(2);
-    setToasts((prev) => [...prev, { id, message, type }]);
-    if (type !== 'loading') {
-      setTimeout(() => dismiss(id), 3000);
-    }
+    setToast({ id, message, type });
+    setTimeout(() => dismiss(id), 3000);
     return id;
   }, []);
 
   const dismiss = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+    setToast((prev) => (prev?.id === id ? null : prev));
   }, []);
 
   return (
     <ToastContext.Provider value={{ show, dismiss }}>
       {children}
-      <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none">
-        <AnimatePresence>
-          {toasts.map((toast) => (
+      <div className="fixed inset-0 z-[100] pointer-events-none flex items-center justify-center" style={{ isolation: 'isolate' }}>
+        <AnimatePresence mode="wait">
+          {toast && (
             <motion.div
               key={toast.id}
-              initial={{ opacity: 0, y: -12, x: 20 }}
-              animate={{ opacity: 1, y: 0, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              className="pointer-events-auto flex items-center gap-2 px-3 py-2 rounded-lg shadow-lg border text-xs font-medium"
+              initial={{ opacity: 0, scale: 0.92, y: 6 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -4 }}
+              transition={{ type: 'spring', damping: 26, stiffness: 280, duration: 0.25 }}
+              className="pointer-events-auto flex items-center gap-3 px-5 py-3 rounded-xl border shadow-lg"
               style={{
-                backgroundColor: 'var(--color-bg-secondary)',
-                borderColor: 'var(--color-border)',
+                backgroundColor: 'var(--color-bg-secondary, #ffffff)',
+                borderColor: toast.type === 'success' ? 'rgba(120,140,93,0.3)' : toast.type === 'warning' ? 'rgba(217,119,87,0.3)' : 'var(--color-border)',
                 color: 'var(--color-text-primary)',
-                maxWidth: '320px',
+                backdropFilter: 'blur(12px)',
               }}
             >
-              {toast.type === 'loading' ? (
-                <Loader size={14} className="animate-spin" style={{ color: 'var(--clay)' }} />
-              ) : (
-                <Check size={14} style={{ color: 'var(--olive)' }} />
-              )}
-              {toast.message}
-              <button
-                onClick={() => dismiss(toast.id)}
-                className="ml-1 flex-shrink-0"
-                style={{ color: 'var(--color-text-tertiary)' }}
-              >
-                <X size={12} />
-              </button>
+              {/* Status dot */}
+              <span
+                style={{
+                  width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                  background: toast.type === 'success' ? 'var(--olive, #788c5d)' : toast.type === 'warning' ? 'var(--clay, #d97757)' : 'var(--clay, #d97757)',
+                }}
+              />
+              <span style={{ fontSize: 12.5, fontWeight: 500, letterSpacing: '0.01em' }}>
+                {toast.message}
+              </span>
             </motion.div>
-          ))}
+          )}
         </AnimatePresence>
       </div>
     </ToastContext.Provider>

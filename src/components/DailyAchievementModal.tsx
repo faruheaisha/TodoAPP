@@ -7,6 +7,7 @@ import { useTodoStore } from '../store/todoStore';
 import { useCompletionStore } from '../store/completionStore';
 import { useFocusStore } from '../store/focusStore';
 import { useHabitStore } from '../store/habitStore';
+import { localDateKey } from '../lib/utils';
 import BrandMark from './BrandMark';
 
 /**
@@ -22,7 +23,7 @@ import BrandMark from './BrandMark';
  */
 
 function getTodayKey(): string {
-  return new Date().toISOString().slice(0, 10);
+  return localDateKey();
 }
 
 export function DailyAchievementModal() {
@@ -49,7 +50,7 @@ export function DailyAchievementModal() {
   const completedTodayCount = todos.filter((td) => {
     if (!td.completed) return false;
     const ts = completionTimes[td.id];
-    return ts ? ts.slice(0, 10) === todayKey : false;
+    return ts ? localDateKey(new Date(ts)) === todayKey : false;
   }).length;
 
   const focusMinutesToday = sessionLog

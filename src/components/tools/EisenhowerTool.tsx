@@ -42,8 +42,8 @@ interface QuadrantMeta {
 const QUADRANTS: QuadrantMeta[] = [
   {
     id: 'q1',
-    color: '#e5484d',
-    bgColor: 'rgba(229,72,77,0.06)',
+    color: '#D97757',
+    bgColor: 'rgba(217,119,87,0.07)',
     emoji: '🔥',
     titleZh: '重要 · 紧急',
     titleEn: 'Important · Urgent',
@@ -52,8 +52,8 @@ const QUADRANTS: QuadrantMeta[] = [
   },
   {
     id: 'q2',
-    color: '#3b82f6',
-    bgColor: 'rgba(59,130,246,0.06)',
+    color: '#6A9F7D',
+    bgColor: 'rgba(106,159,125,0.07)',
     emoji: '📅',
     titleZh: '重要 · 不紧急',
     titleEn: 'Important · Not Urgent',
@@ -62,8 +62,8 @@ const QUADRANTS: QuadrantMeta[] = [
   },
   {
     id: 'q3',
-    color: '#f59e0b',
-    bgColor: 'rgba(245,158,11,0.06)',
+    color: '#B8946C',
+    bgColor: 'rgba(184,148,108,0.07)',
     emoji: '⚡',
     titleZh: '不重要 · 紧急',
     titleEn: 'Not Important · Urgent',
@@ -72,8 +72,8 @@ const QUADRANTS: QuadrantMeta[] = [
   },
   {
     id: 'q4',
-    color: '#6b7280',
-    bgColor: 'rgba(107,114,128,0.05)',
+    color: '#8C8A87',
+    bgColor: 'rgba(140,138,135,0.06)',
     emoji: '🗑️',
     titleZh: '不重要 · 不紧急',
     titleEn: 'Not Important · Not Urgent',
@@ -192,7 +192,7 @@ function DroppableQuadrant({
             <span style={{ fontSize: '14px', lineHeight: 1 }}>{meta.emoji}</span>
             <span
               style={{
-                fontSize: '12px',
+                fontSize: '14px',
                 fontWeight: 700,
                 color: meta.color,
                 letterSpacing: '-0.01em',
@@ -203,7 +203,7 @@ function DroppableQuadrant({
           </div>
           <span
             style={{
-              fontSize: '9px',
+              fontSize: '10px',
               fontWeight: 700,
               color: meta.color,
               opacity: 0.7,
@@ -246,14 +246,14 @@ function DroppableQuadrant({
           <div
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              minHeight: '40px', fontSize: '10px',
-              color: 'var(--color-text-tertiary)', opacity: 0.5,
+              minHeight: '60px', fontSize: '12px',
+              color: 'var(--color-text-tertiary)', opacity: 0.45,
               userSelect: 'none',
             }}
           >
             {isOver
               ? (lang === 'zh' ? '放到这里' : 'Drop here')
-              : (lang === 'zh' ? '空' : 'Empty')}
+              : (lang === 'zh' ? '暂无任务，从左侧拖拽或添加待办' : 'No tasks. Drag or add from the left')}
           </div>
         ) : (
           todos.map((todo) => (
@@ -344,7 +344,7 @@ export function EisenhowerTool() {
           gridTemplateColumns: '1fr 1fr',
           gridTemplateRows: '1fr 1fr',
           gap: '10px',
-          minHeight: '400px',
+          minHeight: '500px',
         }}
       >
         {QUADRANTS.map((q) => (

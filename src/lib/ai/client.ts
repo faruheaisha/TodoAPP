@@ -13,6 +13,7 @@
  * 工具调用（cowork 模式）：携带 tools 时强制非流式，统一抽取 toolCalls。
  */
 import { getProvider } from './providers';
+import { useUsageStore } from '../../store/usageStore';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
@@ -39,6 +40,10 @@ export interface ToolDef {
 
 export interface ChatOptions {
   providerId: string;
+  /** 可直接传 baseUrl，跳过 PROVIDERS 查表（自定义供应商用） */
+  baseUrl?: string;
+  /** 默认 'openai'；Anthropic 原生 API 传 'anthropic' */
+  kind?: 'openai' | 'anthropic';
   model: string;
   apiKey: string;
   stream?: boolean;
@@ -49,11 +54,16 @@ export interface ChatOptions {
   /** 要求模型输出 JSON（任务拆解用） */
   jsonMode?: boolean;
   tools?: ToolDef[];
+  /** 使用来源标签（默认 '聊天'） */
+  source?: string;
 }
 
 export interface ChatResult {
   text: string;
   toolCalls: ToolCall[];
+  usage?: { inputTokens: number; outputTokens: number; cachedTokens: number };
+  /** 实际 HTTP 响应状态码 */
+  status?: number;
 }
 
 // ── fetch 通道选择 ─────────────────────────────────────────────────────
@@ -73,28 +83,82 @@ async function pickFetch(): Promise<typeof fetch> {
 // ── 入口 ──────────────────────────────────────────────────────────────
 
 export async function chat(messages: ChatMessage[], opts: ChatOptions): Promise<ChatResult> {
-  const provider = getProvider(opts.providerId);
-  if (!provider) throw new Error(`Unknown provider: ${opts.providerId}`);
   if (!opts.apiKey) throw new Error('NO_API_KEY');
 
-  // 工具调用回合统一走非流式，简化各家 delta 格式差异
+  // baseUrl/kind 可由调用方直传（自定义供应商），否则从 PROVIDERS 查表
+  const provider = getProvider(opts.providerId);
+  const baseUrl = opts.baseUrl ?? provider?.baseUrl ?? '';
+  const kind: 'openai' | 'anthropic' = opts.kind ?? provider?.kind ?? 'openai';
+  if (!baseUrl) throw new Error(`Unknown provider: ${opts.providerId}`);
+
+  // 工具调用回合统一走非流式
   const wantStream = !!opts.stream && !opts.tools;
 
-  if (provider.kind === 'anthropic') {
-    return chatAnthropic(provider.baseUrl, messages, opts, wantStream);
+  const startTime = Date.now();
+  let result: ChatResult = { text: '', toolCalls: [] };
+  let httpStatus = 200;
+
+  try {
+    result = kind === 'anthropic'
+      ? await chatAnthropic(baseUrl, messages, opts, wantStream)
+      : await chatOpenAI(baseUrl, messages, opts, wantStream);
+    httpStatus = result.status ?? 200;
+  } catch (e) {
+    httpStatus = extractHttpStatus(e);
+    throw e;
+  } finally {
+    // 埋点：将真实消耗记录到 usageStore（无论成功失败，包括 401/429/500）
+    try {
+      const u = result.usage;
+      const inputTokens  = u?.inputTokens  ?? 0;
+      const outputTokens = u?.outputTokens ?? 0;
+      const cachedTokens = u?.cachedTokens ?? 0;
+      const dur = (Date.now() - startTime) / 1000;
+      useUsageStore.getState().record({
+        ts: Date.now(),
+        providerId: opts.providerId,
+        model: opts.model,
+        source: opts.source || '聊天',
+        input: inputTokens,
+        output: outputTokens,
+        cacheRead: cachedTokens,
+        cacheWrite: 0,
+        status: httpStatus,
+        ttfb: 0,
+        dur,
+      });
+    } catch { /* 埋点失败不影响正常流程 */ }
   }
-  return chatOpenAI(provider.baseUrl, messages, opts, wantStream);
+
+  return result!;
+}
+
+/** 从 GET /v1/models 获取模型列表；失败返回空数组 */
+export async function fetchModels(baseUrl: string, apiKey: string): Promise<string[]> {
+  try {
+    const doFetch = await pickFetch();
+    const res = await doFetch(`${baseUrl}/models`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const items: { id?: string }[] = data?.data ?? [];
+    return items.map((m) => m.id ?? m).filter(Boolean) as string[];
+  } catch {
+    return [];
+  }
 }
 
 /** 测试连接：发最小请求，返回延迟或错误信息 */
 export async function testConnection(
-  providerId: string, model: string, apiKey: string
+  providerId: string, model: string, apiKey: string, baseUrl?: string, kind?: 'openai' | 'anthropic'
 ): Promise<{ ok: boolean; latencyMs: number; error?: string }> {
   const start = Date.now();
   try {
     await chat(
       [{ role: 'user', content: 'ping' }],
-      { providerId, model, apiKey, maxTokens: 8, signal: AbortSignal.timeout(15000) }
+      { providerId, model, apiKey, baseUrl, kind, maxTokens: 8, signal: AbortSignal.timeout(15000) }
     );
     return { ok: true, latencyMs: Date.now() - start };
   } catch (e) {
@@ -105,6 +169,16 @@ export async function testConnection(
 function errorMessage(e: unknown): string {
   if (e instanceof Error) return e.message;
   return String(e);
+}
+
+/** 从 Error 消息中提取 HTTP 状态码（如 "HTTP 401: ..." → 401） */
+function extractHttpStatus(e: unknown): number {
+  if (e instanceof Error) {
+    const m = e.message;
+    const match = m.match(/^HTTP (\d{3})/);
+    if (match) return parseInt(match[1], 10);
+  }
+  return 0;
 }
 
 // ── OpenAI 兼容实现 ────────────────────────────────────────────────────
@@ -157,14 +231,22 @@ async function chatOpenAI(
   if (!res.ok) throw new Error(await httpError(res));
 
   if (wantStream && res.body && typeof res.body.getReader === 'function') {
+    let usage: { inputTokens: number; outputTokens: number; cachedTokens: number } | undefined;
     const text = await readSSE(res.body, (json) => {
       const delta = json?.choices?.[0]?.delta?.content;
+      // capture usage from final chunk (OpenAI sends usage in the last chunk)
+      if (json?.usage && typeof json.usage === 'object') {
+        usage = {
+          inputTokens: (json.usage as Record<string, number>).prompt_tokens ?? 0,
+          outputTokens: (json.usage as Record<string, number>).completion_tokens ?? 0,
+          cachedTokens: (json.usage as Record<string, number>).prompt_cache_hit_tokens ?? (json.usage as Record<string, number>).cached_tokens ?? 0,
+        };
+      }
       return typeof delta === 'string' ? delta : '';
     }, opts.onDelta);
-    return { text, toolCalls: [] };
+    return { text, toolCalls: [], usage, status: 200 };
   }
 
-  // 非流式（或流式不可用回退）
   const data = await res.json();
   const choice = data?.choices?.[0];
   const text: string = choice?.message?.content ?? '';
@@ -173,8 +255,15 @@ async function chatOpenAI(
       id: tc.id, name: tc.function.name, arguments: tc.function.arguments,
     })
   );
+  const usage = data?.usage
+    ? {
+        inputTokens: data.usage.prompt_tokens ?? 0,
+        outputTokens: data.usage.completion_tokens ?? 0,
+        cachedTokens: data.usage.prompt_cache_hit_tokens ?? data.usage.cached_tokens ?? 0,
+      }
+    : undefined;
   if (wantStream && opts.onDelta && text) opts.onDelta(text);
-  return { text, toolCalls };
+  return { text, toolCalls, usage, status: 200 };
 }
 
 // ── Anthropic Messages 实现 ────────────────────────────────────────────
@@ -184,7 +273,6 @@ async function chatAnthropic(
 ): Promise<ChatResult> {
   const doFetch = await pickFetch();
 
-  // system 提示单独成参；tool 结果转为 user 的 tool_result 块
   const system = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
   const turns: Record<string, unknown>[] = [];
   for (const m of messages) {
@@ -226,7 +314,6 @@ async function chatAnthropic(
       'Content-Type': 'application/json',
       'x-api-key': opts.apiKey,
       'anthropic-version': '2023-06-01',
-      // 允许从客户端直连（密钥由用户本机持有，符合 Anthropic 浏览器直连规范）
       'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify(body),
@@ -236,15 +323,35 @@ async function chatAnthropic(
   if (!res.ok) throw new Error(await httpError(res));
 
   if (wantStream && res.body && typeof res.body.getReader === 'function') {
+    let usage: { inputTokens: number; outputTokens: number; cachedTokens: number } | undefined;
     const text = await readSSE(res.body, (json) => {
       if (json?.type === 'content_block_delta' && json?.delta?.type === 'text_delta') {
         return json.delta.text as string;
       }
+      // Anthropic message_start carries input token usage
+      if (json?.type === 'message_start' && json?.message?.usage && typeof json.message.usage === 'object') {
+        const u = json.message.usage as Record<string, number>;
+        usage = {
+          inputTokens: u.input_tokens ?? 0,
+          outputTokens: u.output_tokens ?? 0,
+          cachedTokens: u.cache_read_input_tokens ?? u.cache_creation_input_tokens ?? 0,
+        };
+      }
+      // Anthropic message_delta carries final output token usage
+      if (json?.type === 'message_delta' && json?.usage && typeof json.usage === 'object') {
+        const u = json.usage as Record<string, number>;
+        usage = {
+          inputTokens: usage?.inputTokens ?? 0,
+          outputTokens: u.output_tokens ?? 0,
+          cachedTokens: usage?.cachedTokens ?? 0,
+        };
+      }
       return '';
     }, opts.onDelta);
-    return { text, toolCalls: [] };
+    return { text, toolCalls: [], usage, status: 200 };
   }
 
+  // Anthropic non-streaming
   const data = await res.json();
   let text = '';
   const toolCalls: ToolCall[] = [];
@@ -254,13 +361,19 @@ async function chatAnthropic(
       toolCalls.push({ id: block.id, name: block.name, arguments: JSON.stringify(block.input ?? {}) });
     }
   }
+  const usage = data?.usage
+    ? {
+        inputTokens: data.usage.input_tokens ?? 0,
+        outputTokens: data.usage.output_tokens ?? 0,
+        cachedTokens: data.usage.cache_read_input_tokens ?? 0,
+      }
+    : undefined;
   if (wantStream && opts.onDelta && text) opts.onDelta(text);
-  return { text, toolCalls };
+  return { text, toolCalls, usage, status: 200 };
 }
 
 // ── 公共工具 ──────────────────────────────────────────────────────────
 
-/** 逐行解析 SSE，extract 从每个 data JSON 中取出文本增量 */
 async function readSSE(
   body: ReadableStream<Uint8Array>,
   extract: (json: Record<string, unknown> & { [k: string]: any }) => string,

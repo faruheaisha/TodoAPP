@@ -29,7 +29,7 @@ const textareaStyle: React.CSSProperties = {
   width: '100%',
   resize: 'none',
   outline: 'none',
-  fontSize: '12px',
+  fontSize: '14px',
   lineHeight: 1.7,
   padding: '10px 12px',
   borderRadius: '8px',
@@ -57,9 +57,9 @@ export function NotesTool() {
       {/* 随手记 */}
       <section className="flex flex-col" style={{ gap: '8px' }}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center" style={{ gap: '6px' }}>
-            <StickyNote size={12} style={{ color: 'var(--color-text-tertiary)' }} />
-            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-tertiary)', letterSpacing: '0.04em' }}>
+          <div className="flex items-center" style={{ gap: '6px', marginLeft: '-15px' }}>
+            <StickyNote size={14} style={{ color: 'var(--color-text-tertiary)' }} />
+            <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--color-text-tertiary)', letterSpacing: '0.04em' }}>
               {t('notes.scratchpad')}
             </span>
           </div>
@@ -79,9 +79,9 @@ export function NotesTool() {
       {/* 任务笔记 */}
       <section className="flex flex-col" style={{ gap: '8px' }}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center" style={{ gap: '6px' }}>
-            <Link2 size={12} style={{ color: selectedTodo ? 'var(--clay)' : 'var(--color-text-tertiary)' }} />
-            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-tertiary)', letterSpacing: '0.04em' }}>
+          <div className="flex items-center" style={{ gap: '6px', marginLeft: '-15px' }}>
+            <Link2 size={14} style={{ color: selectedTodo ? 'var(--clay)' : 'var(--color-text-tertiary)' }} />
+            <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--color-text-tertiary)', letterSpacing: '0.04em' }}>
               {t('notes.todoNote')}
             </span>
           </div>
@@ -117,7 +117,7 @@ export function NotesTool() {
               padding: '22px 0',
               borderRadius: '8px',
               border: '0.5px dashed var(--color-border)',
-              fontSize: '11px',
+              fontSize: '13px',
               color: 'var(--color-text-tertiary)',
             }}
           >
@@ -134,7 +134,7 @@ function SavedBadge({ visible, label }: { visible: boolean; label: string }) {
     <span
       className="flex items-center"
       style={{
-        gap: '3px', fontSize: '9px', color: 'var(--olive)',
+        gap: '3px', fontSize: '11px', color: 'var(--olive)',
         opacity: visible ? 1 : 0,
         transition: 'opacity var(--motion-exit)',
       }}

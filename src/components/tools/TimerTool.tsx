@@ -31,6 +31,8 @@ export function TimerTool() {
   const { timers, addTimer, removeTimer, startTimer, pauseTimer, resetTimer, finishTimer } = useTimerStore();
   const [customMin, setCustomMin] = useState('');
   const [, forceTick] = useState(0);
+  const sectionsReversed = useTimerStore((s) => s.sectionsReversed);
+  const setSectionsReversed = useTimerStore((s) => s.setSectionsReversed);
 
   const anyRunning = timers.some((tm) => tm.anchorTs !== null);
 
@@ -58,76 +60,97 @@ export function TimerTool() {
     setCustomMin('');
   };
 
-  return (
-    <div className="flex flex-col" style={{ gap: '16px' }}>
-      {/* 新建区 */}
-      <div className="flex flex-col" style={{ gap: '8px' }}>
-        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-tertiary)', letterSpacing: '0.04em' }}>
-          {t('timer.newCountdown')}
-        </span>
-        <div className="flex items-center flex-wrap" style={{ gap: '6px' }}>
-          {PRESETS_MIN.map((min) => (
-            <button
-              key={min}
-              onClick={() => addTimer('countdown', min * 60)}
-              className="cursor-pointer transition-colors"
-              style={{
-                height: isTouch ? '34px' : '26px', padding: '0 12px', fontSize: '11px',
-                borderRadius: '13px', border: '0.5px solid var(--color-border)',
-                backgroundColor: 'transparent', color: 'var(--color-text-secondary)',
-                fontVariantNumeric: 'tabular-nums',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--clay)'; e.currentTarget.style.color = 'var(--clay)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.color = 'var(--color-text-secondary)'; }}
-            >
-              {min} {t('timer.min')}
-            </button>
-          ))}
-          {/* 自定义分钟 */}
-          <div
-            className="flex items-center"
-            style={{
-              height: isTouch ? '34px' : '26px', borderRadius: '13px',
-              border: '0.5px solid var(--color-border)', overflow: 'hidden',
-            }}
-          >
-            <input
-              type="number"
-              min={1}
-              value={customMin}
-              onChange={(e) => setCustomMin(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') addCustom(); }}
-              placeholder={t('timer.custom')}
-              className="text-[11px] outline-none bg-transparent text-center"
-              style={{ width: '52px', border: 'none', color: 'var(--color-text-primary)' }}
-            />
-            <button
-              onClick={addCustom}
-              className="flex items-center justify-center cursor-pointer transition-colors h-full"
-              style={{ width: '24px', border: 'none', backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-tertiary)' }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--clay)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-tertiary)'; }}
-            >
-              <Plus size={12} />
-            </button>
-          </div>
-          {/* 正计时 */}
+  const sectionA = (
+    <div className="flex flex-col" style={{ gap: '8px' }}>
+      <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--color-text-tertiary)', letterSpacing: '0.04em' }}>
+        {t('timer.newCountdown')}
+      </span>
+      <div className="flex items-center flex-wrap" style={{ gap: '6px' }}>
+        {PRESETS_MIN.map((min) => (
           <button
-            onClick={() => addTimer('stopwatch', 0)}
-            className="flex items-center cursor-pointer transition-colors"
+            key={min}
+            onClick={() => addTimer('countdown', min * 60)}
+            className="cursor-pointer transition-colors"
             style={{
-              height: isTouch ? '34px' : '26px', padding: '0 12px', fontSize: '11px', gap: '5px',
+              height: isTouch ? '34px' : '26px', padding: '0 12px', fontSize: '11px',
               borderRadius: '13px', border: '0.5px solid var(--color-border)',
               backgroundColor: 'transparent', color: 'var(--color-text-secondary)',
+              fontVariantNumeric: 'tabular-nums',
             }}
             onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--clay)'; e.currentTarget.style.color = 'var(--clay)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.color = 'var(--color-text-secondary)'; }}
           >
-            <TimerReset size={11} />
-            {t('timer.stopwatch')}
+            {min} {t('timer.min')}
+          </button>
+        ))}
+        {/* 自定义分钟 */}
+        <div
+          className="flex items-center"
+          style={{
+            height: isTouch ? '34px' : '26px', borderRadius: '13px',
+            border: '0.5px solid var(--color-border)', overflow: 'hidden',
+          }}
+        >
+          <input
+            type="number"
+            min={1}
+            value={customMin}
+            onChange={(e) => setCustomMin(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') addCustom(); }}
+            placeholder={t('timer.custom')}
+            className="text-[11px] outline-none bg-transparent text-center"
+            style={{ width: '52px', border: 'none', color: 'var(--color-text-primary)' }}
+          />
+          <button
+            onClick={addCustom}
+            className="flex items-center justify-center cursor-pointer transition-colors h-full"
+            style={{ width: '24px', border: 'none', backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-tertiary)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--clay)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-tertiary)'; }}
+          >
+            <Plus size={12} />
           </button>
         </div>
       </div>
+    </div>
+  );
+
+  const sectionB = (
+    <div className="flex flex-col" style={{ gap: '8px' }}>
+      <div className="flex items-center" style={{ gap: '8px' }}>
+        <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--color-text-tertiary)', letterSpacing: '0.04em' }}>
+          {t('timer.newStopwatch')}
+        </span>
+      </div>
+      <div className="flex items-center flex-wrap" style={{ gap: '6px' }}>
+        <button
+          onClick={() => addTimer('stopwatch', 0)}
+          className="flex items-center cursor-pointer transition-colors"
+          style={{
+            height: isTouch ? '34px' : '26px', padding: '0 12px', fontSize: '11px', gap: '5px',
+            borderRadius: '13px', border: '0.5px solid var(--color-border)',
+            backgroundColor: 'transparent', color: 'var(--color-text-secondary)',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--clay)'; e.currentTarget.style.color = 'var(--clay)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.color = 'var(--color-text-secondary)'; }}
+        >
+          <TimerReset size={11} />
+          {t('timer.stopwatch')}
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col" style={{ gap: '16px' }}>
+      {/* 可切换顺序的两个新建区 */}
+      {sectionsReversed ? sectionB : sectionA}
+      {sectionsReversed ? sectionA : sectionB}
+
+      {/* 分割线 */}
+      {timers.length > 0 && (
+        <div style={{ height: '0.5px', background: 'var(--color-border)', margin: '4px 0' }} />
+      )}
 
       {/* 计时器列表 */}
       {timers.length === 0 ? (
@@ -166,9 +189,9 @@ function TimerCard({ item, onStart, onPause, onReset, onRemove }: {
   const running = item.anchorTs !== null;
   const cur = timerCurrentSec(item);
   const isDoneCountdown = item.mode === 'countdown' && cur <= 0 && !running;
-  // countdown 进度（卡片底部细进度条）
+  // countdown 进度（卡片底部细进度条，从满到减）
   const progress = item.mode === 'countdown' && item.durationSec > 0
-    ? 1 - cur / item.durationSec
+    ? cur / item.durationSec
     : 0;
 
   return (

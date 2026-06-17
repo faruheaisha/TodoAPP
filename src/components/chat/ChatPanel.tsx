@@ -1,52 +1,145 @@
 /**
- * ChatPanel — Asha 聊天面板（chat / cowork 双模式 + 会话历史）
+ * ChatPanel — Asha 聊天面板（增强版）
  *
- * - chat   ：纯对话，流式输出，无工具权限
- * - cowork ：模型可调用白名单工具（lib/ai/tools.ts），写操作经确认卡片
- * - 左侧会话历史：新建/切换/删除，自动标题
- * - 流式性能：delta 累积在本组件局部 state，完成后一次性落 chatStore
- *
- * 视觉复用模态体系（--shadow-lg / 0.5px 边框 / CSS 变量），
- * 右下角浮动卡片（GitHub Copilot Chat 的入口模式），不打断主界面。
+ * 功能：
+ * - 长按拖拽：长按（300ms）面板任意空白区域拖拽移动，碰壁弹回（12px 固定间距）
+ * - 窗口调节：右下/右侧/下侧拖拽缩放（最小值 400×420，最大 = 窗口尺寸）
+ * - 位置记忆：拖拽和关闭时自动保存，下次在相同位置出现
+ * - 会话历史：侧边栏管理（新建/切换/重命名/删除）
+ * - 模型 ID 下拉不截断，宽度自适应
  */
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  X, Plus, Send, Square, Trash2, MessageCircle, Wrench, Check, Loader2,
+  X, Send, Square, MessageCircle, Wrench, Check, KeyRound,
+  ChevronDown, PanelLeftClose, PanelLeftOpen, Plus,
+  GripVertical,
 } from 'lucide-react';
 import { chat, type ChatMessage, type ToolCall } from '../../lib/ai/client';
 import { buildSystemPrompt } from '../../lib/ai/appContext';
-import { TOOL_REGISTRY, coworkToolDefs } from '../../lib/ai/tools';
+import { TOOL_REGISTRY, coworkToolDefs, requiresConfirm, canExecuteTool } from '../../lib/ai/tools';
 import { useChatStore, type ChatMode } from '../../store/chatStore';
-import { useAIStore, getActiveAIConfig, getConfiguredProviders } from '../../store/aiStore';
-import { getProvider } from '../../lib/ai/providers';
+import { useAIStore, getAIConfigByKey } from '../../store/aiStore';
+import { useSettingsStore } from '../../store/settingsStore';
+import { exportSessionAsMarkdown, downloadMarkdown } from '../../lib/export-chat';
+import SessionSidebar from './SessionSidebar';
 
 interface PendingConfirm {
   calls: ToolCall[];
   resolve: (approved: boolean) => void;
 }
 
+// ── 尺寸常量 ──────────────────────────────────────────────────────────
+const MIN_W = 400;
+const MIN_H = 420;
+const DEF_W = 420;
+const DEF_H = 480;
+const CHAT_EDGE_GAP = 12; // 聊天面板距窗口边缘最小间距
+const POS_KEY = 'todoapp-chat-pos';
+const SIZE_KEY = 'todoapp-chat-size';
+
+function clampPanelPos(x: number, y: number, w: number, h: number): { x: number; y: number } {
+  const vw = window.innerWidth, vh = window.innerHeight;
+  return {
+    x: Math.max(CHAT_EDGE_GAP, Math.min(vw - w - CHAT_EDGE_GAP, x)),
+    y: Math.max(CHAT_EDGE_GAP, Math.min(vh - h - CHAT_EDGE_GAP, y)),
+  };
+}
+
+function loadPos(): { x: number; y: number } {
+  try {
+    const raw = localStorage.getItem(POS_KEY);
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (typeof p.x === 'number' && typeof p.y === 'number') return p;
+    }
+  } catch { /* 损坏则复位 */ }
+  return { x: 0, y: 0 };
+}
+
+function loadSize(): { w: number; h: number } {
+  try {
+    const raw = localStorage.getItem(SIZE_KEY);
+    if (raw) {
+      const s = JSON.parse(raw);
+      if (typeof s.w === 'number' && typeof s.h === 'number') {
+        return { w: Math.max(MIN_W, s.w), h: Math.max(MIN_H, s.h) };
+      }
+    }
+  } catch { /* */ }
+  return { w: DEF_W, h: DEF_H };
+}
+
 export default function ChatPanel() {
   const { t, i18n } = useTranslation();
   const lang = i18n.language.startsWith('zh') ? 'zh' : 'en';
+
   const {
     sessions, activeSessionId, isOpen,
-    setIsOpen, newSession, switchSession, deleteSession, setSessionMode,
-    appendMessage, markUnread, setAssistantBusy,
+    setIsOpen, newSession, switchSession, setSessionMode,
+    appendMessage, markUnread, setAssistantBusy, deleteSession, renameSession,
   } = useChatStore();
-  const { activeProviderId, setActiveProvider } = useAIStore();
+
+  const { activeChatProviderId: activeProviderId, aiEnabled, providers } = useAIStore();
 
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [streamText, setStreamText] = useState('');
   const [pending, setPending] = useState<PendingConfirm | null>(null);
   const [error, setError] = useState('');
+  const [showModelPicker, setShowModelPicker] = useState(false);
+  const modelPickerRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const session = sessions.find((s) => s.id === activeSessionId) ?? null;
-  const configured = getConfiguredProviders();
+  // 实时响应：每次 render 重新计算已启用供应商列表
+  const configured = useMemo(() => {
+    if (!aiEnabled) return [];
+    const result: { providerId: string; model: string; name: string }[] = [];
+    for (const p of providers) {
+      if (!p.apiKey || !p.enabled) continue;
+      const models = p.selectedModels && p.selectedModels.length > 0 ? p.selectedModels : (p.activeModel ? [p.activeModel] : []);
+      for (const model of models) {
+        result.push({ providerId: p.id, model, name: p.name });
+      }
+    }
+    return result;
+  }, [aiEnabled, providers]);
+  const hasProvider = configured.length > 0;
+
+  // 当前选中的 composite key = "providerId::model" — 同步 derived, 无缓存
+  const [activeComposite, setActiveComposite] = useState<string>('');
+
+  // 每次 configured 变化时立即同步：无可用模型则清空，否则保当前选中或切到第一个
+  // useLayoutEffect 保证在 paint 前完成同步，用户看不到闪烁
+  useLayoutEffect(() => {
+    if (!hasProvider) {
+      if (activeComposite !== '') setActiveComposite('');
+      if (showModelPicker) setShowModelPicker(false);
+      return;
+    }
+    const first = `${configured[0].providerId}::${configured[0].model}`;
+    if (!activeComposite || !configured.some((c) => `${c.providerId}::${c.model}` === activeComposite)) {
+      setActiveComposite(first);
+    }
+  }, [hasProvider, configured]);
+
+  // 点击外部关闭下拉
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (modelPickerRef.current && !modelPickerRef.current.contains(e.target as Node)) {
+        setShowModelPicker(false);
+      }
+    };
+    if (showModelPicker) {
+      document.addEventListener('mousedown', handler);
+      return () => document.removeEventListener('mousedown', handler);
+    }
+  }, [showModelPicker]);
+
+  const petName = lang === 'zh' ? '阿夏' : 'Asha';
 
   // 首次打开：建会话 + Asha 自我介绍
   useEffect(() => {
@@ -66,7 +159,6 @@ export default function ChatPanel() {
   }, [session?.messages.length, streamText, pending]);
 
   const stop = () => {
-    // 确认卡片挂起时先释放 Promise，避免循环死等
     pending?.resolve(false);
     abortRef.current?.abort();
   };
@@ -74,7 +166,10 @@ export default function ChatPanel() {
   const send = async () => {
     const text = input.trim();
     if (!text || busy || !session) return;
-    const cfg = getActiveAIConfig();
+    const composite = activeComposite;
+    const [provId, modelName] = composite ? composite.split('::') : [activeProviderId, ''];
+    const modelLabel = modelName;
+    const cfg = getAIConfigByKey(provId, modelName);
     if (!cfg) { setError(t('chat.noProvider')); return; }
     setError('');
     setInput('');
@@ -87,15 +182,13 @@ export default function ChatPanel() {
     const sid = session.id;
 
     try {
-      // 取最新会话内容构造上下文（system + 近 20 条）
       const live = useChatStore.getState().sessions.find((s) => s.id === sid)!;
       const history: ChatMessage[] = [
-        { role: 'system', content: buildSystemPrompt(live.mode, lang) },
+        { role: 'system', content: buildSystemPrompt(live.mode, lang, modelLabel) },
         ...live.messages.slice(-20).map((m) => ({ role: m.role, content: m.content } as ChatMessage)),
       ];
 
       if (live.mode === 'chat') {
-        // 纯对话：流式
         setStreamText('');
         let acc = '';
         const { text: full } = await chat(history, {
@@ -106,12 +199,11 @@ export default function ChatPanel() {
         appendMessage(sid, { role: 'assistant', content: full || acc });
         markUnread();
       } else {
-        // cowork：工具循环（≤5 轮），写操作确认
         const working = [...history];
         const trace: { name: string; summary: string }[] = [];
         for (let round = 0; round < 5; round++) {
           const res = await chat(working, {
-            ...cfg, tools: coworkToolDefs(), maxTokens: 1600, signal: controller.signal,
+            ...cfg, tools: coworkToolDefs(activeComposite ?? undefined), maxTokens: 1600, signal: controller.signal,
           });
           if (res.toolCalls.length === 0 || round === 4) {
             appendMessage(sid, {
@@ -124,8 +216,10 @@ export default function ChatPanel() {
           }
           working.push({ role: 'assistant', content: res.text, toolCalls: res.toolCalls });
 
-          // 写操作 → 确认卡片
-          const writes = res.toolCalls.filter((tc) => TOOL_REGISTRY[tc.name]?.isWrite);
+          const writes = res.toolCalls.filter((tc) => {
+            const reg = TOOL_REGISTRY[tc.name];
+            return reg && composite && requiresConfirm(composite, reg.permissions, reg.alwaysConfirm);
+          });
           let approved = true;
           if (writes.length > 0) {
             approved = await new Promise<boolean>((resolve) => setPending({ calls: writes, resolve }));
@@ -139,7 +233,9 @@ export default function ChatPanel() {
             let result: string;
             if (!reg) {
               result = JSON.stringify({ error: 'unknown tool' });
-            } else if (reg.isWrite && !approved) {
+            } else if (composite && !canExecuteTool(composite, reg.permissions)) {
+              result = JSON.stringify({ ok: false, denied: true });
+            } else if (composite && requiresConfirm(composite, reg.permissions, reg.alwaysConfirm) && !approved) {
               result = JSON.stringify({ ok: false, cancelled: 'user declined' });
             } else {
               result = await reg.run(args);
@@ -151,7 +247,6 @@ export default function ChatPanel() {
       }
     } catch (e) {
       if (controller.signal.aborted) {
-        // 中断：保留已生成的部分
         const partial = streamRefSnapshot();
         if (partial) appendMessage(sid, { role: 'assistant', content: partial });
       } else {
@@ -166,7 +261,6 @@ export default function ChatPanel() {
     }
   };
 
-  // 中断时读取当前流式快照（streamText 闭包可能滞后，从 DOM 状态外置一个 ref 更稳）
   const streamSnapshot = useRef('');
   useEffect(() => { streamSnapshot.current = streamText; }, [streamText]);
   const streamRefSnapshot = () => streamSnapshot.current;
@@ -178,221 +272,557 @@ export default function ChatPanel() {
     }
   };
 
+  // ── 位置 & 尺寸状态 ──────────────────────────────────────────────────
+  const posRef = useRef(loadPos());
+  const [panelPos, setPanelPos] = useState(loadPos());
+  const [panelSize, setPanelSize] = useState<{ w: number; h: number }>(loadSize);
+  const panelSizeRef = useRef(panelSize);
+  panelSizeRef.current = panelSize;
+
+  // 打开时：如果位置无效（超出视窗过远）则重算
+  useLayoutEffect(() => {
+    if (isOpen) {
+      const vw = window.innerWidth, vh = window.innerHeight;
+      let { x, y } = posRef.current;
+      // 如果保存的位置完全不显示（在视窗外很远），回到右下默认
+      if (x + 50 > vw || y + 50 > vh || x + panelSize.w < 50) {
+        x = vw - panelSize.w - CHAT_EDGE_GAP - 6;
+        y = vh - panelSize.h - CHAT_EDGE_GAP - 48;
+      }
+      const clamped = clampPanelPos(x, y, panelSize.w, panelSize.h);
+      setPanelPos(clamped);
+      posRef.current = clamped;
+    }
+  }, [isOpen]);
+
+  // ── 全局长按拖拽（300ms 长按任意位置，或移动>5px 立即激活） ────────────
+  const dragTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const dragPosRef = useRef({ x: 0, y: 0 });
+
+  const clearDragTimer = () => {
+    if (dragTimerRef.current) {
+      clearTimeout(dragTimerRef.current);
+      dragTimerRef.current = null;
+    }
+  };
+
+  const onPanelPointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    // 跳过交互元素：按钮、输入框、选择器、缩放手柄
+    const target = e.target as HTMLElement;
+    if (target.closest('button, input, textarea, select, [data-resize-handle]')) return;
+
+    isDraggingRef.current = false;
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    dragPosRef.current = { ...posRef.current };
+
+    clearDragTimer();
+    dragTimerRef.current = setTimeout(() => {
+      isDraggingRef.current = true;
+    }, 300);
+
+    const onMove = (ev: PointerEvent) => {
+      const dx = ev.clientX - dragStartRef.current.x;
+      const dy = ev.clientY - dragStartRef.current.y;
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+        if (!isDraggingRef.current) {
+          isDraggingRef.current = true;
+          clearDragTimer();
+        }
+      }
+      if (isDraggingRef.current) {
+        const { w, h } = panelSizeRef.current;
+        const newPos = clampPanelPos(
+          dragPosRef.current.x + dx,
+          dragPosRef.current.y + dy,
+          w, h,
+        );
+        posRef.current = newPos;
+        setPanelPos(newPos);
+      }
+    };
+
+    const onUp = () => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      clearDragTimer();
+      if (isDraggingRef.current) {
+        try { localStorage.setItem(POS_KEY, JSON.stringify(posRef.current)); } catch { /* */ }
+      }
+      isDraggingRef.current = false;
+    };
+
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+  }, []);
+
+  // ── 缩放（边缘拖拽） ──────────────────────────────────────────────────
+  const resizeRef = useRef<{ startW: number; startH: number; startX: number; startY: number; edge: string }>({
+    startW: 0, startH: 0, startX: 0, startY: 0, edge: '',
+  });
+
+  const onResizeStart = useCallback((e: React.PointerEvent, edge: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizeRef.current = {
+      startW: panelSize.w,
+      startH: panelSize.h,
+      startX: e.clientX,
+      startY: e.clientY,
+      edge,
+    };
+    const currentSize = { w: panelSize.w, h: panelSize.h };
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const onMove = (ev: PointerEvent) => {
+      const { startW, startH, startX, startY, edge } = resizeRef.current;
+      let newW = startW + ev.clientX - startX;
+      let newH = startH + ev.clientY - startY;
+      if (edge.includes('r')) newW = Math.max(MIN_W, Math.min(vw - CHAT_EDGE_GAP * 2, newW));
+      if (edge.includes('b')) newH = Math.max(MIN_H, Math.min(vh - CHAT_EDGE_GAP * 2, newH));
+      currentSize.w = newW;
+      currentSize.h = newH;
+      setPanelSize({ w: newW, h: newH });
+    };
+    const onUp = () => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      try { localStorage.setItem(SIZE_KEY, JSON.stringify(currentSize)); } catch { /* */ }
+    };
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+  }, [panelSize.w, panelSize.h]);
+
+  // ── 会话历史侧边栏 ────────────────────────────────────────────────────
+  const [showHistory, setShowHistory] = useState(false);
+
+  const handleDeleteSession = (id: string) => {
+    if (sessions.length <= 1) {
+      newSession(session?.mode ?? 'chat');
+    }
+    deleteSession(id);
+    if (sessions.length <= 1) {
+      setShowHistory(false);
+    }
+  };
+
+  const handleNewSession = () => {
+    const id = newSession(session?.mode ?? 'chat');
+    appendMessage(id, { role: 'assistant', content: t('chat.greeting') });
+    setShowHistory(false);
+  };
+
+  const handleExportSession = (sessionId: string) => {
+    const s = sessions.find((s) => s.id === sessionId);
+    if (!s) return;
+    const md = exportSessionAsMarkdown(s, lang);
+    downloadMarkdown(md, `asha-${s.title || 'chat'}.md`);
+  };
+
+  // ── Keyboard navigation ───────────────────────────────────────────
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        if (!showHistory) setShowHistory(true);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [isOpen, showHistory]);
+
   return (
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          initial={{ opacity: 0, y: 16, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 12, scale: 0.98 }}
-          transition={{ duration: 0.18, ease: [0, 0, 0.2, 1] }}
-          className="fixed flex overflow-hidden"
+          onPointerDown={onPanelPointerDown}
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{    opacity: 0, scale: 0.95 }}
+          transition={{ duration: 0.22, ease: [0.2, 0.7, 0.3, 1] }}
           style={{
-            right: '18px', bottom: '96px', zIndex: 40,
-            width: 'min(460px, calc(100vw - 36px))',
-            height: 'min(540px, calc(100vh - 130px))',
-            borderRadius: '14px',
-            border: '0.5px solid var(--color-border)',
-            backgroundColor: 'var(--color-bg-secondary)',
-            boxShadow: 'var(--shadow-lg)',
+            position: 'fixed',
+            left:  `${panelPos.x}px`,
+
+            top: `${panelPos.y}px`,
+            zIndex: 40,
+            width: `${panelSize.w}px`,
+            height: `${panelSize.h}px`,
+            borderRadius: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            transformOrigin: 'bottom right',
+            overflow: 'hidden',
+            /* glass morphism — matches claude design */
+            background: 'var(--glass-bg)',
+            backdropFilter: 'blur(20px) saturate(1.4)',
+            WebkitBackdropFilter: 'blur(20px) saturate(1.4)',
+            border: '0.5px solid var(--glass-border)',
+            boxShadow: 'var(--shadow-float)',
+            touchAction: 'none',        // 防止触摸时浏览器默认滚动/缩放
           }}
         >
-          {/* ── 左侧会话历史 ── */}
-          <div className="flex-shrink-0 flex flex-col border-r" style={{ width: '128px', borderColor: 'var(--color-border)' }}>
+          {/* ═══ Header (drag handle) ═══ */}
+          <div
+            className="flex items-center flex-shrink-0"
+            style={{
+              padding: '11px 12px',
+              borderBottom: '0.5px solid var(--glass-border)',
+              background: 'rgba(255,255,255,0.5)',
+              gap: '10px',
+              userSelect: 'none',
+              minHeight: '48px',
+            }}
+          >
+            {/* 会话历史 toggle */}
             <button
-              onClick={() => { const id = newSession('chat'); appendMessage(id, { role: 'assistant', content: t('chat.greeting') }); }}
+              onClick={(e) => { e.stopPropagation(); setShowHistory(!showHistory); }}
               className="flex items-center justify-center cursor-pointer transition-colors flex-shrink-0"
+              title={lang === 'zh' ? '会话历史' : 'Chat history'}
               style={{
-                margin: '8px', gap: '4px', height: '26px', borderRadius: '7px', fontSize: '10px', fontWeight: 500,
-                border: '0.5px dashed var(--color-border)', backgroundColor: 'transparent', color: 'var(--color-text-secondary)',
+                padding: '4px',
+                borderRadius: '6px',
+                border: 'none',
+                background: showHistory ? 'var(--color-bg-tertiary)' : 'transparent',
+                color: 'var(--color-text-tertiary)',
+                lineHeight: 1,
               }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-bg-tertiary)'; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
             >
-              <Plus size={11} />
-              {t('chat.newChat')}
+              {showHistory ? <PanelLeftClose size={15} /> : <PanelLeftOpen size={15} />}
             </button>
-            <div className="flex-1 overflow-y-auto tools-scroll" style={{ padding: '0 6px 8px' }}>
-              {sessions.map((s) => (
-                <div
-                  key={s.id}
-                  onClick={() => switchSession(s.id)}
-                  className="group flex items-center cursor-pointer transition-colors"
-                  style={{
-                    gap: '4px', padding: '6px 7px', borderRadius: '6px', marginBottom: '2px',
-                    backgroundColor: s.id === activeSessionId ? 'var(--color-bg-tertiary)' : 'transparent',
-                  }}
-                >
-                  <span
-                    className="flex-1"
+
+            {/* 新对话 */}
+            <button
+              onClick={(e) => { e.stopPropagation(); handleNewSession(); }}
+              className="flex items-center justify-center cursor-pointer transition-colors flex-shrink-0"
+              title={lang === 'zh' ? '新对话' : 'New chat'}
+              style={{
+                padding: '4px',
+                borderRadius: '6px',
+                border: 'none',
+                background: 'transparent',
+                color: 'var(--color-text-tertiary)',
+                lineHeight: 1,
+              }}
+            >
+              <Plus size={15} />
+            </button>
+
+            {/* Avatar + name */}
+            <Avatar26 />
+            <span
+              style={{
+                fontSize: '14px',
+                fontWeight: 600,
+                color: 'var(--clay)',
+                whiteSpace: 'nowrap',
+                flex: '0 0 auto',
+              }}
+            >
+              {petName}
+            </span>
+
+            {/* Pill toggle — chat / cowork */}
+            <div
+              className="flex"
+              style={{
+                gap: '2px',
+                padding: '2px',
+                background: 'var(--color-bg-tertiary)',
+                borderRadius: '8px',
+                marginLeft: '2px',
+              }}
+            >
+              {(['chat', 'cowork'] as ChatMode[]).map((m) => {
+                const active = session?.mode === m;
+                return (
+                  <button
+                    key={m}
+                    onClick={(e) => { e.stopPropagation(); session && setSessionMode(session.id, m); }}
+                    className="flex items-center cursor-pointer transition-all"
+                    title={m === 'chat' ? t('chat.modeChatHint') : t('chat.modeCoworkHint')}
                     style={{
-                      fontSize: '10px', lineHeight: 1.4,
-                      color: s.id === activeSessionId ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)',
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      gap: '4px',
+                      padding: '4px 9px',
+                      borderRadius: '6px',
+                      border: 'none',
+                      font: 'inherit',
+                      fontSize: '11.5px',
+                      fontWeight: active ? 600 : 500,
+                      whiteSpace: 'nowrap',
+                      flex: '0 0 auto',
+                      background: active ? 'var(--color-fill)' : 'transparent',
+                      color: active ? 'var(--color-fill-text)' : 'var(--color-text-tertiary)',
                     }}
                   >
-                    {s.title || t('chat.untitled')}
-                  </span>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); deleteSession(s.id); }}
-                    className="opacity-0 group-hover:opacity-100 flex-shrink-0 cursor-pointer"
-                    style={{ border: 'none', background: 'none', color: 'var(--color-text-tertiary)', padding: 0 }}
-                  >
-                    <Trash2 size={9} />
+                    {m === 'chat' ? <MessageCircle size={13} /> : <Wrench size={13} />}
+                    {m === 'chat' ? t('chat.modeChat') : t('chat.modeCowork')}
                   </button>
+                );
+              })}
+            </div>
+
+            {/* Model chip — 自定义下拉菜单 */}
+            <div ref={modelPickerRef} style={{ position: 'relative', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '4px', overflow: 'visible' }}>
+              <div
+                onClick={() => { if (hasProvider) setShowModelPicker((v) => !v); }}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '5px',
+                  padding: '4px 9px 4px 7px',
+                  borderRadius: '999px',
+                  border: `0.5px solid ${showModelPicker ? 'var(--clay)' : 'var(--color-border)'}`,
+                  background: showModelPicker ? 'var(--clay-light)' : 'var(--color-bg-secondary)',
+                  cursor: hasProvider ? 'pointer' : 'default', userSelect: 'none', lineHeight: 1,
+                  transition: 'all .14s',
+                  maxWidth: '220px',
+                  opacity: hasProvider ? 1 : 0.45,
+                }}
+              >
+                <span style={{
+                  width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0,
+                  background: hasProvider ? '#4FA46A' : 'var(--color-text-tertiary)',
+                }} />
+                <span style={{
+                  fontSize: '11px', fontWeight: 500,
+                  color: 'var(--color-text-secondary)',
+                  maxWidth: '130px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {activeComposite ? activeComposite.split('::')[1] : (lang === 'zh' ? '无模型' : 'No model')}
+                </span>
+                <ChevronDown size={10} style={{ color: 'var(--color-text-tertiary)', flexShrink: 0 }} />
+              </div>
+
+              {/* 下拉列表 */}
+              {showModelPicker && (
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 50,
+                  minWidth: '210px', maxHeight: '240px', overflowY: 'auto',
+                  background: 'var(--color-bg-secondary)',
+                  border: '0.5px solid var(--color-border)',
+                  borderRadius: '10px',
+                  boxShadow: '0 6px 24px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06)',
+                  padding: '4px',
+                }}>
+                  {configured.map((c) => {
+                    const key = `${c.providerId}::${c.model}`;
+                    const active = key === activeComposite;
+                    return (
+                      <div
+                        key={key}
+                        onClick={() => { setActiveComposite(key); setShowModelPicker(false); }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '6px',
+                          padding: '6px 10px', borderRadius: '7px', cursor: 'pointer',
+                          background: active ? 'var(--clay-light)' : 'transparent',
+                          color: active ? 'var(--clay)' : 'var(--color-text-secondary)',
+                          fontSize: '11.5px', fontWeight: active ? 600 : 400,
+                          lineHeight: 1.3, transition: 'background .1s',
+                        }}
+                        onMouseEnter={(e) => { if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--color-bg-tertiary)'; }}
+                        onMouseLeave={(e) => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                      >
+                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {c.model}
+                        </span>
+                        <span style={{
+                          fontSize: '9.5px', color: active ? 'var(--clay)' : 'var(--color-text-tertiary)',
+                          opacity: 0.6, flexShrink: 0, whiteSpace: 'nowrap',
+                        }}>
+                          {c.name}
+                        </span>
+                        {active && <Check size={10} style={{ flexShrink: 0, color: 'var(--clay)' }} />}
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
+              )}
+
+              {/* Close */}
+              <button
+                onClick={() => {
+                  try { localStorage.setItem(POS_KEY, JSON.stringify(posRef.current)); } catch { /* */ }
+                  try { localStorage.setItem(SIZE_KEY, JSON.stringify(panelSize)); } catch { /* */ }
+                  setIsOpen(false);
+                }}
+                className="flex items-center justify-center cursor-pointer transition-colors flex-shrink-0"
+                style={{
+                  padding: '6px',
+                  borderRadius: '7px',
+                  border: 'none',
+                  background: 'transparent',
+                  color: 'var(--color-text-tertiary)',
+                  lineHeight: 1,
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--color-bg-tertiary)'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                title={lang === 'zh' ? '最小化' : 'Minimize'}
+              >
+                <X size={16} />
+              </button>
             </div>
           </div>
 
-          {/* ── 右侧主区 ── */}
-          <div className="flex-1 flex flex-col min-w-0">
-            {/* 头部 */}
-            <div className="flex items-center flex-shrink-0 border-b" style={{ borderColor: 'var(--color-border)', padding: '8px 10px', gap: '8px' }}>
-              <MiniAsha />
-              <span className="text-xs font-semibold flex-shrink-0" style={{ color: 'var(--color-text-primary)' }}>
-                Asha · 阿夏
-              </span>
-              {/* 模式切换 */}
-              {session && (
-                <div className="flex rounded-md overflow-hidden border flex-shrink-0" style={{ borderColor: 'var(--color-border)' }}>
-                  {(['chat', 'cowork'] as ChatMode[]).map((m) => (
-                    <button
-                      key={m}
-                      onClick={() => setSessionMode(session.id, m)}
-                      className="cursor-pointer transition-all flex items-center"
-                      title={m === 'chat' ? t('chat.modeChatHint') : t('chat.modeCoworkHint')}
-                      style={{
-                        gap: '3px', padding: '3px 8px', fontSize: '9px', fontWeight: 500, border: 'none',
-                        color: session.mode === m ? 'var(--color-fill-text)' : 'var(--color-text-tertiary)',
-                        backgroundColor: session.mode === m ? 'var(--color-fill)' : 'transparent',
-                      }}
-                    >
-                      {m === 'chat' ? <MessageCircle size={9} /> : <Wrench size={9} />}
-                      {m === 'chat' ? t('chat.modeChat') : t('chat.modeCowork')}
-                    </button>
-                  ))}
-                </div>
+          {/* ═══ Body area: history sidebar + chat ───────────────── */}
+          <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
+            {/* 会话历史侧边栏 */}
+            <AnimatePresence>
+              {showHistory && (
+                <motion.div
+                  initial={{ width: 0, opacity: 0 }}
+                  animate={{ width: 240, opacity: 1 }}
+                  exit={{ width: 0, opacity: 0 }}
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
+                  style={{ overflow: 'hidden', flexShrink: 0 }}
+                >
+                  <SessionSidebar
+                    sessions={sessions}
+                    activeSessionId={activeSessionId}
+                    onSelectSession={(id) => { switchSession(id); setShowHistory(false); }}
+                    onNewSession={handleNewSession}
+                    onRenameSession={renameSession}
+                    onDeleteSession={handleDeleteSession}
+                    onExportSession={handleExportSession}
+                    onClose={() => setShowHistory(false)}
+                    lang={lang}
+                  />
+                </motion.div>
               )}
-              {/* 模型切换 */}
-              <select
-                value={activeProviderId}
-                onChange={(e) => setActiveProvider(e.target.value)}
-                className="text-[9px] outline-none cursor-pointer min-w-0"
+            </AnimatePresence>
+
+            {/* 聊天主区域 */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+              {/* Messages */}
+              <div
+                ref={scrollRef}
+                className="flex-1 overflow-y-auto"
                 style={{
-                  marginLeft: 'auto', maxWidth: '110px',
-                  padding: '3px 5px', borderRadius: '5px',
-                  border: '0.5px solid var(--color-border)',
-                  backgroundColor: 'var(--color-bg-tertiary)',
-                  color: 'var(--color-text-secondary)',
+                  padding: '16px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '14px',
                 }}
               >
-                {configured.length === 0 && <option value={activeProviderId}>{t('chat.noProviderShort')}</option>}
-                {configured.map((c) => (
-                  <option key={c.providerId} value={c.providerId}>
-                    {getProvider(c.providerId)?.name ?? c.providerId}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="w-5 h-5 rounded flex items-center justify-center hover:bg-[var(--color-bg-tertiary)] transition-colors cursor-pointer flex-shrink-0"
-                style={{ color: 'var(--color-text-tertiary)', border: 'none', background: 'transparent' }}
-              >
-                <X size={12} />
-              </button>
-            </div>
+                {!hasProvider ? (
+                  <UnconfiguredCard lang={lang} />
+                ) : (
+                  <>
+                    {session?.messages.map((m, i) => (
+                      <MessageBubble key={m.id} role={m.role} content={m.content} toolTrace={m.toolTrace} index={i} />
+                    ))}
+                    {busy && !streamText && !pending && <TypingBubble />}
+                    {busy && streamText && (
+                      <MessageBubble role="assistant" content={streamText} streaming index={-1} />
+                    )}
+                    {pending && (
+                      <ToolConfirmCard pending={pending} lang={lang} />
+                    )}
+                    {error && (
+                      <span style={{ fontSize: '10px', color: '#e5484d', lineHeight: 1.5, wordBreak: 'break-all' }}>{error}</span>
+                    )}
+                  </>
+                )}
+              </div>
 
-            {/* 消息区 */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto tools-scroll" style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {session?.messages.map((m) => (
-                <MessageBubble key={m.id} role={m.role} content={m.content} toolTrace={m.toolTrace} />
-              ))}
-              {/* 流式中的临时气泡 */}
-              {busy && streamText && (
-                <MessageBubble role="assistant" content={streamText} streaming />
-              )}
-              {busy && !streamText && !pending && (
-                <div className="flex items-center" style={{ gap: '6px', color: 'var(--color-text-tertiary)', fontSize: '10px' }}>
-                  <Loader2 size={11} className="animate-spin" style={{ color: 'var(--clay)' }} />
-                  {t('chat.thinking')}
-                </div>
-              )}
-              {/* 写操作确认卡片 */}
-              {pending && (
+              {/* Input area */}
+              {hasProvider && (
                 <div
+                  className="flex-shrink-0"
                   style={{
-                    borderRadius: '10px', border: '0.5px solid var(--clay)',
-                    backgroundColor: 'var(--clay-light)', padding: '10px 12px',
-                    display: 'flex', flexDirection: 'column', gap: '7px',
+                    padding: '10px 12px 12px',
+                    borderTop: '0.5px solid var(--glass-border)',
+                    background: 'rgba(255,255,255,0.5)',
                   }}
                 >
-                  <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--clay)' }}>
-                    {t('chat.confirmTitle')}
-                  </span>
-                  {pending.calls.map((tc) => (
-                    <div key={tc.id} className="flex items-center" style={{ gap: '6px', fontSize: '11px', color: 'var(--color-text-primary)' }}>
-                      <Wrench size={10} style={{ color: 'var(--clay)', flexShrink: 0 }} />
-                      {TOOL_REGISTRY[tc.name]?.summarize(safeParse(tc.arguments), lang) ?? tc.name}
-                    </div>
-                  ))}
-                  <div className="flex items-center" style={{ gap: '6px', marginTop: '2px' }}>
+                  <div
+                    className="flex items-end"
+                    style={{
+                      gap: '8px',
+                      background: 'var(--color-bg-secondary)',
+                      border: '0.5px solid var(--color-border)',
+                      borderRadius: '13px',
+                      padding: '6px 6px 6px 14px',
+                      boxShadow: '0 1px 2px rgba(40,35,30,0.04)',
+                    }}
+                  >
+                    <textarea
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={handleKey}
+                      rows={1}
+                      placeholder={session?.mode === 'cowork' ? t('chat.placeholderCowork') : t('chat.placeholder')}
+                      className="flex-1 text-sm outline-none resize-none"
+                      style={{
+                        border: 'none',
+                        background: 'transparent',
+                        color: 'var(--color-text-primary)',
+                        font: 'inherit',
+                        fontSize: '13.5px',
+                        lineHeight: 1.5,
+                        padding: '5px 0',
+                        maxHeight: '80px',
+                        fontFamily: 'var(--font-family)',
+                      }}
+                    />
                     <button
-                      onClick={() => pending.resolve(true)}
-                      className="flex items-center cursor-pointer"
-                      style={{ gap: '4px', padding: '4px 14px', borderRadius: '6px', fontSize: '10px', fontWeight: 600, border: 'none', backgroundColor: 'var(--clay)', color: 'var(--ivory-light, #fff)' }}
+                      onClick={busy ? stop : send}
+                      disabled={!busy && !input.trim()}
+                      className="flex items-center justify-center flex-shrink-0 cursor-pointer transition-all"
+                      title={busy ? t('chat.stop') : t('chat.send')}
+                      style={{
+                        width: '34px',
+                        height: '34px',
+                        borderRadius: '9px',
+                        border: 'none',
+                        background: input.trim() || busy ? 'var(--clay)' : 'var(--color-accent-light)',
+                        color: '#fff',
+                        display: 'grid',
+                        placeItems: 'center',
+                        transition: 'background 0.14s',
+                      }}
                     >
-                      <Check size={10} />
-                      {t('chat.approve')}
-                    </button>
-                    <button
-                      onClick={() => pending.resolve(false)}
-                      className="cursor-pointer"
-                      style={{ padding: '4px 12px', borderRadius: '6px', fontSize: '10px', border: '0.5px solid var(--color-border)', backgroundColor: 'transparent', color: 'var(--color-text-secondary)' }}
-                    >
-                      {t('chat.decline')}
+                      {busy ? <Square size={16} /> : <Send size={16} style={{ marginLeft: '-1px' }} />}
                     </button>
                   </div>
                 </div>
               )}
-              {error && (
-                <span style={{ fontSize: '10px', color: '#e5484d', lineHeight: 1.5, wordBreak: 'break-all' }}>{error}</span>
-              )}
             </div>
+          </div>
 
-            {/* 输入区 */}
-            <div className="flex items-end flex-shrink-0 border-t" style={{ borderColor: 'var(--color-border)', padding: '9px 10px', gap: '7px' }}>
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKey}
-                placeholder={session?.mode === 'cowork' ? t('chat.placeholderCowork') : t('chat.placeholder')}
-                rows={Math.min(3, Math.max(1, input.split('\n').length))}
-                className="flex-1 text-xs outline-none resize-none"
-                style={{
-                  padding: '7px 10px', borderRadius: '9px',
-                  border: '0.5px solid var(--color-border)',
-                  backgroundColor: 'var(--color-bg-input)',
-                  color: 'var(--color-text-primary)',
-                  lineHeight: 1.5,
-                  fontFamily: 'var(--font-family)',
-                }}
-              />
-              <button
-                onClick={busy ? stop : send}
-                disabled={!busy && !input.trim()}
-                className="flex items-center justify-center flex-shrink-0 cursor-pointer transition-all"
-                title={busy ? t('chat.stop') : t('chat.send')}
-                style={{
-                  width: '30px', height: '30px', borderRadius: '9px', border: 'none',
-                  backgroundColor: busy ? 'var(--color-bg-tertiary)' : 'var(--clay)',
-                  color: busy ? 'var(--color-text-secondary)' : 'var(--ivory-light, #fff)',
-                  opacity: !busy && !input.trim() ? 0.45 : 1,
-                }}
-              >
-                {busy ? <Square size={11} /> : <Send size={12} style={{ marginLeft: '-1px' }} />}
-              </button>
-            </div>
+          {/* ── 缩放手柄（置于 overflow hidden 内部，贴在边框上） ── */}
+          {/* 右侧手柄 */}
+          <div
+            data-resize-handle
+            onPointerDown={(e) => onResizeStart(e, 'r')}
+            style={{
+              position: 'absolute', right: 0, top: 0, bottom: 0,
+              width: '6px', cursor: 'ew-resize', zIndex: 5,
+            }}
+          />
+          {/* 下侧手柄 */}
+          <div
+            data-resize-handle
+            onPointerDown={(e) => onResizeStart(e, 'b')}
+            style={{
+              position: 'absolute', left: 0, right: 0, bottom: 0,
+              height: '6px', cursor: 'ns-resize', zIndex: 5,
+            }}
+          />
+          {/* 右下角手柄 */}
+          <div
+            data-resize-handle
+            onPointerDown={(e) => onResizeStart(e, 'rb')}
+            style={{
+              position: 'absolute', right: 0, bottom: 0,
+              width: '16px', height: '16px', cursor: 'nwse-resize', zIndex: 6,
+              display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end',
+              padding: '2px',
+              color: 'var(--color-text-tertiary)',
+              opacity: 0.4,
+            }}
+          >
+            <GripVertical size={12} />
           </div>
         </motion.div>
       )}
@@ -400,20 +830,83 @@ export default function ChatPanel() {
   );
 }
 
-// ── 子组件 ────────────────────────────────────────────────────────────
+// ── Sub-components ──────────────────────────────────────────────────
 
-function MessageBubble({ role, content, toolTrace, streaming }: {
+/** Avatar — simplified snow-leopard face in a circular container (26px header version) */
+function Avatar26() {
+  return (
+    <div
+      className="flex items-center justify-center flex-shrink-0 overflow-hidden"
+      style={{
+        width: '26px',
+        height: '26px',
+        borderRadius: '50%',
+        background: 'radial-gradient(circle at 50% 35%, #fff, #ECE7E0)',
+        border: '0.5px solid var(--color-border)',
+      }}
+    >
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
+        <ellipse cx="12" cy="13" rx="7" ry="6.5" fill="#F4F1EC" />
+        <path d="M6 7l2 3M18 7l-2 3" stroke="#D8D2C8" strokeWidth="1.6" strokeLinecap="round" />
+        <circle cx="9.5" cy="12.5" r="1.1" fill="#3B7A5A" />
+        <circle cx="14.5" cy="12.5" r="1.1" fill="#3B7A5A" />
+        <path d="M11 15.4h2l-1 1z" fill="#C98B7A" />
+        <circle cx="8" cy="16" r="0.7" fill="#D8D2C8" />
+        <circle cx="16" cy="16" r="0.7" fill="#D8D2C8" />
+      </svg>
+    </div>
+  );
+}
+
+/** Avatar — 22px version used in message bubbles */
+function Avatar22() {
+  return (
+    <div
+      className="flex items-center justify-center flex-shrink-0 overflow-hidden"
+      style={{
+        width: '22px',
+        height: '22px',
+        borderRadius: '50%',
+        flex: '0 0 auto',
+        background: 'radial-gradient(circle at 50% 35%, #fff, #ECE7E0)',
+        border: '0.5px solid var(--color-border)',
+      }}
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+        <ellipse cx="12" cy="13" rx="7" ry="6.5" fill="#F4F1EC" />
+        <path d="M6 7l2 3M18 7l-2 3" stroke="#D8D2C8" strokeWidth="1.6" strokeLinecap="round" />
+        <circle cx="9.5" cy="12.5" r="1.1" fill="#3B7A5A" />
+        <circle cx="14.5" cy="12.5" r="1.1" fill="#3B7A5A" />
+        <path d="M11 15.4h2l-1 1z" fill="#C98B7A" />
+        <circle cx="8" cy="16" r="0.7" fill="#D8D2C8" />
+        <circle cx="16" cy="16" r="0.7" fill="#D8D2C8" />
+      </svg>
+    </div>
+  );
+}
+
+/** Message bubble — user / assistant */
+function MessageBubble({ role, content, toolTrace, streaming, index }: {
   role: 'user' | 'assistant';
   content: string;
   toolTrace?: { name: string; summary: string }[];
   streaming?: boolean;
+  index: number;
 }) {
   const isUser = role === 'user';
+
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`} style={{ gap: '7px' }}>
-      {!isUser && <MiniAsha />}
-      <div className="flex flex-col" style={{ maxWidth: '82%', gap: '4px' }}>
-        {/* 工具痕迹 */}
+    <div
+      className="flex items-end"
+      style={{
+        gap: '8px',
+        justifyContent: isUser ? 'flex-end' : 'flex-start',
+        animation: `asha-msgIn 0.2s ease both`,
+        animationDelay: `${Math.max(0, Math.min(index, 6)) * 40}ms`,
+      }}
+    >
+      {!isUser && <Avatar22 />}
+      <div className="flex flex-col" style={{ maxWidth: '78%', gap: '4px' }}>
         {toolTrace && toolTrace.length > 0 && (
           <div className="flex flex-col" style={{ gap: '2px' }}>
             {toolTrace.map((tr, i) => (
@@ -426,12 +919,16 @@ function MessageBubble({ role, content, toolTrace, streaming }: {
         )}
         <div
           style={{
-            padding: '7px 11px',
-            borderRadius: isUser ? '11px 11px 3px 11px' : '11px 11px 11px 3px',
-            backgroundColor: isUser ? 'var(--clay)' : 'var(--color-bg-tertiary)',
-            color: isUser ? 'var(--ivory-light, #fff)' : 'var(--color-text-primary)',
-            fontSize: '12px',
-            lineHeight: 1.65,
+            padding: '9px 13px',
+            fontSize: '13.5px',
+            lineHeight: 1.6,
+            borderRadius: isUser ? '14px 14px 4px 14px' : '4px 14px 14px 14px',
+            backgroundColor: isUser ? 'var(--clay)' : 'var(--color-bg-secondary)',
+            color: isUser ? '#fff' : 'var(--color-text-primary)',
+            border: isUser ? 'none' : '0.5px solid var(--color-border)',
+            boxShadow: isUser
+              ? '0 2px 8px -2px rgba(217,119,87,0.4)'
+              : '0 1px 2px rgba(40,35,30,0.04)',
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word',
           }}
@@ -444,22 +941,140 @@ function MessageBubble({ role, content, toolTrace, streaming }: {
   );
 }
 
-/** 轻量静态 Asha 头像（不带动画定时器，消息列表批量渲染友好） */
-function MiniAsha() {
+/** Typing indicator — three jumping dots (dotJump animation) */
+function TypingBubble() {
   return (
-    <svg width="22" height="22" viewBox="0 0 120 124" fill="none" style={{ flexShrink: 0, marginTop: '2px' }}>
-      <path d="M24 34 Q 26 12, 44 18 Q 36 26, 33 38 Z" fill="#ECE8E1" />
-      <path d="M96 34 Q 94 12, 76 18 Q 84 26, 87 38 Z" fill="#ECE8E1" />
-      <circle cx="60" cy="56" r="36" fill="#ECE8E1" />
-      <circle cx="44" cy="32" r="3" fill="#A39C90" />
-      <circle cx="76" cy="32" r="3" fill="#A39C90" />
-      <ellipse cx="60" cy="70" rx="18" ry="13" fill="#FAF8F4" />
-      <ellipse cx="46" cy="54" rx="6.5" ry="7.5" fill="#8FB3A3" />
-      <circle cx="46" cy="55" r="3.6" fill="#3A3733" />
-      <ellipse cx="74" cy="54" rx="6.5" ry="7.5" fill="#8FB3A3" />
-      <circle cx="74" cy="55" r="3.6" fill="#3A3733" />
-      <path d="M56.5 64.5 Q 60 62.5, 63.5 64.5 Q 62 68.5, 60 68.5 Q 58 68.5, 56.5 64.5 Z" fill="#C98A7D" />
-    </svg>
+    <div className="flex items-end" style={{ gap: '8px' }}>
+      <Avatar22 />
+      <div
+        className="flex items-center"
+        style={{
+          background: 'var(--color-bg-secondary)',
+          border: '0.5px solid var(--color-border)',
+          borderRadius: '4px 14px 14px 14px',
+          padding: '12px 14px',
+          gap: '4px',
+        }}
+      >
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            style={{
+              width: '6px',
+              height: '6px',
+              borderRadius: '50%',
+              background: 'var(--color-text-tertiary)',
+              animation: `asha-dotJump 1.2s ${i * 0.16}s infinite ease-in-out`,
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Tool confirmation card — appears before executing write operations */
+function ToolConfirmCard({ pending, lang }: { pending: PendingConfirm; lang: 'zh' | 'en' }) {
+  return (
+    <div
+      style={{
+        borderRadius: '10px',
+        border: '0.5px solid var(--clay)',
+        backgroundColor: 'var(--clay-light)',
+        padding: '10px 12px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '7px',
+      }}
+    >
+      <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--clay)' }}>
+        {lang === 'zh' ? '确认操作' : 'Confirm Action'}
+      </span>
+      {pending.calls.map((tc) => (
+        <div key={tc.id} className="flex items-center" style={{ gap: '6px', fontSize: '11px', color: 'var(--color-text-primary)' }}>
+          <Wrench size={10} style={{ color: 'var(--clay)', flexShrink: 0 }} />
+          {TOOL_REGISTRY[tc.name]?.summarize(safeParse(tc.arguments), lang) ?? tc.name}
+        </div>
+      ))}
+      <div className="flex items-center" style={{ gap: '6px', marginTop: '2px' }}>
+        <button
+          onClick={() => pending.resolve(true)}
+          className="flex items-center cursor-pointer"
+          style={{ gap: '4px', padding: '4px 14px', borderRadius: '6px', fontSize: '10px', fontWeight: 600, border: 'none', backgroundColor: 'var(--clay)', color: '#fff' }}
+        >
+          <Check size={10} />
+          {lang === 'zh' ? '批准' : 'Approve'}
+        </button>
+        <button
+          onClick={() => pending.resolve(false)}
+          className="cursor-pointer"
+          style={{ padding: '4px 12px', borderRadius: '6px', fontSize: '10px', border: '0.5px solid var(--glass-border)', backgroundColor: 'transparent', color: 'var(--color-text-secondary)' }}
+        >
+          {lang === 'zh' ? '拒绝' : 'Decline'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Unconfigured state — centered card */
+function UnconfiguredCard({ lang }: { lang: 'zh' | 'en' }) {
+  const { setIsOpen: setSettingsOpen } = useSettingsStore();
+  return (
+    <div
+      className="flex flex-col items-center justify-center flex-1"
+      style={{
+        textAlign: 'center',
+        maxWidth: '240px',
+        margin: 'auto',
+      }}
+    >
+      <div
+        style={{
+          width: '56px',
+          height: '56px',
+          margin: '0 auto 14px',
+          borderRadius: '14px',
+          background: 'var(--clay-light)',
+          display: 'grid',
+          placeItems: 'center',
+          color: 'var(--clay)',
+        }}
+      >
+        <KeyRound size={24} />
+      </div>
+
+      <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '6px', color: 'var(--color-text-primary)' }}>
+        {lang === 'zh' ? '还没有可用的模型' : 'No models available'}
+      </div>
+
+      <div style={{ fontSize: '12.5px', color: 'var(--color-text-tertiary)', lineHeight: 1.6, marginBottom: '14px' }}>
+        {lang === 'zh'
+          ? '配置一个 AI 供应商后，阿夏就能陪你聊天、帮你拆解任务了。'
+          : 'Add an AI provider to start chatting with Asha.'}
+      </div>
+
+      <button
+        onClick={() => setSettingsOpen(true)}
+        className="inline-flex items-center cursor-pointer transition-colors"
+        style={{
+          gap: '6px',
+          fontSize: '13px',
+          fontWeight: 600,
+          color: 'var(--clay)',
+          textDecoration: 'none',
+          padding: '8px 14px',
+          borderRadius: '8px',
+          background: 'var(--clay-light)',
+          border: 'none',
+        }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.8'; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
+      >
+        {lang === 'zh' ? '前往设置 › AI 配置供应商' : 'Settings › AI Providers'}
+        <ChevronDown size={14} style={{ transform: 'rotate(-90deg)' }} />
+      </button>
+    </div>
   );
 }
 
