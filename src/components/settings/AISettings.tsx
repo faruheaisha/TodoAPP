@@ -95,7 +95,7 @@ function ProviderLogo({ slug, color, name, size = 22, radius = 6 }: {
       display: 'grid', placeItems: 'center', overflow: 'hidden',
     }}>
       <img src={logoUrl(slug)} alt={name} onError={() => setErr(true)}
-        style={{ width: Math.round(size * 0.66), height: Math.round(size * 0.66), display: 'block' }} />
+        style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', padding: Math.round(size * 0.1) }} />
     </span>
   );
 }
